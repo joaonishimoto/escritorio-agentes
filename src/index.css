@@ -1,0 +1,79 @@
+:root {
+  --bg: #e9ebf0;
+  --surface: #ffffff;
+  --fg: #1a1d24;
+  --muted: #5d6472;
+  --line: #dfe2e8;
+  --accent: #3b4fd8;
+  --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-family: var(--body);
+  color: var(--fg);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box }
+html, body, #root { height: 100%; margin: 0 }
+h1, h2, h3 { font-family: var(--display); margin: 0 }
+.muted { color: var(--muted) }
+.mono { font-family: var(--mono); font-size: 0.85em }
+
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100% }
+
+.topo {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.marca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+.marca h1 { font-size: 1.25rem }
+.chip { font-family: var(--mono); font-size: 0.75rem; padding: 2px 10px; border-radius: 999px; background: #e7eafc; color: var(--accent) }
+.chip-demo { background: #fbeedd; color: #a65a10 }
+button { font: inherit; cursor: pointer }
+.primario { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 16px; font-weight: 600 }
+.primario:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+.palco { position: relative; min-height: 0 }
+.carregando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted) }
+
+/* etiquetas 3D */
+.etiqueta { display: flex; flex-direction: column; align-items: center; gap: 6px; white-space: nowrap; user-select: none }
+.nome {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 2px solid;
+  border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 6px rgb(0 0 0 / 0.08);
+}
+.ponto { width: 8px; height: 8px; border-radius: 50% }
+.balao {
+  width: max-content; max-width: 240px; white-space: normal; text-align: center; background: var(--surface); color: var(--fg);
+  font-size: 12px; line-height: 1.35; padding: 6px 10px; border-radius: 10px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  border: 1.5px solid #e08a2c; animation: aparece 0.25s ease-out;
+}
+.balao-esperando_voce { border-color: #9a52d6 }
+@keyframes aparece { from { transform: translateY(4px); opacity: 0.4 } }
+@media (prefers-reduced-motion: reduce) { .balao { animation: none } }
+
+/* painel lateral */
+.painel {
+  position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(360px, calc(100% - 24px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  display: flex; flex-direction: column; gap: 16px; overflow-y: auto; box-shadow: 0 10px 30px rgb(0 0 0 / 0.1);
+}
+.painel-topo { display: flex; justify-content: space-between; gap: 10px }
+.painel-topo h2 { font-size: 1.3rem }
+.painel-topo p { margin: 4px 0 0; font-size: 0.9rem }
+.fechar { background: none; border: 0; font-size: 1.6rem; line-height: 1; color: var(--muted) }
+.painel-meta { display: flex; align-items: center; gap: 10px }
+.estado { border: 1.5px solid; border-radius: 999px; padding: 1px 10px; font-size: 0.8rem; font-weight: 600 }
+.painel section { display: flex; flex-direction: column; gap: 6px }
+.painel h3 { font-size: 0.8rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 500 }
+.painel p { margin: 0 }
+.rascunho { margin: 0; white-space: pre-wrap; font-family: var(--mono); font-size: 0.82rem; background: #f4f5f8; border-radius: 8px; padding: 10px; min-height: 60px }
+.historico { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem }
+.historico li { display: grid; grid-template-columns: auto 1fr; gap: 10px }
+
+/* linha do tempo */
+.rodape { background: var(--surface); border-top: 1px solid var(--line); padding: 10px 20px; max-height: 120px; overflow-y: auto }
+.linha p { margin: 0; font-size: 0.9rem }
+.linha ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px }
+.linha button { display: flex; gap: 10px; width: 100%; text-align: left; background: none; border: 0; padding: 3px 0; font-size: 0.88rem; color: var(--fg) }
+.linha .quem { font-weight: 600; min-width: 110px }
