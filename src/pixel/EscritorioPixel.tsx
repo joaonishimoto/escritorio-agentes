@@ -7,7 +7,7 @@ import {
   ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, comCorDaMarca, CORREDOR_PES, ESTILOS, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, type Quadro,
-  FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
+  COFRINHO, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -81,6 +81,7 @@ export function EscritorioPixel({
   quadros,
   aoAbrirQuadro,
   financeiro,
+  cofre,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
@@ -92,6 +93,8 @@ export function EscritorioPixel({
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
   /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
   financeiro?: { barras: number[]; dicas: number; alerta: boolean }
+  /** o que aparece embaixo do cofrinho da sala ativa (gasto do mês) */
+  cofre?: string | null
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -377,7 +380,7 @@ export function EscritorioPixel({
 
       // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
       const viajante = andantes.current.find((a) => a.pasta && (a.sala === -1 || a.alvo?.sala === -1))
-      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco && v.foco !== 'cofre' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
@@ -488,6 +491,7 @@ export function EscritorioPixel({
         posicoesEtiqueta.financeiro = [fx, fy - 14]
         posicoesNome.financeiro = [fx, MESA_FIN.y + 18]
       }
+      posicoesNome.cofre = [v.indiceAtivo * PASSO_SALA + COFRINHO.x + 12, COFRINHO.y + 22]
 
       // quem está andando vai numa camada por cima dos textos, por ordem de altura para um passar na frente do outro
       const cf = frente.current
@@ -595,6 +599,11 @@ export function EscritorioPixel({
     }
     const sala = Math.floor(x / PASSO_SALA)
     const lxQ = x - sala * PASSO_SALA
+    // cofrinho do hall: abre os gastos daquela sala
+    if (marcas[sala] && lxQ >= COFRINHO.x - 3 && lxQ <= COFRINHO.x + COFRINHO.w + 3 && y >= COFRINHO.y - 4 && y <= COFRINHO.y + COFRINHO.h + 8) {
+      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
+      return focar('cofre')
+    }
     const noQuadro = Object.values(QUADROS).some((r) => lxQ >= r.x - 2 && lxQ <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2)
     if (sala !== indiceAtivo && marcas[sala] && !noQuadro) {
       focar(null)
@@ -704,6 +713,15 @@ export function EscritorioPixel({
         }}
       >
         <div className={`pixel-nome${foco === 'financeiro' ? ' ativo' : ''}`}>Financeiro</div>
+      </div>
+      <div
+        className="pixel-etiqueta"
+        ref={(el) => {
+          if (el) etiquetas.current.set('nome:cofre', el)
+          else etiquetas.current.delete('nome:cofre')
+        }}
+      >
+        {cofre && <div className={`pixel-nome cofre${foco === 'cofre' ? ' ativo' : ''}`}>{cofre}</div>}
       </div>
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
       {ativa && (

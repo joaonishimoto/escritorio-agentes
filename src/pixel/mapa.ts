@@ -32,6 +32,8 @@ export const PAREDE_DEPTO_Y = 152 // parede entre os departamentos e o hall
 export const LINHA_DEPTO = 144 // onde se anda dentro do departamento, na frente das mesas
 export const LINHA_HALL = 174 // onde se anda no hall
 export const CAFE = { x: 262, y: 188 }
+/** Cofrinho do hall: clicar mostra quanto a sala está gastando. */
+export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
 
 /** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
@@ -227,6 +229,42 @@ function tripe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x + 8, y + 16, 2, 4)
 }
 
+/** Porquinho cor-de-rosa num banquinho, com uma moeda entrando. */
+function cofrinho(g: Ctx, x: number, y: number) {
+  const contorno = '#1f2330'
+  const rosa = '#f2a6b8'
+  const sombra = '#d9849a'
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 20, 22, 2)
+  // banquinho
+  r(g, contorno, x + 3, y + 15, 18, 3)
+  r(g, '#8a6a4a', x + 4, y + 16, 16, 1)
+  r(g, contorno, x + 5, y + 18, 2, 3)
+  r(g, contorno, x + 17, y + 18, 2, 3)
+  // corpo
+  r(g, contorno, x + 3, y + 5, 16, 10)
+  r(g, contorno, x + 2, y + 6, 18, 8)
+  r(g, rosa, x + 4, y + 6, 14, 8)
+  r(g, rosa, x + 3, y + 7, 16, 6)
+  r(g, sombra, x + 4, y + 12, 14, 2)
+  r(g, '#f8c6d2', x + 6, y + 7, 4, 1)
+  // orelha, focinho, olho, rabinho e patas
+  r(g, contorno, x + 13, y + 3, 4, 3)
+  r(g, sombra, x + 14, y + 4, 2, 2)
+  r(g, contorno, x + 19, y + 8, 3, 5)
+  r(g, sombra, x + 19, y + 9, 2, 3)
+  r(g, contorno, x + 20, y + 10, 1, 1)
+  r(g, contorno, x + 15, y + 8, 1, 1)
+  r(g, contorno, x + 1, y + 7, 2, 1)
+  r(g, contorno, x, y + 6, 1, 1)
+  r(g, contorno, x + 5, y + 14, 3, 1)
+  r(g, contorno, x + 14, y + 14, 3, 1)
+  // fenda e moeda
+  r(g, contorno, x + 8, y + 5, 5, 1)
+  r(g, contorno, x + 8, y - 1, 5, 5)
+  r(g, '#f2b233', x + 9, y, 3, 4)
+  r(g, '#fff3b0', x + 9, y, 1, 2)
+}
+
 function cafe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x - 1, y - 1, 34, 18)
   r(g, '#f4efe4', x, y, 32, 16)
@@ -407,6 +445,7 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   r(g, '#1f2330', x0 + 31, 207, 22, 7)
   r(g, estilo.mesa, x0 + 32, 208, 20, 5)
   cafe(g, x0 + CAFE.x, CAFE.y)
+  cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
   planta(g, x0 + 300, 160)

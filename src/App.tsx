@@ -15,7 +15,7 @@ import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
 import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
-import { Gastos } from './ui/Gastos'
+import { PainelGastos, dolar } from './ui/Gastos'
 import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
 import { PostComErro } from './ui/PostComErro'
@@ -328,7 +328,6 @@ function Painel({ logado }: { logado: boolean }) {
         aoAbrir={() => alternarLista(true)}
       />
       <main className="palco">
-        {custos && <Gastos custos={custos} emProducao={post?.status === 'em_producao'} />}
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
           {carregandoMarcas ? (
@@ -342,6 +341,7 @@ function Painel({ logado }: { logado: boolean }) {
               quadros={quadros}
               aoAbrirQuadro={abrirQuadro}
               financeiro={resumoFin}
+              cofre={custos ? `${dolar(custos.mes)} no mês` : null}
             />
           ) : (
             <Escritorio
@@ -366,6 +366,14 @@ function Painel({ logado }: { logado: boolean }) {
             aoAtualizar={setFinanceiro}
             aoFechar={() => focar(null)}
             aoAbrirPost={(id) => { verPost(id); focar(null) }}
+          />
+        ) : foco === 'cofre' ? (
+          <PainelGastos
+            custos={emDemo ? null : custos}
+            marcaNome={marca?.nome}
+            emProducao={post?.status === 'em_producao'}
+            aoFechar={() => focar(null)}
+            aoAbrirFinanceiro={logado && !emDemo ? () => focar('financeiro') : undefined}
           />
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
