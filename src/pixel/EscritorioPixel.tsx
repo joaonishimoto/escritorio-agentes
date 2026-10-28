@@ -279,9 +279,15 @@ export function EscritorioPixel({
         c.width = Math.round(cw * dpr)
         c.height = Math.round(ch * dpr)
       }
-      const escala = Math.max(2, Math.min(5, Math.floor(ch / (ANDAR_H + 16)))) * dpr
+      // no celular a sala inteira cabe na largura: escala menor, mas sempre em pixels inteiros da tela
+      const porAltura = Math.max(2, Math.min(5, Math.floor(ch / (ANDAR_H + 16))))
+      const porLargura = cw / (SALA_W + 12)
+      const escala = porLargura < porAltura ? Math.max(dpr, Math.floor(porLargura * dpr)) : porAltura * dpr
       const vistaW = c.width / escala
-      const offY = Math.round((c.height / escala - ANDAR_H) / 2)
+      // no celular o andar fica no alto, deixando espaço embaixo para as gavetas
+      const offY = porLargura < porAltura
+        ? Math.round(Math.min((c.height / escala - ANDAR_H) / 2, (64 * dpr) / escala))
+        : Math.round((c.height / escala - ANDAR_H) / 2)
       geom.current = { escala, offY, larguraVista: vistaW }
 
       // passeio até o café de vez em quando, para o andar não ficar parado
@@ -537,8 +543,13 @@ export function EscritorioPixel({
         el.style.opacity = '1'
         // ordem fixa: balões por cima de tudo, depois quem está andando (mais embaixo na tela na frente), depois os sentados
         el.style.zIndex = String(nome ? (emPe.has(id) ? 200 + Math.round(pos[1]) : 100) : 1000)
-        const sx = (pos[0] - camX) * escala / dpr
+        let sx = (pos[0] - camX) * escala / dpr
         const sy = (pos[1] + offY) * escala / dpr
+        // balão não sai pela borda da tela
+        if (!nome) {
+          const meia = el.offsetWidth / 2
+          if (meia * 2 + 12 < cw) sx = Math.max(meia + 6, Math.min(cw - meia - 6, sx))
+        }
         el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, ${nome ? '0' : '-100%'})`
       }
       quadroId = requestAnimationFrame(desenhar)

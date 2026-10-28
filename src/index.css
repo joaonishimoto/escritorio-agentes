@@ -127,7 +127,7 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .aviso { color: var(--danger-strong); font-size: 13px }
 
 /* ───────── estrutura ───────── */
-.app { display: grid; grid-template-rows: var(--topbar-height) 1fr auto; height: 100% }
+.app { display: grid; grid-template-rows: var(--topbar-height) 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100% }
 .topo {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0;
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
@@ -536,3 +536,64 @@ i.falhou { background: var(--danger, #b42318) }
 .ideias-lista li .primario { align-self: flex-start }
 
 .gastos-tempo { min-width: 64px; text-align: right; font-size: 12px }
+
+/* ───────── celular ───────── */
+@media (max-width: 760px) {
+  :root { --topbar-height: 52px }
+  .topo { gap: 6px; padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px)) }
+  .marca { gap: 4px }
+  .seletor-topo { padding: 0 6px; max-width: 42vw }
+  .topo-acoes { gap: 2px }
+  .botao-topo { padding: 0 8px; height: 36px }
+  .topo-acoes .icone { width: 36px; height: 36px }
+  .topo-acoes .primario { height: 34px; padding: 0 12px; font-size: 13px }
+
+  /* painéis viram gaveta de baixo */
+  .painel, .painel-aprovacao { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 78%; padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: 18px 18px 0 0; border-bottom: 0; gap: 14px; animation: sobe-gaveta .26s cubic-bezier(.2, .8, .2, 1) }
+  .painel::before { content: ''; align-self: center; flex: none; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: -4px 0 -4px }
+  .painel-regras { max-height: 42% }
+  .painel .fechar { width: 36px; height: 36px; font-size: 22px; margin: -6px -8px 0 0 }
+  .slides { grid-template-columns: repeat(3, 1fr) }
+
+  /* janelas: ocupam a tela, com rolagem própria */
+  .modal-fundo { padding: 0; place-items: end stretch }
+  .modal, .modal-largo { width: 100%; max-height: 92%; overflow-y: auto; border-radius: 18px 18px 0 0; border-bottom: 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); animation: sobe-gaveta .26s cubic-bezier(.2, .8, .2, 1) }
+  .modal.calendario { width: 100%; height: 100%; max-height: 100%; border-radius: 0; padding-top: max(14px, env(safe-area-inset-top, 0px)); gap: 10px }
+  .modal:not(.calendario) > .acoes { position: sticky; bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); background: var(--surface); padding: 10px 0 2px; margin-bottom: -2px }
+  .modal:not(.calendario) > .acoes .primario, .modal:not(.calendario) > .acoes .secundario { flex: 1; height: 40px }
+  .modal input, .modal select { height: 40px; font-size: 16px }
+  .modal textarea { font-size: 16px }
+  .biblioteca { grid-template-columns: repeat(3, 1fr); gap: 6px }
+
+  /* calendário */
+  .cal-grade .cal-dia { height: 52px; padding: 3px }
+  .cal-num { font-size: 12px }
+  .cal-capas img { height: 22px; border-width: 1.5px }
+  .cal-post-slides { grid-template-columns: repeat(3, 1fr) }
+
+  /* escritório */
+  .pixel-nome { font-size: 9px; padding: 1px 4px 2px }
+  .pixel-balao { max-width: 170px; font-size: 12px; padding: 5px 7px }
+  .pixel-estilo { left: 8px; bottom: 8px; font-size: 12px; padding: 5px 8px }
+  .pixel-estilo.pixel-cor { left: auto; right: 8px; gap: 6px }
+  .gastos { top: 10px }
+  .gastos-resumo { font-size: 13px; gap: 8px; padding: 5px 10px }
+  .gastos-resumo small { font-size: 11px }
+  .gastos-detalhe li { grid-template-columns: 84px 1fr auto auto; font-size: 12px }
+
+  /* rodapé */
+  .rodape { padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) }
+  .linha-atual { gap: 6px }
+  .linha-atual p { font-size: 12px }
+  .linha-historico .quem { min-width: 84px }
+
+  /* preview em tela cheia */
+  .ver-contador { top: 18px; left: 16px }
+}
+@media (max-width: 420px) {
+  .marca > .chip { display: none }
+}
+@keyframes sobe-gaveta { from { transform: translateY(40px); opacity: .4 } }
+@media (prefers-reduced-motion: reduce) { .painel, .modal { animation: none !important } }
