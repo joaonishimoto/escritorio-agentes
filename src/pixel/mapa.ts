@@ -188,14 +188,16 @@ function piso(g: Ctx, e: Estilo, x0: number, w: number, y0: number, h: number, t
   const claro = misturar(base, '#ffffff', 0.14)
   const escuro = misturar(base, linha, 0.5)
   r(g, base, x0, y0, w, h)
-  // ruído fixo (mesmo desenho a cada quadro)
-  const ruido = (i: number) => ((i * 2654435761) >>> 0) % 1000
+  // o desenho segue uma grade única do andar (não começa do zero em cada área), e o ruído depende só da posição:
+  // a mesma escolha de piso em áreas vizinhas fica contínua, como um piso só
+  const ruido = (a: number, b: number) => (((a * 73856093) ^ (b * 19349663)) >>> 0) % 1000
+  const de = (v: number, passo: number) => Math.floor(v / passo) * passo
   if (tipo === 'tabua') {
-    // tábuas de 8 px com tom levemente diferente, emendas desencontradas e veios
-    for (let y = y0, f = 0; y < y0 + h; y += 8, f++) {
-      const desloc = (f * 29) % 44
-      for (let x = x0 - 44 + desloc, t = 0; x < x0 + w; x += 44, t++) {
-        const n = ruido(f * 31 + t)
+    for (let y = de(y0, 8); y < y0 + h; y += 8) {
+      const f = y / 8
+      const desloc = (((f * 29) % 44) + 44) % 44
+      for (let x = de(x0 - desloc, 44) + desloc; x < x0 + w; x += 44) {
+        const n = ruido(Math.floor(x / 44), f)
         r(g, n % 3 === 0 ? claro : n % 3 === 1 ? base : escuro, x, y, 44, 8)
         r(g, linha, x, y, 1, 8)
         r(g, misturar(base, linha, 0.75), x + 6 + (n % 20), y + 3 + (n % 3), 8 + (n % 6), 1)
@@ -203,43 +205,39 @@ function piso(g: Ctx, e: Estilo, x0: number, w: number, y0: number, h: number, t
       r(g, linha, x0, y, w, 1)
     }
   } else if (tipo === 'xadrez') {
-    for (let y = y0; y < y0 + h; y += 16)
-      for (let x = x0; x < x0 + w; x += 16) {
-        const par = ((x - x0) / 16 + (y - y0) / 16) % 2 === 0
+    for (let y = de(y0, 16); y < y0 + h; y += 16)
+      for (let x = de(x0, 16); x < x0 + w; x += 16) {
+        const par = (x / 16 + y / 16) % 2 === 0
         r(g, par ? linha : base, x, y, 16, 16)
         r(g, par ? misturar(linha, '#ffffff', 0.12) : claro, x, y, 16, 1)
         r(g, par ? misturar(linha, '#1f2330', 0.12) : escuro, x, y + 15, 16, 1)
       }
   } else if (tipo === 'concreto') {
     // placas grandes com juntas e pontinhos de agregado
-    for (let y = y0; y < y0 + h; y += 32)
-      for (let x = x0; x < x0 + w; x += 32) {
-        const n = ruido((x - x0) * 7 + (y - y0) * 13)
-        r(g, n % 2 ? base : misturar(base, linha, 0.18), x, y, 32, 32)
+    for (let y = de(y0, 32); y < y0 + h; y += 32)
+      for (let x = de(x0, 32); x < x0 + w; x += 32) {
+        r(g, ruido(x / 32, y / 32) % 2 ? base : misturar(base, linha, 0.18), x, y, 32, 32)
         r(g, linha, x, y, 32, 1)
         r(g, linha, x, y, 1, 32)
         r(g, claro, x + 1, y + 1, 31, 1)
       }
-    for (let i = 0; i < (w * h) / 60; i++) {
-      const n = ruido(i + 17)
-      r(g, n % 2 ? linha : claro, x0 + ((i * 97) % w), y0 + ((i * 53 + n) % h), 1, 1)
-    }
+    for (let y = de(y0, 4); y < y0 + h; y += 4)
+      for (let x = de(x0, 4); x < x0 + w; x += 4) {
+        const n = ruido(x, y)
+        if (n < 90) r(g, n % 2 ? linha : claro, x + (n % 4), y + ((n >> 2) % 4), 1, 1)
+      }
   } else if (tipo === 'carpete') {
-    // trama em losango miúdo e uma faixa de borda
-    for (let y = y0; y < y0 + h; y += 4)
-      for (let x = x0 + ((y - y0) / 4 % 2) * 2; x < x0 + w; x += 4) r(g, linha, x, y + 1, 1, 1)
-    for (let y = y0 + 2; y < y0 + h; y += 4)
-      for (let x = x0 + 1 + ((y - y0) / 4 % 2) * 2; x < x0 + w; x += 4) r(g, claro, x, y, 1, 1)
-    r(g, escuro, x0 + 4, y0 + 4, w - 8, 1)
-    r(g, escuro, x0 + 4, y0 + h - 5, w - 8, 1)
-    r(g, escuro, x0 + 4, y0 + 4, 1, h - 8)
-    r(g, escuro, x0 + w - 5, y0 + 4, 1, h - 8)
+    // trama em losango miúdo, contínua de uma área para a outra
+    for (let y = de(y0, 4); y < y0 + h; y += 4)
+      for (let x = de(x0, 4) + ((y / 4) % 2) * 2; x < x0 + w; x += 4) {
+        r(g, linha, x, y + 1, 1, 1)
+        r(g, claro, x + 1, y + 2, 1, 1)
+      }
   } else {
     // ladrilho: rejunte, brilho em cima e sombra embaixo de cada peça
-    for (let y = y0; y < y0 + h; y += 24)
-      for (let x = x0; x < x0 + w; x += 24) {
-        const par = ((x - x0) / 24 + (y - y0) / 24) % 2 === 0
-        if (par) r(g, misturar(base, '#ffffff', 0.08), x, y, 24, 24)
+    for (let y = de(y0, 24); y < y0 + h; y += 24)
+      for (let x = de(x0, 24); x < x0 + w; x += 24) {
+        if ((x / 24 + y / 24) % 2 === 0) r(g, misturar(base, '#ffffff', 0.08), x, y, 24, 24)
         r(g, linha, x, y, 24, 1)
         r(g, linha, x, y, 1, 24)
         r(g, misturar(base, '#ffffff', 0.3), x + 1, y + 1, 22, 1)
