@@ -442,3 +442,5 @@ i.publicado { background: #3f7650 }
 i.falhou { background: var(--danger, #b42318) }
 .cal-capas img.falhou { border-color: var(--danger, #b42318) }
 .cal-post-sem.falhou { background: color-mix(in srgb, var(--danger, #b42318) 25%, var(--surface)) }
+.passos-meta { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45 }
+.passos-meta a { color: var(--primary) }

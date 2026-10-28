@@ -18,6 +18,9 @@
     "api/publicar-agendados.ts": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "api/conectar-instagram.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

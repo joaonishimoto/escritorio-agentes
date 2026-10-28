@@ -6,6 +6,7 @@ export interface Marca {
   id: string
   nome: string
   identidade?: Record<string, unknown> | null
+  instagram_conta_id?: string | null
 }
 
 /** Cor que representa a marca no escritório: a escolhida na sala, senão a primeira cor da identidade visual. */
@@ -54,7 +55,7 @@ export function useMarcas(ativo: boolean) {
     if (!supabase || !ativo) return
     supabase
       .from('marcas')
-      .select('id, nome, identidade')
+      .select('id, nome, identidade, instagram_conta_id')
       .order('criado_em')
       .then(({ data }) => setMarcas(data ?? []))
   }, [ativo])

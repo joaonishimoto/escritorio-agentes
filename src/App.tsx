@@ -14,6 +14,7 @@ import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
 import { Gastos } from './ui/Gastos'
+import { ConectarInstagram } from './ui/ConectarInstagram'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
@@ -71,6 +72,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [novo, setNovo] = useState(false)
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
+  const [instagram, setInstagram] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
   const [visual, setVisual] = useState<'pixel' | '3d'>(() => {
     const pedido = new URLSearchParams(location.search).get('visual')
@@ -263,6 +265,9 @@ function Painel({ logado }: { logado: boolean }) {
           )}
           {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
           <Menu>
+            {logado && marca && (
+              <button onClick={() => setInstagram(true)}>{marca.instagram_conta_id ? 'Instagram conectado' : 'Conectar Instagram'}</button>
+            )}
             <button onClick={demo}>Ver demonstração</button>
             <button onClick={trocarVisual}>{visual === 'pixel' ? 'Ver em 3D' : 'Ver em pixel art'}</button>
             {logado && <hr />}
@@ -324,6 +329,7 @@ function Painel({ logado }: { logado: boolean }) {
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
+      {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => location.reload()} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost
