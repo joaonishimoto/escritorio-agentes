@@ -25,7 +25,7 @@ export const AGENTES: Agente[] = [
   { id: 'pesquisador', nome: 'Pesquisador', papel: 'Busca fatos com duas fontes e consulta os dados da marca.', cor: '#3f7650', modelo: 'claude-sonnet-5-5' },
   { id: 'redator', nome: 'Redator', papel: 'Escreve os slides e a legenda no tom de voz da marca.', cor: '#976822', modelo: 'claude-opus-5-5' },
   { id: 'designer', nome: 'Designer', papel: 'Monta os slides no modelo da marca e renderiza os JPEGs.', cor: '#b74e45', modelo: 'claude-sonnet-5-5' },
-  { id: 'revisor', nome: 'Revisor', papel: 'Confere texto e imagens contra o checklist e as regras aprendidas.', cor: '#52738a', modelo: 'claude-opus-5-5' },
+  { id: 'revisor', nome: 'Revisor', papel: 'Confere texto e imagens contra o checklist e as regras aprendidas.', cor: '#52738a', modelo: 'claude-sonnet-5-5' },
   { id: 'publicador', nome: 'Publicador', papel: 'Publica ou agenda no Instagram depois do seu ok.', cor: '#4b7ebc', modelo: null },
   { id: 'curador', nome: 'Curador', papel: 'Transforma suas correções em regras curtas e verificáveis.', cor: '#74766d', modelo: 'claude-haiku-5-5' },
 ]

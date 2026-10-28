@@ -95,11 +95,22 @@ export async function carregarContexto(postId: string): Promise<Contexto> {
   return { post: post as Post, marca: completarMarca(marca as Marca), etapas: (roteiro?.etapas as Etapa[]) ?? [], regras: regras ?? [], saidas }
 }
 
+// Cada agente recebe só as partes do perfil da marca que usa: menos tokens de entrada em toda chamada.
+const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: boolean; outrasRegras?: boolean }> = {
+  chefe: { tom: true, identidade: true },
+  pesquisador: { tom: true },
+  redator: { tom: true, legenda: true },
+  designer: { identidade: true },
+  revisor: { tom: true, identidade: true, legenda: true, outrasRegras: true },
+  curador: { outrasRegras: true },
+}
+
 /** Monta o prompt de sistema de um agente a partir do roteiro, da marca e das regras aprendidas. */
 export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
   const etapa = ctx.etapas.find((e) => e.agente === agente)
   const regras = ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos')
-  const outrasRegras = ctx.regras.filter((r) => !regras.includes(r))
+  const precisa = PRECISA[agente] ?? { tom: true, identidade: true, legenda: true, outrasRegras: true }
+  const outrasRegras = precisa.outrasRegras ? ctx.regras.filter((r) => !regras.includes(r)) : []
   const m = ctx.marca
 
   return [
@@ -112,10 +123,10 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
       ? `## Regras aprendidas para você (têm prioridade sobre todo o resto)\n${regras.map((r) => `- ${r.regra}`).join('\n')}`
       : '',
     outrasRegras.length ? `## Regras dos outros agentes (para contexto)\n${outrasRegras.map((r) => `- [${r.agente}] ${r.regra}`).join('\n')}` : '',
-    m.tom_de_voz ? `## Tom de voz da marca\n${m.tom_de_voz}` : '',
-    Object.keys(m.identidade ?? {}).length ? `## Identidade visual\n${JSON.stringify(m.identidade, null, 2)}` : '',
-    m.hashtags_fixas?.length ? `## Hashtags fixas\n${m.hashtags_fixas.join(' ')}` : '',
-    m.aviso_final ? `## Aviso obrigatório no fim da legenda\n${m.aviso_final}` : '',
+    precisa.tom && m.tom_de_voz ? `## Tom de voz da marca\n${m.tom_de_voz}` : '',
+    precisa.identidade && Object.keys(m.identidade ?? {}).length ? `## Identidade visual\n${JSON.stringify(m.identidade)}` : '',
+    precisa.legenda && m.hashtags_fixas?.length ? `## Hashtags fixas\n${m.hashtags_fixas.join(' ')}` : '',
+    precisa.legenda && m.aviso_final ? `## Aviso obrigatório no fim da legenda\n${m.aviso_final}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
