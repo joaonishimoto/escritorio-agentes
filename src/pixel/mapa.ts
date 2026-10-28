@@ -25,6 +25,7 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   publicador: { x: 16, y: 100 },
   revisor: { x: 64, y: 100 },
   designer: { x: 112, y: 100 },
+  cinegrafista: { x: 176, y: 100 },
 }
 export const MESA_W = 30
 
@@ -148,6 +149,16 @@ function sofa(g: Ctx, x: number, y: number, cor: string) {
   r(g, 'rgba(255,255,255,.35)', x + 21, y + 8, 15, 7)
 }
 
+/** Câmera no tripé, ao lado da mesa do cinegrafista. */
+function tripe(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y - 1, 12, 8)
+  r(g, '#2a2d36', x, y, 10, 6)
+  r(g, '#9fb3d6', x + 7, y + 2, 2, 2)
+  r(g, '#1f2330', x + 4, y + 6, 2, 12)
+  r(g, '#1f2330', x, y + 16, 2, 4)
+  r(g, '#1f2330', x + 8, y + 16, 2, 4)
+}
+
 function cafe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x - 1, y - 1, 34, 18)
   r(g, '#f4efe4', x, y, 32, 16)
@@ -194,10 +205,9 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean)
   janela(g, x0 + 186, 7, 30, noite)
   estante(g, x0 + 8, 2)
   quadro(g, x0 + 60, 5)
-  // tapete e sofá no canto
-  r(g, estilo.tapete, x0 + 166, 104, 52, 40)
-  sofa(g, x0 + 172, 108, estilo.cadeira)
   cafe(g, x0 + 186, 74)
+  tripe(g, x0 + 210, 98)
+  planta(g, x0 + 204, 138)
   planta(g, x0 + 204, 36)
   planta(g, x0 + 4, 138)
   for (const id of Object.keys(MESAS) as AgenteId[]) {

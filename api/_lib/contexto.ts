@@ -76,6 +76,7 @@ export const NOMES: Record<string, string> = {
   pesquisador: 'Pesquisador',
   redator: 'Redator',
   designer: 'Designer',
+  cinegrafista: 'Cinegrafista',
   revisor: 'Revisor',
   publicador: 'Publicador',
   curador: 'Curador',
@@ -103,6 +104,7 @@ const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: b
   pesquisador: { tom: true },
   redator: { tom: true, legenda: true },
   designer: { identidade: true },
+  cinegrafista: { identidade: true },
   revisor: { tom: true, identidade: true, legenda: true, outrasRegras: true },
   curador: { outrasRegras: true },
 }
@@ -134,9 +136,12 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
     .join('\n\n')
 }
 
-/** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. */
-export function fluxoDeProducao(etapas: Etapa[]) {
+/** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista entra antes do revisor. */
+export function fluxoDeProducao(etapas: Etapa[], formato?: string) {
   const producao = ['chefe', 'pesquisador', 'redator', 'designer', 'revisor']
-  const ordem = etapas.filter((e) => e.ativo && producao.includes(e.agente)).map((e) => e.agente)
-  return ordem.length ? ordem : producao
+  const ativos = etapas.filter((e) => e.ativo && producao.includes(e.agente)).map((e) => e.agente)
+  const ordem = ativos.length ? ativos : producao
+  if (formato !== 'reel') return ordem
+  const revisor = ordem.indexOf('revisor')
+  return revisor < 0 ? [...ordem, 'cinegrafista'] : [...ordem.slice(0, revisor), 'cinegrafista', ...ordem.slice(revisor)]
 }

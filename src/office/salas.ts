@@ -64,6 +64,7 @@ export const SALAS: Record<string, Sala> = {
       revisor: [0, 2.6, Math.PI],
       publicador: [-4.5, 2.6, Math.PI],
       curador: [-1.6, 0, Math.PI / 2],
+      cinegrafista: [6.8, 0, -Math.PI / 2],
     },
     voce: [1.6, 0],
     cores: {
@@ -86,6 +87,7 @@ export const SALAS: Record<string, Sala> = {
       revisor: [6, -2.4, 0],
       publicador: [3, 2.8, Math.PI],
       curador: [-3, 2.8, Math.PI],
+      cinegrafista: [0, 2.8, Math.PI],
     },
     voce: [6, 1.6],
     cores: {
@@ -108,6 +110,7 @@ export const SALAS: Record<string, Sala> = {
       revisor: [1, -3.1, Math.PI],
       publicador: [5.6, -3.1, Math.PI],
       curador: [-5, 3, Math.PI],
+      cinegrafista: [-1.6, 3, Math.PI],
     },
     voce: [3.4, 2.6],
     cores: {
@@ -123,13 +126,14 @@ export const SALAS: Record<string, Sala> = {
   c: {
     nome: 'Roda em volta de você',
     mesas: {
-      chefe: roda(0, 7, 4.6),
-      pesquisador: roda(1, 7, 4.6),
-      redator: roda(2, 7, 4.6),
-      designer: roda(3, 7, 4.6),
-      revisor: roda(4, 7, 4.6),
-      publicador: roda(5, 7, 4.6),
-      curador: roda(6, 7, 4.6),
+      chefe: roda(0, 8, 4.6),
+      pesquisador: roda(1, 8, 4.6),
+      redator: roda(2, 8, 4.6),
+      designer: roda(3, 8, 4.6),
+      cinegrafista: roda(4, 8, 4.6),
+      revisor: roda(5, 8, 4.6),
+      publicador: roda(6, 8, 4.6),
+      curador: roda(7, 8, 4.6),
     },
     voce: [0, 0],
     cores: {
@@ -157,6 +161,7 @@ SALAS.d = {
     revisor: [-2.6, -3.1, Math.PI],
     publicador: [-0.6, -3.1, Math.PI],
     curador: [-5.6, 3, Math.PI / 2],
+    cinegrafista: [1.4, -0.5, 0],
   },
   voce: [5.2, -2.6],
   cores: {
@@ -200,6 +205,7 @@ SALAS.e = {
     revisor: [-6.6, -0.6, Math.PI / 2],
     publicador: [-6.6, 1.7, Math.PI / 2],
     curador: [3.2, -3.4, 0],
+    cinegrafista: [-6.6, 3.9, Math.PI / 2],
   },
   voce: [3.6, 1.6],
   cores: {
@@ -239,6 +245,7 @@ SALAS.f = {
     revisor: [0.4, 1.7, -Math.PI / 2],
     publicador: [2.8, 1.7, Math.PI / 2],
     curador: [-5.4, 1.7, -Math.PI / 2],
+    cinegrafista: [-3, 1.7, Math.PI / 2],
   },
   voce: [6, -0.2],
   cores: {

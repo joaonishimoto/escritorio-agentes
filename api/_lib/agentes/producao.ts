@@ -189,7 +189,7 @@ async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente
   return { saida: { html, slides }, uso, entrega: 'Ajuste aplicado' }
 }
 
-const designerSlides: Agente = async (ctx, passo, em) => {
+export const designer: Agente = async (ctx, passo, em) => {
   const correcao = passo.entrada.correcao as Correcao | undefined
   const apontado = passo.entrada.feedback as string | undefined
   const pedido = [correcao ? `Pedido do dono da marca: ${correcao.comentario}\n${correcao.instrucao}` : '', apontado ? `Apontado nesta rodada:\n${apontado}` : '']
@@ -237,16 +237,8 @@ const designerSlides: Agente = async (ctx, passo, em) => {
   return { saida: { html, slides }, uso: gerado.uso, entrega: `${slides.length} slides renderizados` }
 }
 
-// Reel: depois dos slides (a capa), o designer pede o vídeo na Kling num passo próprio,
-// que se re-enfileira enquanto o vídeo não fica pronto (cada passo cabe no tempo da função).
-export const designer: Agente = async (ctx, passo, em) => {
-  if (passo.entrada.video) return gerarVideo(ctx, passo, em)
-  const r = await designerSlides(ctx, passo, em)
-  if (ctx.post.formato !== 'reel') return r
-  const { correcao, feedback } = passo.entrada
-  return { ...r, proximos: [{ agente: 'designer', entrada: { video: true, ...(correcao ? { correcao } : {}), ...(feedback ? { feedback } : {}) } }] }
-}
-
+// ───────── Cinegrafista (só em Reels) ─────────
+// Pede o vídeo na Kling e se re-enfileira enquanto ele não fica pronto (cada passo cabe no tempo da função).
 const PromptVideo = z.object({
   refazer: z.boolean().describe('false só se já existe vídeo e os ajustes pedidos não mudam nada no vídeo (ex.: só capa ou legenda)'),
   prompt: z.string().describe('prompt em inglês para o gerador de vídeo: cena, sujeito, ação, câmera, luz e estilo, em até 600 caracteres; sem texto, letreiro ou logo na tela'),
@@ -257,8 +249,7 @@ const ESPERA_POR_PASSO_MS = 100_000
 const MAX_ESPERAS = 6
 const RESOLUCAO = '1080p'
 
-async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2]): Promise<Resultado> {
-  const anterior = ctx.saidas.designer as Record<string, unknown> | undefined
+export const cinegrafista: Agente = async (ctx, passo, em) => {
   const entrada = passo.entrada as { kling_id?: string; esperas?: number; prompt?: string; segundos?: 5 | 10; feedback?: string; correcao?: Correcao }
   let { kling_id, prompt, segundos } = entrada
   let uso = USO_ZERO
@@ -271,7 +262,7 @@ async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[
     const r = await gerarJson({
       modelo: 'claude-sonnet-5-5',
       effort: 'low',
-      sistema: sistemaDoAgente(ctx, 'designer', 'Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (Kling). O texto do post vai na capa e na legenda, não no vídeo.'),
+      sistema: sistemaDoAgente(ctx, 'cinegrafista', 'Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (Kling). O texto do post vai na capa e na legenda, não no vídeo.'),
       conteudo: [
         ...refs.blocos,
         {
@@ -293,7 +284,7 @@ async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[
     uso = r.uso
     if (atual && !r.dados.refazer) {
       await em.texto('O ajuste não mexe no vídeo: mantive o que já estava pronto.')
-      return { saida: { ...anterior, video: atual }, uso, entrega: 'Vídeo mantido' }
+      return { saida: { video: atual }, uso, entrega: 'Vídeo mantido' }
     }
     prompt = r.dados.prompt
     segundos = r.dados.segundos
@@ -323,13 +314,12 @@ async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[
     const esperas = (entrada.esperas ?? 0) + 1
     if (esperas > MAX_ESPERAS) throw new Error(`A Kling não entregou o vídeo depois de ${Math.round((MAX_ESPERAS * ESPERA_POR_PASSO_MS) / 60_000)} minutos (pedido ${kling_id})`)
     await em.acao('Ainda gerando, volto a olhar já já')
-    // a saída repete a do passo anterior para não perder o HTML dos slides
     return {
-      saida: { ...anterior },
+      saida: { kling_id, esperas },
       uso,
       entrega: 'Vídeo ainda na Kling',
-      proximos: [{ agente: 'designer', entrada: { ...entrada, kling_id, prompt, segundos, esperas } }],
-      para: 'designer',
+      proximos: [{ agente: 'cinegrafista', entrada: { ...entrada, kling_id, prompt, segundos, esperas } }],
+      para: 'cinegrafista',
     }
   }
 
@@ -341,7 +331,7 @@ async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[
   if (error) throw new Error(`Falha ao subir o vídeo: ${error.message}`)
   const video = { url: urlPublica(caminho), caminho, prompt: prompt ?? '', segundos: segundos ?? 5, modelo: MODELO_KLING, kling_id }
   await db.from('posts').update({ video }).eq('id', ctx.post.id)
-  return { saida: { ...anterior, video }, uso, entrega: `Vídeo de ${video.segundos}s pronto` }
+  return { saida: { video }, uso, entrega: `Vídeo de ${video.segundos}s pronto` }
 }
 
 // ───────── Revisor ─────────
