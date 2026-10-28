@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { tocarAviso } from '../lib/som'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
@@ -28,6 +29,8 @@ const VISUAL: Record<AgenteId | 'voce', Visual> = {
 }
 
 const VELOCIDADE = 58 // pixels por segundo
+const DEPURAR = typeof location !== 'undefined' && new URLSearchParams(location.search).has('depurar')
+const TEMPO_MINIMO_NA_MESA = 1600 // ms trabalhando na pasta antes de levantar com a próxima
 type Ponto = [number, number]
 
 interface Andante {
@@ -153,6 +156,10 @@ export function EscritorioPixel({
 
   const andantes = useRef<Andante[]>([])
   const pastasNaMesa = useRef<Map<string, number>>(new Map())
+  /** quando cada um recebeu a última pasta: só levanta para entregar depois de um tempo trabalhando nela */
+  const recebeuEm = useRef<Map<string, number>>(new Map())
+  const [pastaChegouEmVoce, setPastaChegouEmVoce] = useState(true)
+  const pastaEmVoceRef = useRef(true)
   const camera = useRef({ x: 0, arrasto: 0, soltouEm: 0 })
   const geom = useRef({ escala: 3, offY: 0, larguraVista: 0 })
 
@@ -264,21 +271,53 @@ export function EscritorioPixel({
         }
       }
 
-      // solta as entregas da fila na ordem, quando quem entrega já recebeu a pasta e está sentado
+      // solta as entregas da fila na ordem: quem entrega precisa ter recebido a pasta, trabalhado nela um pouco na tela
+      // e estar sentado (se estava no café, volta antes)
       const chegando = aCaminhoDe()
       pendentes.current = pendentes.current.filter((e) => {
         const sala = v.indiceAtivo
         const de = { sala: e.de === 'voce' ? -1 : sala, quem: e.de }
-        if (chegando.has(e.de) || andantes.current.some((a) => a.quem === e.de && a.sala === de.sala && a.pasta)) return true
+        if (chegando.has(e.de)) return true
+        if (pendentes.current.some((x) => x !== e && x.para === e.de && pendentes.current.indexOf(x) < pendentes.current.indexOf(e))) return true
+        const recebeu = recebeuEm.current.get(`${de.sala}:${e.de}`)
+        if (recebeu !== undefined && agora - recebeu < TEMPO_MINIMO_NA_MESA) return true
+        const emPe = andantes.current.find((a) => a.quem === e.de && a.sala === de.sala)
+        if (emPe) {
+          // no café: interrompe e volta para a mesa pelo mesmo caminho
+          if (!emPe.pasta && emPe.fase !== 'volta') {
+            emPe.dist = emPe.fase === 'ida' ? comprimento(emPe.ida) - emPe.dist : 0
+            emPe.fase = 'volta'
+          }
+          return true
+        }
         const para = { sala: e.para === 'voce' ? -1 : sala, quem: e.para }
         const ida = caminho(de, para)
-        andantes.current = andantes.current.filter((a) => !(a.quem === e.de && a.sala === de.sala))
         andantes.current.push({ id: e.id, quem: e.de, sala: de.sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: true, alvo: para })
         chegando.add(e.para)
         return false
       })
-      const esperandoPasta = (i: number, id: AgenteId) => i === v.indiceAtivo && (chegando.has(id) || pendentes.current.some((e) => e.de === id))
+      // você só pula quando a pasta chega na sua mesa, não quando o servidor avisa
+      const pastaEmVoce = !chegando.has('voce') && !pendentes.current.some((e) => e.para === 'voce')
+      if (pastaEmVoce !== pastaEmVoceRef.current) {
+        pastaEmVoceRef.current = pastaEmVoce
+        setPastaChegouEmVoce(pastaEmVoce)
+      }
+      const voceAguardando = v.aguardando && pastaEmVoce
+      const esperandoPasta = (i: number, id: AgenteId) => i === v.indiceAtivo && (chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id))
       const estadoNaTela = (i: number, id: AgenteId): Estado => (i !== v.indiceAtivo ? 'ocioso' : esperandoPasta(i, id) ? 'na_fila' : v.estados[id])
+
+      if (DEPURAR) {
+        ;(window as unknown as { __pixel: unknown }).__pixel = {
+          t: Math.round(agora),
+          andantes: andantes.current.map((a) => {
+            const p = noCaminho(a.fase === 'volta' ? a.volta : a.ida, Math.max(0, a.dist))
+            return { quem: a.quem, fase: a.fase, pasta: a.pasta, alvo: a.alvo?.quem, x: Math.round(p.x), y: Math.round(p.y), cafe: a.id.startsWith('cafe') }
+          }),
+          pendentes: pendentes.current.map((e) => `${e.de}>${e.para}`),
+          estados: Object.fromEntries(AGENTES.map((a) => [a.id, estadoNaTela(v.indiceAtivo, a.id)])),
+          voceAguardando,
+        }
+      }
 
       // anda com quem está andando
       for (const a of andantes.current) {
@@ -290,13 +329,18 @@ export function EscritorioPixel({
           }
           continue
         }
-        a.dist += VELOCIDADE * dt
         const rota = a.fase === 'ida' ? a.ida : a.volta
+        // caminhos longos (atravessar o corredor) andam mais rápido: ninguém leva mais que ~6 s
+        a.dist += Math.max(VELOCIDADE, comprimento(rota) / 6) * dt
         if (a.dist >= comprimento(rota)) {
           if (a.fase === 'ida') {
             a.fase = 'parado'
             a.parouEm = agora
-            if (a.alvo) pastasNaMesa.current.set(`${a.alvo.sala}:${a.alvo.quem}`, agora)
+            if (a.alvo) {
+              pastasNaMesa.current.set(`${a.alvo.sala}:${a.alvo.quem}`, agora)
+              recebeuEm.current.set(`${a.alvo.sala}:${a.alvo.quem}`, agora)
+              if (a.alvo.quem === 'voce') tocarAviso()
+            }
           } else a.dist = -1
         }
       }
@@ -395,9 +439,9 @@ export function EscritorioPixel({
       // você, atrás da sua mesa e de frente para a sala
       if (!andando('voce', -1)) {
         const [vx, vy] = pes(-1, 'voce')
-        const pulo = v.aguardando ? -Math.abs(Math.round(Math.sin(t * 7) * 4)) : 0
+        const pulo = voceAguardando ? -Math.abs(Math.round(Math.sin(t * 7) * 4)) : 0
         g.drawImage(quadro(VISUAL.voce, 'baixo', 0, true), vx - 7, vy - 16 + pulo + 6)
-        if (v.aguardando) exclamacao(g, vx - 2, vy - 30 + Math.round(Math.sin(t * 6)), '#f2b233')
+        if (voceAguardando) exclamacao(g, vx - 2, vy - 30 + Math.round(Math.sin(t * 6)), '#f2b233')
         posicoesEtiqueta.voce = [vx, vy - 14 + pulo]
         posicoesNome.voce = [vx, MESA_VOCE.y + 18]
       } else posicoesEtiqueta.voce = null
@@ -546,7 +590,7 @@ export function EscritorioPixel({
                 else etiquetas.current.delete(id)
               }}
             >
-              {id === 'voce' && aguardando && <div className="pixel-balao alerta">Post esperando você!</div>}
+              {id === 'voce' && aguardando && pastaChegouEmVoce && <div className="pixel-balao alerta">Post esperando você!</div>}
               {acao && <div key={acao} className="pixel-balao">{acao}</div>}
             </div>
             <div

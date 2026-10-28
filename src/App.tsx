@@ -170,9 +170,9 @@ function Painel({ logado }: { logado: boolean }) {
   useEffect(() => {
     if (!post) return
     const antes = statusAnterior.current
-    if (antes?.id === post.id && antes.status !== 'aguardando_aprovacao' && post.status === 'aguardando_aprovacao') tocarAviso()
+    if (antes?.id === post.id && antes.status !== 'aguardando_aprovacao' && post.status === 'aguardando_aprovacao' && visual === '3d') tocarAviso() // no pixel, toca quando a pasta chega na sua mesa
     statusAnterior.current = { id: post.id, status: post.status }
-  }, [post?.id, post?.status])
+  }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
 

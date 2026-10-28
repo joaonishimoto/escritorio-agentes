@@ -34,15 +34,30 @@ const ROTEIRO_DEMO: Passo[] = [
   ['revisor', 'entrega', 'Tudo certo. Enviado para sua aprovação', 'voce'],
 ]
 
+// com ?demo=ajuste a demonstração continua: você pede um ajuste e a equipe refaz
+const AJUSTE_DEMO: Passo[] = [
+  ['voce', 'entrega', 'Ajuste pedido: troque a seta do slide 1', 'curador'],
+  ['curador', 'inicio', 'Transformando sua correção em regra'],
+  ['curador', 'entrega', 'Ajuste pequeno: direto pro designer', 'designer'],
+  ['designer', 'inicio', 'Ajuste pequeno: editando os slides prontos'],
+  ['designer', 'entrega', 'Ajuste aplicado', 'revisor'],
+  ['revisor', 'inicio', 'Conferindo se o seu ajuste foi aplicado'],
+  ['revisor', 'entrega', 'Ajuste conferido. De volta pra você', 'voce'],
+]
+
 let timer: number | undefined
 
 export function rodarDemo(aplicar: (e: Evento) => void, intervaloMs = 1800) {
   pararDemo()
   let i = 0
   const postId = 'demo-' + Date.now()
+  const busca = new URLSearchParams(location.search)
+  const roteiro = busca.get('demo') === 'ajuste' ? [...ROTEIRO_DEMO, ...AJUSTE_DEMO] : ROTEIRO_DEMO
+  const ritmo = Number(busca.get('ritmo'))
+  if (ritmo > 0) intervaloMs = ritmo
   const proximo = () => {
-    if (i >= ROTEIRO_DEMO.length) return
-    const [agente, tipo, mensagem, para] = ROTEIRO_DEMO[i++]
+    if (i >= roteiro.length) return
+    const [agente, tipo, mensagem, para] = roteiro[i++]
     aplicar({ id: `${postId}-${i}`, post_id: postId, agente, tipo, mensagem, para, criado_em: new Date().toISOString() })
     timer = window.setTimeout(proximo, tipo === 'entrega' ? intervaloMs * 1.4 : intervaloMs)
   }
