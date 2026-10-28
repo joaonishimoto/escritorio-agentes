@@ -1,5 +1,5 @@
 import { MUXER_JS } from './muxer-fonte.js'
-import { abrirNavegador, desenharSetas } from './render.js'
+import { abrirNavegador, desenharSetas, umNavegadorPorVez } from './render.js'
 
 // Vídeo feito pelo próprio app: o Claude escreve uma animação em HTML/CSS, o Chromium mostra quadro a quadro
 // e o codificador de vídeo do navegador (WebCodecs) monta o MP4. Não depende de serviço de vídeo pago.
@@ -39,7 +39,11 @@ async function fim() {
 
 
 /** Grava `segundos` de animação do HTML em MP4 (H.264, 1080x1920). As animações precisam ser CSS (@keyframes). */
-export async function gravarAnimacao(html: string, segundos: number): Promise<Buffer> {
+export function gravarAnimacao(html: string, segundos: number): Promise<Buffer> {
+  return umNavegadorPorVez(() => gravarAnimacaoAgora(html, segundos))
+}
+
+async function gravarAnimacaoAgora(html: string, segundos: number): Promise<Buffer> {
   const muxer = MUXER_JS
   const navegador = await abrirNavegador()
   try {

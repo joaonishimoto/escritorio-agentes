@@ -53,15 +53,41 @@ export function desenharSetas(html: string) {
  * Na Vercel usa o Chromium do @sparticuz/chromium; localmente, CHROMIUM_PATH.
  */
 export async function renderizarSlides(html: string, largura = 1080, altura = 1350): Promise<Buffer[]> {
-  html = desenharSetas(html)
+  return umNavegadorPorVez(() => renderizarSlidesAgora(desenharSetas(html), largura, altura))
+}
+
+/**
+ * Na Vercel, uma mesma instância atende vários pedidos ao mesmo tempo. Dois posts no designer ao mesmo tempo
+ * abriam dois Chromiums juntos, e um derrubava o outro ("Target page, context or browser has been closed").
+ * Aqui eles fazem fila: um navegador por vez em cada instância.
+ */
+let fila: Promise<unknown> = Promise.resolve()
+export function umNavegadorPorVez<T>(fazer: () => Promise<T>): Promise<T> {
+  const vez = fila.then(fazer, fazer)
+  fila = vez.catch(() => {})
+  return vez
+}
+
+async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Buffer[]> {
   // o Chromium da Vercel às vezes cai no meio (memória, imagem pesada): tenta de novo com um navegador novo,
   // e na segunda vez não espera a rede ficar parada, só o carregamento das imagens
-  try {
-    return await renderizarUmaVez(html, largura, altura, 'networkidle')
-  } catch (e) {
-    console.warn('render falhou, tentando de novo', e)
-    return renderizarUmaVez(html, largura, altura, 'load')
+  // até três navegadores novos: a segunda e a terceira vez não esperam a rede parar, e a terceira usa menos memória
+  const tentativas: { espera: 'networkidle' | 'load'; leve: boolean }[] = [
+    { espera: 'networkidle', leve: false },
+    { espera: 'load', leve: false },
+    { espera: 'load', leve: true },
+  ]
+  let ultimo: unknown
+  for (const [n, t] of tentativas.entries()) {
+    try {
+      return await renderizarUmaVez(html, largura, altura, t.espera, t.leve)
+    } catch (e) {
+      ultimo = e
+      console.warn(`render falhou (tentativa ${n + 1})`, e)
+      await new Promise((ok) => setTimeout(ok, 1500))
+    }
   }
+  throw ultimo
 }
 
 /** Abre o Chromium: na Vercel o do @sparticuz/chromium, localmente o de CHROMIUM_PATH. */
@@ -70,14 +96,16 @@ export async function abrirNavegador() {
   if (local) return playwright.launch({ executablePath: local, args: ['--no-sandbox'] })
   const executavel = await chromium.executablePath()
   await instalarFontesReserva()
-  return playwright.launch({ executablePath: executavel, args: chromium.args })
+  return playwright.launch({ executablePath: executavel, args: [...chromium.args, '--disable-dev-shm-usage', '--disable-gpu'] })
 }
 
-async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load'): Promise<Buffer[]> {
+async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load', leve = false): Promise<Buffer[]> {
   const navegador = await abrirNavegador()
   try {
     const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
     await pagina.setContent(html, { waitUntil: espera, timeout: 45_000 })
+    // modo leve: sem filtros e desfoques, que são o que mais gasta memória no Chromium da Vercel
+    if (leve) await pagina.addStyleTag({ content: '*{filter:none!important;backdrop-filter:none!important}' }).catch(() => {})
     // imagens que ainda não carregaram ganham até 15 s; a que falhar não trava o post
     await pagina.evaluate(() =>
       Promise.race([

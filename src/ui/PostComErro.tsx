@@ -43,7 +43,7 @@ export function explicarErro(agente: string, erro: string): Explicacao {
   if (agente === 'publicador' && /token|oauth|session|permiss/.test(e))
     return { titulo: 'O Instagram desconectou', texto: 'A conexão com o Instagram expirou. Reconecte a conta no menu (···) e publique de novo.' }
   if (agente === 'publicador') return { titulo: 'O Instagram não aceitou', texto: 'A publicação foi recusada. Veja o detalhe abaixo e tente de novo, ou volte para aprovação para ajustar.' }
-  if (/chromium|render|navegador/.test(e)) return { titulo: 'Os slides não renderizaram', texto: 'O navegador que gera as imagens caiu. Uma nova tentativa costuma resolver.' }
+  if (/chromium|render|navegador|browser has been closed|target page|context or browser/.test(e)) return { titulo: 'O desenho dos slides caiu no meio', texto: 'O navegador que transforma o layout em imagens fechou sozinho, geralmente quando vários posts são desenhados ao mesmo tempo. O texto e o layout estão prontos; tente de novo que ele desenha só as imagens.' }
   return { titulo: 'Algo deu errado', texto: 'O funcionário parou com um erro. Tente de novo; se repetir, troque de IA.' }
 }
 
