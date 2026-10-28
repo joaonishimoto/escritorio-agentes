@@ -7,6 +7,7 @@ import {
   ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, comCorDaMarca, CORREDOR_PES, ESTILOS, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, type Quadro,
+  FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -17,6 +18,8 @@ export interface MarcaNoAndar {
   /** ordem em que a sala foi criada: decide o estilo padrão, mesmo com a sala mudando de lugar no andar */
   ordem?: number
 }
+
+const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
 
 // cada agente tem um cabelo e um tom de pele, para dar para reconhecer de longe
 const VISUAL: Record<AgenteId | 'voce', Visual> = {
@@ -77,6 +80,7 @@ export function EscritorioPixel({
   aoMudarCor,
   quadros,
   aoAbrirQuadro,
+  financeiro,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
@@ -86,6 +90,8 @@ export function EscritorioPixel({
   quadros?: Record<string, { dias: number[]; regras: number }>
   /** clique no calendário, no branding ou no mural de regras de uma sala */
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
+  /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
+  financeiro?: { barras: number[]; dicas: number; alerta: boolean }
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -111,7 +117,9 @@ export function EscritorioPixel({
 
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
   const xVoce = marcas.length * PASSO_SALA
-  const largura = xVoce + VOCE_W
+  // sala do Financeiro depois da sua, separada por uma parede
+  const xFin = xVoce + VOCE_W + 16
+  const largura = xFin + FIN_W
   const [cores, setCores] = useState<Record<string, string>>(() => {
     try {
       return JSON.parse(localStorage.getItem('cores-sala') ?? '{}')
@@ -152,8 +160,11 @@ export function EscritorioPixel({
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
+    desenharParedeEntre(g, xVoce + VOCE_W)
+    desenharSalaFin(g, xFin)
+    desenharGraficoFin(g, xFin, financeiro?.barras ?? [], !!financeiro?.alerta)
     return c
-  }, [marcas, estilos, cores, largura, xVoce, quadros]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas, estilos, cores, largura, xVoce, quadros, financeiro?.barras.join(','), financeiro?.alerta]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -366,7 +377,7 @@ export function EscritorioPixel({
 
       // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
       const viajante = andantes.current.find((a) => a.pasta && (a.sala === -1 || a.alvo?.sala === -1))
-      let alvoX = v.foco ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
@@ -468,6 +479,16 @@ export function EscritorioPixel({
       } else posicoesEtiqueta.voce = null
       desenharMesaVoce(g, xVoce)
 
+      // o Financeiro, sentado atrás da mesa dele e de frente para a sala
+      {
+        const fx = xFin + MESA_FIN.x + MESA_FIN.w / 2
+        const fy = MESA_FIN.y - 2
+        g.drawImage(quadro(VISUAL_FIN, 'baixo', 0, true), fx - 7, fy - 10)
+        desenharMesaFin(g, xFin)
+        posicoesEtiqueta.financeiro = [fx, fy - 14]
+        posicoesNome.financeiro = [fx, MESA_FIN.y + 18]
+      }
+
       // quem está andando vai numa camada por cima dos textos, por ordem de altura para um passar na frente do outro
       const cf = frente.current
       const gf = cf?.getContext('2d')
@@ -523,7 +544,7 @@ export function EscritorioPixel({
         }
         const nome = chave.startsWith('nome:')
         const id = nome ? chave.slice(5) : chave
-        const pos = !nome && id !== 'voce' && esperandoPasta(v.indiceAtivo, id as AgenteId) ? null : (nome ? posicoesNome : posicoesEtiqueta)[id]
+        const pos = !nome && id !== 'voce' && id !== 'financeiro' && esperandoPasta(v.indiceAtivo, id as AgenteId) ? null : (nome ? posicoesNome : posicoesEtiqueta)[id]
         if (!pos) {
           el.style.opacity = '0'
           continue
@@ -560,6 +581,12 @@ export function EscritorioPixel({
     return { x: ((ev.clientX - rect.left) * dpr) / escala + camX, y: ((ev.clientY - rect.top) * dpr) / escala - offY }
   }
   const clicar = (x: number, y: number) => {
+    if (x >= xFin) {
+      const mx = xFin + MESA_FIN.x
+      const naMesa = x >= mx - 6 && x <= mx + MESA_FIN.w + 6 && y >= MESA_FIN.y - 24 && y <= MESA_FIN.y + 20
+      const noGrafico = x >= xFin + GRAFICO_FIN.x - 2 && x <= xFin + GRAFICO_FIN.x + GRAFICO_FIN.w + 2 && y <= GRAFICO_FIN.y + GRAFICO_FIN.h + 2
+      return focar(naMesa || noGrafico ? 'financeiro' : null)
+    }
     if (x >= xVoce) {
       const mx = xVoce + MESA_VOCE.x
       if (x >= xVoce + CALENDARIO.x && x <= xVoce + CALENDARIO.x + CALENDARIO.w && y <= CALENDARIO.y + CALENDARIO.h) return focar('calendario')
@@ -660,6 +687,24 @@ export function EscritorioPixel({
           </Fragment>
         )
       })}
+      <div
+        className="pixel-etiqueta"
+        ref={(el) => {
+          if (el) etiquetas.current.set('financeiro', el)
+          else etiquetas.current.delete('financeiro')
+        }}
+      >
+        {!!financeiro?.dicas && <div className={`pixel-balao${financeiro.alerta ? ' alerta' : ''}`}>{financeiro.dicas === 1 ? '1 dica para você' : `${financeiro.dicas} dicas para você`}</div>}
+      </div>
+      <div
+        className="pixel-etiqueta"
+        ref={(el) => {
+          if (el) etiquetas.current.set('nome:financeiro', el)
+          else etiquetas.current.delete('nome:financeiro')
+        }}
+      >
+        <div className={`pixel-nome${foco === 'financeiro' ? ' ativo' : ''}`}>Financeiro</div>
+      </div>
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
       {ativa && (
         <button className="pixel-estilo" onClick={() => trocarEstilo(ativa.id, indiceAtivo)} title="Trocar o estilo desta sala">

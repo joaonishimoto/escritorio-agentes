@@ -447,3 +447,65 @@ export function desenharCalendario(g: Ctx, x0: number, marcados: Set<number>, ho
     r(g, cor, x0 + x + 2 + c * passoX, y + 7 + l * passoY, Math.max(3, passoX - 1.4), Math.max(2, passoY - 1.4))
   }
 }
+
+// ───────── sala do Financeiro, depois da sua sala ─────────
+
+export const FIN_W = 128
+const FIN: Estilo = { nome: 'Financeiro', piso: '#e3e9e2', pisoLinha: '#d3dccf', parede: '#2f5d47', paredeDetalhe: '#28503d', rodape: '#3f7650', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#3f7650', tapete: '#cfe0d2' }
+/** Mesa do Financeiro (ele senta atrás, de frente para nós) e o gráfico na parede, que abre o painel. */
+export const MESA_FIN = { x: 46, y: 82, w: 36 }
+export const GRAFICO_FIN = { x: 40, y: 3, w: 48, h: 28 }
+export const PORTA_FIN_X = 64
+
+/** O gráfico da parede: barras dos gastos dos últimos dias (redesenhado quando os números chegam). */
+export function desenharGraficoFin(g: Ctx, x0: number, barras: number[], alerta: boolean) {
+  const { x, y, w, h } = GRAFICO_FIN
+  r(g, '#1f2330', x0 + x - 1, y - 1, w + 2, h + 2)
+  r(g, '#fbfaf6', x0 + x, y, w, h)
+  r(g, alerta ? '#b74e45' : '#3f7650', x0 + x, y, w, 4)
+  const n = Math.max(1, barras.length)
+  const max = Math.max(...barras, 0.0001)
+  const larg = Math.max(1, Math.floor((w - 6) / n) - 1)
+  barras.forEach((v, i) => {
+    const alt = Math.max(1, Math.round((v / max) * (h - 10)))
+    r(g, i === n - 1 ? (alerta ? '#b74e45' : '#3f7650') : '#9fb8a6', x0 + x + 3 + i * (larg + 1), y + h - 3 - alt, larg, alt)
+  })
+  r(g, '#c9c3b4', x0 + x + 2, y + h - 3, w - 4, 1)
+}
+
+function cofre(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y - 1, 22, 24)
+  r(g, '#5d6470', x, y, 20, 22)
+  r(g, '#737b88', x + 2, y + 2, 16, 18)
+  r(g, '#1f2330', x + 8, y + 8, 5, 5)
+  r(g, '#f2b233', x + 9, y + 9, 3, 3)
+}
+
+export function desenharSalaFin(g: Ctx, x0: number) {
+  piso(g, FIN, x0, FIN_W, PAREDE_H, SALA_H - PAREDE_H, 'carpete')
+  parede(g, FIN, x0, FIN_W)
+  janela(g, x0 + 98, 7, 22, false)
+  r(g, FIN.tapete, x0 + 28, 72, 72, 54)
+  cofre(g, x0 + 8, 40)
+  estante(g, x0 + 4, 140)
+  planta(g, x0 + 108, 40)
+  planta(g, x0 + 108, 200)
+  // parede de baixo, com a porta
+  r(g, '#1f2330', x0, SALA_H - 5, PORTA_FIN_X - 18, 5)
+  r(g, '#1f2330', x0 + PORTA_FIN_X + 18, SALA_H - 5, FIN_W - PORTA_FIN_X - 18, 5)
+  r(g, FIN.rodape, x0 + PORTA_FIN_X - 18, SALA_H - 2, 36, 2)
+}
+
+/** A mesa por cima do boneco sentado: monitor com gráfico e calculadora. */
+export function desenharMesaFin(g: Ctx, x0: number) {
+  const { x, y, w } = MESA_FIN
+  r(g, 'rgba(0,0,0,.15)', x0 + x + 2, y + 16, w, 3)
+  r(g, '#1f2330', x0 + x - 1, y - 1, w + 2, 18)
+  r(g, '#ffffff', x0 + x, y, w, 12)
+  r(g, '#c9ccd6', x0 + x, y + 12, w, 4)
+  r(g, '#2a2d36', x0 + x + 3, y + 2, 9, 8) // calculadora
+  r(g, '#9fd3a8', x0 + x + 4, y + 3, 7, 2)
+  r(g, '#d9dde6', x0 + x + 22, y + 3, 10, 7) // relatório
+  r(g, '#3f7650', x0 + x + 24, y + 5, 6, 1)
+  r(g, '#3f7650', x0 + x + 24, y + 7, 4, 1)
+}

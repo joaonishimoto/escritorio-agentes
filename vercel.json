@@ -27,6 +27,9 @@
     },
     "api/ideias.ts": {
       "maxDuration": 60
+    },
+    "api/financeiro.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

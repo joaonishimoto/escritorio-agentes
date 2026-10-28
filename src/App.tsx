@@ -11,6 +11,7 @@ import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
 import { Biblioteca } from './ui/Biblioteca'
 import { PerfilDaMarca } from './ui/PerfilDaMarca'
+import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
 import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
@@ -103,6 +104,8 @@ function Painel({ logado }: { logado: boolean }) {
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [perfilMarca, setPerfilMarca] = useState(false)
+  // números do Financeiro: carregam ao entrar e de novo quando você abre a sala dele
+  const [financeiro, setFinanceiro] = useState<DadosFin | null>(null)
   const [muralRegras, setMuralRegras] = useState(false)
   const [instagram, setInstagram] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
@@ -229,6 +232,20 @@ function Painel({ logado }: { logado: boolean }) {
     statusAnterior.current = { id: post.id, status: post.status }
   }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined, post?.status)
+  useEffect(() => {
+    if (!logado || emDemo || !supabase) return
+    if (foco !== 'financeiro' && financeiro) return
+    chamarApi<DadosFin>('financeiro', { acao: 'ver' }).then(setFinanceiro).catch(() => {})
+  }, [logado, emDemo, foco]) // eslint-disable-line react-hooks/exhaustive-deps
+  const resumoFin = useMemo(() => {
+    if (!financeiro?.numeros) return undefined
+    const alertas = financeiro.ultima?.analise.alertas ?? []
+    return {
+      barras: financeiro.numeros.por_dia.slice(-14).map((d) => d.custo),
+      dicas: alertas.length,
+      alerta: alertas.some((x) => x.gravidade === 'alta'),
+    }
+  }, [financeiro])
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
   const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
@@ -339,6 +356,7 @@ function Painel({ logado }: { logado: boolean }) {
               aoEscolherMarca={escolherMarca}
               quadros={quadros}
               aoAbrirQuadro={abrirQuadro}
+              financeiro={resumoFin}
             />
           ) : (
             <Escritorio
@@ -356,6 +374,13 @@ function Painel({ logado }: { logado: boolean }) {
             regras={regras}
             aoMudar={mudou}
             aoFechar={() => focar(null)}
+          />
+        ) : foco === 'financeiro' ? (
+          <PainelFinanceiro
+            dados={emDemo || !logado ? { numeros: null, ultima: null } : financeiro}
+            aoAtualizar={setFinanceiro}
+            aoFechar={() => focar(null)}
+            aoAbrirPost={(id) => { verPost(id); focar(null) }}
           />
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
