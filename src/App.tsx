@@ -59,6 +59,7 @@ function Painel({ logado }: { logado: boolean }) {
   const aplicar = useEscritorio((s) => s.aplicar)
   const reiniciar = useEscritorio((s) => s.reiniciar)
   const selecionado = useEscritorio((s) => s.selecionado)
+  const selecionar = useEscritorio((s) => s.selecionar)
   const foco = useEscritorio((s) => s.foco)
   const focar = useEscritorio((s) => s.focar)
   const definirAgenda = useEscritorio((s) => s.definirAgenda)
@@ -95,6 +96,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [postId, setPostId] = useState<string | null>(null)
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
+  const [briefingInicial, setBriefingInicial] = useState<string | undefined>()
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [instagram, setInstagram] = useState(false)
@@ -328,7 +330,16 @@ function Painel({ logado }: { logado: boolean }) {
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
         ) : (
-          <PainelAgente post={emDemo ? null : post} aoMudar={mudou} />
+          <PainelAgente
+            post={emDemo ? null : post}
+            aoMudar={mudou}
+            marcaId={logado ? marcaId : null}
+            aoUsarIdeia={(b) => {
+              selecionar(null)
+              setBriefingInicial(b)
+              setNovo(true)
+            }}
+          />
         )}
         {logado && marcas.length === 0 && (
           <div className="vazio">
@@ -367,9 +378,11 @@ function Painel({ logado }: { logado: boolean }) {
         <NovoPost
           marcaId={marcaId}
           neutra={!!marca?.identidade?.neutra}
-          aoFechar={() => setNovo(false)}
+          inicial={briefingInicial}
+          aoFechar={() => { setNovo(false); setBriefingInicial(undefined) }}
           aoCriar={(p) => {
             setNovo(false)
+            setBriefingInicial(undefined)
             mudou()
             verPost(p.id)
           }}

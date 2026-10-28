@@ -498,3 +498,9 @@ i.falhou { background: var(--danger, #b42318) }
   .corpo { position: relative }
   .lista-posts { position: absolute; inset: 0 auto 0 0; z-index: 60; width: min(320px, 88vw); box-shadow: var(--shadow-md) }
 }
+
+.ideias { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px }
+.ideias-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.ideias-lista li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 14px }
+.ideias-lista li p { font-size: 13px }
+.ideias-lista li .primario { align-self: flex-start }

@@ -2,6 +2,7 @@ import { agentePorId } from '../agents/catalogo'
 import { useEscritorio } from '../store/escritorio'
 import { COR_ESTADO } from '../office/EstacaoAgente'
 import { AcoesDeErro } from './PostComErro'
+import { PedirIdeias } from './PedirIdeias'
 import type { Post } from '../lib/dados'
 
 const ROTULO_ESTADO = {
@@ -13,7 +14,7 @@ const ROTULO_ESTADO = {
   erro: 'Erro',
 } as const
 
-export function PainelAgente({ post, aoMudar }: { post?: Post | null; aoMudar?: () => void }) {
+export function PainelAgente({ post, aoMudar, marcaId, aoUsarIdeia }: { post?: Post | null; aoMudar?: () => void; marcaId?: string | null; aoUsarIdeia?: (briefing: string) => void }) {
   const id = useEscritorio((s) => s.selecionado)
   const estado = useEscritorio((s) => (id ? s.estados[id] : 'ocioso'))
   const acao = useEscritorio((s) => (id ? s.acaoAtual[id] : undefined))
@@ -49,6 +50,7 @@ export function PainelAgente({ post, aoMudar }: { post?: Post | null; aoMudar?: 
         </section>
       )}
       {estado === 'erro' && post?.status === 'erro' && aoMudar && <AcoesDeErro post={post} agente={id} aoMudar={aoMudar} />}
+      {id === 'pesquisador' && marcaId && aoUsarIdeia && <PedirIdeias marcaId={marcaId} aoUsar={aoUsarIdeia} />}
 
       <section>
         <h3>O que está produzindo</h3>

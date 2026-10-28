@@ -21,6 +21,9 @@
     },
     "api/conectar-instagram.ts": {
       "maxDuration": 30
+    },
+    "api/ideias.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

@@ -5,8 +5,8 @@ import type { Post } from '../lib/dados'
 
 type Ref = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
 
-export function NovoPost({ marcaId, neutra, aoCriar, aoFechar }: { marcaId: string; neutra?: boolean; aoCriar: (p: Post) => void; aoFechar: () => void }) {
-  const [briefing, setBriefing] = useState('')
+export function NovoPost({ marcaId, neutra, inicial, aoCriar, aoFechar }: { marcaId: string; neutra?: boolean; inicial?: string; aoCriar: (p: Post) => void; aoFechar: () => void }) {
+  const [briefing, setBriefing] = useState(inicial ?? '')
   const [refs, setRefs] = useState<Ref[]>([])
   const [link, setLink] = useState('')
   const [subindo, setSubindo] = useState(0)
