@@ -241,6 +241,24 @@ export function EscritorioPixel({
     [marcas.length], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
+  // dois dedos no touchpad (ou a roda do mouse) passeiam pelo andar, sem precisar clicar e arrastar
+  useEffect(() => {
+    const c = tela.current
+    if (!c) return
+    const rolar = (e: WheelEvent) => {
+      if (e.ctrlKey) return // pinça de zoom do navegador
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      if (!delta) return
+      e.preventDefault() // evita o "voltar página" do gesto horizontal
+      const passo = e.deltaMode === 1 ? delta * 16 : delta
+      const dpr = window.devicePixelRatio || 1
+      camera.current.arrasto += (passo * dpr) / geom.current.escala
+      camera.current.soltouEm = performance.now()
+    }
+    c.addEventListener('wheel', rolar, { passive: false })
+    return () => c.removeEventListener('wheel', rolar)
+  }, [])
+
   // laço de desenho
   useEffect(() => {
     const c = tela.current!
@@ -366,11 +384,14 @@ export function EscritorioPixel({
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
       }
       const cam = camera.current
-      const livre = agora - cam.soltouEm > 4000
-      const desejado = alvoX - vistaW / 2 + (livre ? 0 : cam.arrasto)
-      if (livre) cam.arrasto *= 0.9
-      cam.x += (desejado - cam.x) * Math.min(1, dt * 3)
+      const livre = agora - cam.soltouEm > 8000
       const maxX = Math.max(0, largura - vistaW)
+      // o deslocamento manual não passa das pontas do andar (senão rolar para trás demora a responder)
+      const base = alvoX - vistaW / 2
+      cam.arrasto = Math.max(-base, Math.min(maxX - base, cam.arrasto))
+      const desejado = base + (livre ? 0 : cam.arrasto)
+      if (livre) cam.arrasto *= 0.9
+      cam.x += (desejado - cam.x) * Math.min(1, dt * (livre ? 3 : 10))
       const camX = largura < vistaW ? (largura - vistaW) / 2 : Math.max(0, Math.min(maxX, cam.x))
 
       g.setTransform(1, 0, 0, 1, 0, 0)
