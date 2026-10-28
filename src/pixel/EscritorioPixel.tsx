@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { tocarAviso } from '../lib/som'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
-import { useEscritorio, type Entrega, type Estado } from '../store/escritorio'
+import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
   ANDAR_H, CALENDARIO, PLACA, comCorDaMarca, COLUNA_X, CORREDOR_PES, ESTILOS, LINHA_FRENTE, MESAS, MESA_VOCE, ORDEM_ESTILOS, PASSO_SALA,
@@ -95,7 +95,7 @@ export function EscritorioPixel({
 
   const estados = useEscritorio((s) => s.estados)
   const acoes = useEscritorio((s) => s.acaoAtual)
-  const aguardando = useEscritorio((s) => s.aguardandoVoce)
+  const aguardando = useEscritorio(selecionarEsperandoVoce)
   const selecionado = useEscritorio((s) => s.selecionado)
   const agenda = useEscritorio((s) => s.agenda)
   const selecionar = useEscritorio((s) => s.selecionar)

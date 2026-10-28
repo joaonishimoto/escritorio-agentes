@@ -2,13 +2,13 @@ import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import type { Group, MeshToonMaterial } from 'three'
-import { useEscritorio } from '../store/escritorio'
+import { selecionarEsperandoVoce, useEscritorio } from '../store/escritorio'
 import { Outlines } from '@react-three/drei'
 import { CONTORNO, GRADIENTE } from './toon'
 
 /** Sua mesa de aprovação: pisca quando algum post espera por você. */
 export function MesaVoce({ posicao }: { posicao: [number, number] }) {
-  const aguardando = useEscritorio((s) => s.aguardandoVoce)
+  const aguardando = useEscritorio(selecionarEsperandoVoce)
   const focar = useEscritorio((s) => s.focar)
   const aberta = useEscritorio((s) => s.foco === 'voce')
   const [hover, setHover] = useState(false)

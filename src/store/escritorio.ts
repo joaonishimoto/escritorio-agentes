@@ -45,6 +45,9 @@ interface EscritorioState {
   /** sua mesa ou o calendário da parede, quando abertos */
   foco: 'voce' | 'calendario' | null
   aguardandoVoce: boolean
+  /** status real do post aberto (fora da demonstração): manda mais que os eventos, que não sabem se você já aprovou ou publicou */
+  postEsperandoVoce: boolean | null
+  definirPostEsperandoVoce: (v: boolean | null) => void
   /** posts com data, para o calendário da parede */
   agenda: ItemAgenda[]
   /** onde fica cada mesa da sala que está trabalhando, e a sua, em coordenadas do andar (para as pastas voarem) */
@@ -87,6 +90,8 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   selecionado: null,
   foco: null,
   aguardandoVoce: false,
+  postEsperandoVoce: null,
+  definirPostEsperandoVoce: (v) => set({ postEsperandoVoce: v }),
   agenda: [],
   posicoes: {},
 
@@ -168,3 +173,6 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   reiniciar: () =>
     set({ estados: estadosIniciais(), acaoAtual: {}, rascunho: {}, eventos: [], entregas: [], aguardandoVoce: false }),
 }))
+
+/** Você tem post para aprovar? Fora da demonstração vale o status do post; na demonstração, os eventos. */
+export const selecionarEsperandoVoce = (s: { aguardandoVoce: boolean; postEsperandoVoce: boolean | null }) => s.postEsperandoVoce ?? s.aguardandoVoce

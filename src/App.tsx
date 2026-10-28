@@ -179,6 +179,8 @@ function Painel({ logado }: { logado: boolean }) {
   const esperando = !emDemo && post?.status === 'aguardando_aprovacao'
   // o post pronto não abre o painel sozinho: você pula na sua mesa e toca um aviso; o painel abre clicando nela
   const mostrarAprovacao = esperando && !selecionado && foco === 'voce'
+  const definirPostEsperandoVoce = useEscritorio((s) => s.definirPostEsperandoVoce)
+  useEffect(() => definirPostEsperandoVoce(emDemo ? null : esperando), [emDemo, esperando, definirPostEsperandoVoce])
   const mostrarErro = !emDemo && post?.status === 'erro' && !selecionado && foco === 'voce'
   const statusAnterior = useRef<{ id: string; status: string } | null>(null)
   useEffect(() => {
