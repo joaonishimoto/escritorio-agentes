@@ -40,8 +40,8 @@ export interface Post {
   status: string
   legenda: string | null
   slides: { ordem: number; url: string }[]
-  /** Reel: vídeo gerado na Kling */
-  video?: { url: string; segundos: number } | null
+  /** Reel: vídeo gerado pela IA escolhida, com a narração quando tem */
+  video?: { url: string; segundos: number; prompt?: string; narracao?: { texto: string; voz?: string } | null } | null
   custo_usd: number
   agendado_para: string | null
   /** escolhas do Novo post; agendar_para pré-preenche o horário na aprovação */
@@ -336,10 +336,23 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
       if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro'), mes: gasto, gaveta, comData: (comData.data as Post[]) ?? [], carregado: true })
     }
     buscar().catch((e) => console.error('não consegui ver o andar', e))
-    const id = window.setInterval(() => document.visibilityState === 'visible' && buscar().catch(() => {}), 8000)
+    // mudou um post em qualquer sala (status, slides, agendamento): busca de novo na hora, juntando mudanças próximas
+    let agendado: number | undefined
+    const logo = () => {
+      window.clearTimeout(agendado)
+      agendado = window.setTimeout(() => buscar().catch(() => {}), 400)
+    }
+    const canal = sb
+      .channel(`andar:${chave}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `marca_id=in.(${marcaIds.join(',')})` }, logo)
+      .subscribe()
+    // o polling fica como reserva (passos não entram no Realtime) e só quando a aba está visível
+    const id = window.setInterval(() => document.visibilityState === 'visible' && buscar().catch(() => {}), 20_000)
     return () => {
       valendo = false
+      window.clearTimeout(agendado)
       window.clearInterval(id)
+      sb.removeChannel(canal)
     }
   }, [chave, recarregar]) // eslint-disable-line react-hooks/exhaustive-deps
   return andar

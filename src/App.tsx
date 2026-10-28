@@ -247,6 +247,19 @@ function Painel({ logado }: { logado: boolean }) {
     return () => window.clearInterval(id)
   }, [emDemo, post, ultimoEvento])
 
+  // Esc fecha o que estiver aberto no palco (painel de agente, sua mesa, gaveta, cofre, calendário);
+  // os modais e o visualizador de slides cuidam do próprio Esc
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (document.querySelector('.ver-slides, .modal-fundo')) return
+      if (selecionado) selecionar(null)
+      else if (foco) focar(null)
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [selecionado, foco, selecionar, focar])
+
   const demo = () => {
     setEmDemo(true)
     pararDemo()
@@ -509,7 +522,7 @@ function Painel({ logado }: { logado: boolean }) {
           }}
         />
       )}
-      {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => location.reload()} />}
+      {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => setVersaoMarcas((v) => v + 1)} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost
