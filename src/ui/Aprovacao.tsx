@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { chamarApi } from '../lib/api'
 import { VerSlides } from './VerSlides'
+import { AGENTES } from '../agents/catalogo'
 import { decidirRegra, type Post, type Regra } from '../lib/dados'
 
 /** Sua mesa: slides e legenda para aprovar, ajustar ou reprovar, e regras novas para aceitar. */
@@ -65,23 +66,13 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
         <pre className="rascunho">{post.legenda}</pre>
       </section>
 
-      <section>
-        <label htmlFor="comentario"><h3>Ajuste (vira regra para a equipe)</h3></label>
-        <textarea
-          id="comentario"
-          rows={3}
-          placeholder="Ex.: o título da capa está cobrindo o copo"
-          value={comentario}
-          onChange={(e) => setComentario(e.target.value)}
-        />
-      </section>
       {erro && <p className="aviso">{erro}</p>}
 
-      <div className="acoes acoes-coluna">
+      <section className="ap-decidir">
         {confirmar === 'agora' ? (
           <div className="confirmar">
             <p>Publicar agora no Instagram? Isso não dá para desfazer daqui.</p>
-            <div className="acoes">
+            <div className="ap-par">
               <button className="secundario" onClick={() => setConfirmar(null)}>Voltar</button>
               <button className="primario" disabled={enviando} onClick={() => decidir('aprovar')}>Publicar agora</button>
             </div>
@@ -91,20 +82,37 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
             <label htmlFor="quando"><p>Publicar no Instagram em:</p></label>
             <input id="quando" type="datetime-local" value={quando} min={paraCampo(new Date(Date.now() + 5 * 60_000))} onChange={(e) => setQuando(e.target.value)} />
             <p className="muted">Dá para cancelar pelo calendário até a hora marcada.</p>
-            <div className="acoes">
+            <div className="ap-par">
               <button className="secundario" onClick={() => setConfirmar(null)}>Voltar</button>
               <button className="primario" disabled={enviando || !quando} onClick={() => decidir('agendar')}>Agendar</button>
             </div>
           </div>
         ) : (
-          <div className="acoes">
-            <button className="primario" disabled={enviando} onClick={() => setConfirmar('agendar')}>Aprovar e agendar</button>
-            <button className="secundario" disabled={enviando} onClick={() => setConfirmar('agora')}>Publicar agora</button>
-          </div>
+          <>
+            <h3>Ficou bom?</h3>
+            <button className="primario ap-largo" disabled={enviando} onClick={() => setConfirmar('agendar')}>Aprovar e agendar</button>
+            <button className="secundario ap-largo" disabled={enviando} onClick={() => setConfirmar('agora')}>Publicar agora</button>
+          </>
         )}
-        <button className="secundario" disabled={enviando || !comentario.trim()} onClick={() => decidir('corrigir')}>Pedir ajuste</button>
-        <button className="perigo" disabled={enviando || !comentario.trim()} onClick={() => decidir('reprovar')}>Reprovar</button>
-      </div>
+      </section>
+
+      <section className="ap-ajuste">
+        <label htmlFor="comentario">
+          <h3>Quer mudar algo?</h3>
+          <span className="muted">O que você escrever volta para a equipe e vira regra para os próximos posts.</span>
+        </label>
+        <textarea
+          id="comentario"
+          rows={3}
+          placeholder="Ex.: o título da capa está cobrindo o copo"
+          value={comentario}
+          onChange={(e) => setComentario(e.target.value)}
+        />
+        <div className="ap-par">
+          <button className="secundario" disabled={enviando || !comentario.trim()} onClick={() => decidir('corrigir')}>Pedir ajuste</button>
+          <button className="perigo" disabled={enviando || !comentario.trim()} onClick={() => decidir('reprovar')}>Reprovar</button>
+        </div>
+      </section>
 
       <RegrasPropostas regras={regras} aoMudar={aoMudar} />
     </aside>
@@ -112,21 +120,38 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
 }
 
 export function RegrasPropostas({ regras, aoMudar }: { regras: Regra[]; aoMudar: () => void }) {
+  const [decidindo, setDecidindo] = useState<string | null>(null)
   if (regras.length === 0) return null
+  const decidir = (id: string, status: 'ativa' | 'arquivada') => {
+    setDecidindo(id)
+    decidirRegra(id, status).then(aoMudar).finally(() => setDecidindo(null))
+  }
   return (
-    <section>
-      <h3>Regras novas propostas pelo curador</h3>
-      <ul className="regras">
-        {regras.map((r) => (
-          <li key={r.id}>
-            <span className="mono muted">{r.agente}</span>
-            <p>{r.regra}</p>
-            <div className="acoes">
-              <button className="secundario" onClick={() => decidirRegra(r.id, 'arquivada').then(aoMudar)}>Descartar</button>
-              <button className="primario" onClick={() => decidirRegra(r.id, 'ativa').then(aoMudar)}>Aceitar</button>
-            </div>
-          </li>
-        ))}
+    <section className="rp">
+      <header className="rp-cabeca">
+        <span className="rp-icone" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" /></svg>
+        </span>
+        <div>
+          <h3>O curador sugeriu {regras.length === 1 ? 'uma regra nova' : `${regras.length} regras novas`}</h3>
+          <p className="muted">Ele aprende com seus ajustes. Aceitas, valem para os próximos posts desta marca.</p>
+        </div>
+      </header>
+      <ul className="rp-lista">
+        {regras.map((r) => {
+          const a = AGENTES.find((x) => x.id === r.agente)
+          return (
+            <li key={r.id} style={{ ['--cor' as string]: a?.cor ?? '#52738a' }}>
+              <span className="rp-quem"><i />Para o {a?.nome.toLowerCase() ?? r.agente}</span>
+              <p className="rp-regra">{r.regra}</p>
+              {r.motivo && <p className="rp-motivo">Por quê: {r.motivo}</p>}
+              <div className="rp-acoes">
+                <button className="primario" disabled={decidindo === r.id} onClick={() => decidir(r.id, 'ativa')}>Aceitar regra</button>
+                <button className="link" disabled={decidindo === r.id} onClick={() => decidir(r.id, 'arquivada')}>Descartar</button>
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

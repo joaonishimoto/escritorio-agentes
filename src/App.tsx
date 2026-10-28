@@ -25,7 +25,7 @@ import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
 import { PainelSala } from './ui/PainelSala'
@@ -151,10 +151,18 @@ function Painel({ logado }: { logado: boolean }) {
   const comEdicao = <T extends { id: string; cor: string }>(m: T, sala?: SalaCustom | null) =>
     salasEditadas[m.id] ? { ...m, cor: salasEditadas[m.id].cor, sala: salasEditadas[m.id].sala } : { ...m, sala }
   // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
+  // ordem das salas no andar: a que você arrastou na barra; sem isso, a mais nova fica na ponta, longe da sua sala
+  const [ordemSalas, setOrdemSalas] = useState<string[] | null>(null)
+  const posicaoDe = (m: Marca, ordem: number) =>
+    ordemSalas?.includes(m.id) ? ordemSalas.indexOf(m.id) : typeof m.identidade?.posicao === 'number' ? (m.identidade.posicao as number) : -1000 - ordem
   const marcasNoAndar = marcas.length
-    ? // a sala mais nova fica na ponta, longe da sua; a primeira marca fica do lado da sua sala
-      marcas.map((m, ordem) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem }, m.identidade?.sala as SalaCustom | undefined)).reverse()
-    : [comEdicao({ id: 'demo', nome: 'Drinfy', cor: '#EE382B', ordem: 0 }), comEdicao({ id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73', ordem: 1 })]
+    ? marcas
+        .map((m, ordem) => ({ m, ordem, pos: posicaoDe(m, ordem) }))
+        .sort((a, b) => a.pos - b.pos)
+        .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem }, m.identidade?.sala as SalaCustom | undefined))
+    : [comEdicao({ id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73', ordem: 1 }), comEdicao({ id: 'demo', nome: 'Drinfy', cor: '#EE382B', ordem: 0 })].sort(
+        (a, b) => (ordemSalas?.indexOf(a.id) ?? 0) - (ordemSalas?.indexOf(b.id) ?? 0),
+      )
   const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
   // estilo da sala quando ninguém escolheu: o que ficou neste navegador, senão o da ordem de criação
   const estiloPadrao = (id: string, ordem: number) => {
@@ -395,6 +403,14 @@ function Painel({ logado }: { logado: boolean }) {
               aoAbrirQuadro={abrirQuadro}
               financeiro={resumoFin}
               cofres={cofres}
+              aoReordenar={
+                marcasNoAndar.length > 1
+                  ? (ids) => {
+                      setOrdemSalas(ids)
+                      if (logado && marcas.length) salvarOrdemDasSalas(ids).catch((e) => console.error('não salvou a ordem das salas', e))
+                    }
+                  : undefined
+              }
               porSala={andar.porSala}
               naSuaMesa={naSuaMesa.length}
               aoEditarSala={(id) => {

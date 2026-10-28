@@ -1156,3 +1156,30 @@ i.falhou { background: var(--danger, #b42318) }
 .sm-grupo.erro .sm-post { border-color: color-mix(in srgb, var(--danger) 30%, var(--border)) }
 .sm-ir { flex: none; font-size: 20px; color: var(--muted-foreground) }
 .pixel-balao.gato { font-size: 12px; padding: 4px 8px; background: #eaf4ff }
+
+/* Aprovação: decidir em cima, ajuste num cartão separado */
+.ap-decidir, .ap-ajuste { display: flex; flex-direction: column; gap: 8px }
+.ap-largo { width: 100%; min-height: 42px }
+.ap-ajuste { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--foreground) 2%, var(--surface)) }
+.ap-ajuste label { display: flex; flex-direction: column; gap: 2px }
+.ap-ajuste label .muted { font-size: 13px }
+.ap-ajuste textarea { width: 100%; box-sizing: border-box }
+.ap-par { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.ap-par > button { width: 100%; min-height: 38px }
+
+/* Regras propostas pelo curador */
+.rp { display: flex; flex-direction: column; gap: 10px }
+.rp-cabeca { display: flex; gap: 10px; align-items: flex-start }
+.rp-cabeca h3 { font-size: 14px; font-weight: 650; color: var(--foreground) }
+.rp-cabeca p { font-size: 13px; line-height: 1.4; margin-top: 2px }
+.rp-icone { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, #f2b233 22%, var(--surface)); color: #9a6a10 }
+.rp-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.rp-lista li { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--cor); border-radius: var(--radius-lg); background: var(--surface) }
+.rp-quem { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: color-mix(in srgb, var(--cor) 75%, var(--foreground)) }
+.rp-quem i { width: 8px; height: 8px; border-radius: 2px; background: var(--cor) }
+.rp-regra { font-size: 15px; line-height: 1.45; font-weight: 550 }
+.rp-motivo { font-size: 13px; line-height: 1.4; color: var(--muted-foreground) }
+.rp-acoes { display: flex; align-items: center; gap: 4px; margin-top: 2px }
+.rp-acoes .primario { min-height: 34px }
+.pixel-salas button[data-sala] { touch-action: none }
+.pixel-salas button.arrastando { opacity: .55; outline: 2px dashed #fff; outline-offset: 2px }

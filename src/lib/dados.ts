@@ -329,3 +329,18 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
   }, [chave, recarregar]) // eslint-disable-line react-hooks/exhaustive-deps
   return andar
 }
+
+/** Guarda a ordem das salas no andar (da esquerda para a direita) na identidade de cada marca. */
+export async function salvarOrdemDasSalas(ids: string[]) {
+  if (!supabase) return
+  const sb = supabase
+  const { data, error } = await sb.from('marcas').select('id, identidade').in('id', ids)
+  if (error) throw error
+  await Promise.all(
+    ((data ?? []) as { id: string; identidade: Record<string, unknown> | null }[]).map((m) =>
+      sb.from('marcas').update({ identidade: { ...(m.identidade ?? {}), posicao: ids.indexOf(m.id) } }).eq('id', m.id).then(({ error: e }) => {
+        if (e) throw e
+      }),
+    ),
+  )
+}
