@@ -15,7 +15,8 @@ import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Gaveta } from './ui/Gaveta'
 import { Calendario } from './ui/Calendario'
-import { PainelGastos, dolar } from './ui/Gastos'
+import { PainelGastos } from './ui/Gastos'
+import { dolar } from './lib/formato'
 import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
 import { PostComErro } from './ui/PostComErro'
@@ -95,7 +96,7 @@ function Painel({ logado }: { logado: boolean }) {
       return novo
     })
   const marcasDoBanco = useMarcas(logado, versaoMarcas)
-  const marcas = marcasDoBanco ?? []
+  const marcas = useMemo(() => marcasDoBanco ?? [], [marcasDoBanco])
   // logado, o escritório só aparece depois que as marcas chegam (antes piscava a sala de exemplo)
   const carregandoMarcas = logado && !!supabase && marcasDoBanco === null
   const [marcaId, setMarcaId] = useState<string | null>(null)

@@ -22,13 +22,16 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
     const tecla = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') ir(1)
       else if (e.key === 'ArrowLeft') ir(-1)
-      else if (e.key === 'Escape') (zoom > 1 ? setZoom(1) : aoFechar())
+      else if (e.key === 'Escape') {
+        if (zoom > 1) setZoom(1)
+        else aoFechar()
+      }
       else if (e.key === '+' || e.key === '=') ajustar(1.5)
       else if (e.key === '-') ajustar(1 / 1.5)
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   // vai direto para o <body>: fica por cima de painéis, pílulas e etiquetas, seja de onde for aberto
   return createPortal(

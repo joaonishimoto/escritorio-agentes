@@ -687,16 +687,26 @@ function tapetePersa(g: Ctx, x: number, y: number, w: number, h: number, campo: 
   r(g, 'rgba(0,0,0,.15)', x + 1, y + 1, w, h)
   r(g, borda, x, y, w, h)
   r(g, campo, x + 3, y + 3, w - 6, h - 6)
-  for (let i = x + 4; i < x + w - 4; i += 4) r(g, misturar(borda, '#ffffff', 0.25), i, y + 1, 2, 1), r(g, misturar(borda, '#ffffff', 0.25), i, y + h - 2, 2, 1)
+  const pontilhado = misturar(borda, '#ffffff', 0.25)
+  for (let i = x + 4; i < x + w - 4; i += 4) {
+    r(g, pontilhado, i, y + 1, 2, 1)
+    r(g, pontilhado, i, y + h - 2, 2, 1)
+  }
   r(g, borda, x + 6, y + 6, w - 12, 1)
   r(g, borda, x + 6, y + h - 7, w - 12, 1)
   const cx = x + w / 2
   const cy = y + h / 2
   for (let k = 0; k < 7; k++) r(g, k % 2 ? borda : detalhe, cx - 14 + k * 2, cy - 7 + Math.abs(3 - k), 28 - k * 4 > 0 ? 28 - k * 4 : 2, 14 - Math.abs(3 - k) * 2)
   r(g, borda, cx - 2, cy - 2, 4, 4)
-  for (const [a, b] of [[x + 10, y + 10], [x + w - 14, y + 10], [x + 10, y + h - 14], [x + w - 14, y + h - 14]]) r(g, detalhe, a, b, 4, 4), r(g, borda, a + 1, b + 1, 2, 2)
+  for (const [a, b] of [[x + 10, y + 10], [x + w - 14, y + 10], [x + 10, y + h - 14], [x + w - 14, y + h - 14]]) {
+    r(g, detalhe, a, b, 4, 4)
+    r(g, borda, a + 1, b + 1, 2, 2)
+  }
   // franjas
-  for (let i = x + 2; i < x + w - 2; i += 3) r(g, '#efe3c4', i, y - 2, 1, 2), r(g, '#efe3c4', i, y + h, 1, 2)
+  for (let i = x + 2; i < x + w - 2; i += 3) {
+    r(g, '#efe3c4', i, y - 2, 1, 2)
+    r(g, '#efe3c4', i, y + h, 1, 2)
+  }
 }
 
 function luminariaDePe(g: Ctx, x: number, y: number) {
@@ -729,7 +739,10 @@ function sofa(g: Ctx, x: number, y: number, w: number, cor: string) {
   r(g, '#1f2330', x - 1, y - 1, w + 2, 22)
   r(g, cor, x, y, w, 20)
   r(g, escuro, x, y + 8, w, 1)
-  for (let i = x + 4; i < x + w - 3; i += 6) r(g, escuro, i, y + 3, 1, 1), r(g, claro, i + 1, y + 2, 1, 1)
+  for (let i = x + 4; i < x + w - 3; i += 6) {
+    r(g, escuro, i, y + 3, 1, 1)
+    r(g, claro, i + 1, y + 2, 1, 1)
+  }
   r(g, claro, x + 5, y + 10, w / 2 - 6, 6)
   r(g, claro, x + w / 2 + 1, y + 10, w / 2 - 6, 6)
   r(g, escuro, x, y, 4, 20)

@@ -54,7 +54,7 @@ const PROTEGIDAS = ['instagram', 'instagram_conectado_em', 'neutra', 'tom_editad
 async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: string; id?: string; campos?: Record<string, unknown> }) {
   const { data: atual } = await db.from('marcas').select(CAMPOS_PERFIL).eq('id', corpo.id ?? '').eq('dono_id', usuario).maybeSingle()
   if (!atual) return res.status(404).json({ erro: 'Marca não encontrada' })
-  const sem = ({ modelo_slides_html: _m, ...m }: typeof atual) => m
+  const sem = (m: typeof atual) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'modelo_slides_html')) as Omit<typeof atual, 'modelo_slides_html'>
 
   if (corpo.acao === 'ler') return res.json({ marca: sem(completarMarca(atual)) })
 
