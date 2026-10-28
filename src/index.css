@@ -310,12 +310,6 @@ i.publicado { background: #3f7650 }
   clip-path: polygon(0 0, 100% 0, 50% 100%); transform: translateX(-50%) }
 .pixel-balao.alerta { background: #f2b233 }
 @keyframes pixel-surge { from { transform: translateY(6px) scale(.6); opacity: 0 } }
-.pixel-estilo { position: absolute; left: 12px; bottom: 12px; font-family: 'Pixelify Sans', monospace; font-size: 14px; background: #fff; color: #1f2330;
-  border: 0; padding: 6px 10px; box-shadow: 0 0 0 2px #1f2330, 3px 3px 0 2px rgba(0,0,0,.3); cursor: pointer }
-.pixel-estilo:hover { background: #dce6f5 }
-.pixel-estilo { display: inline-flex; align-items: center; gap: 8px }
-.pixel-estilo .amostra { width: 14px; height: 14px; box-shadow: 0 0 0 2px #1f2330 }
-.pixel-estilo.ativo { background: #f2b233 }
 @media (prefers-reduced-motion: reduce) { .pixel-balao { animation: none } }
 
 /* etapa atual do post */
@@ -425,7 +419,6 @@ i.publicado { background: #3f7650 }
 
 /* quem está andando passa por cima dos nomes e balões */
 .pixel-frente { position: absolute; inset: 0; pointer-events: none; z-index: 1500 }
-.pixel-estilo { z-index: 2000 }
 i.falhou { background: var(--danger, #b42318) }
 .cal-capas img.falhou { border-color: var(--danger, #b42318) }
 .cal-post-sem.falhou { background: color-mix(in srgb, var(--danger, #b42318) 25%, var(--surface)) }
@@ -562,7 +555,6 @@ i.falhou { background: var(--danger, #b42318) }
   .pixel-nome { font-size: 8px; padding: 1px 3px 2px }
   .pixel-depto { font-size: 8px; padding: 0 3px 1px }
   .pixel-balao { max-width: 170px; font-size: 12px; padding: 5px 7px }
-  .pixel-estilo { left: 8px; bottom: 8px; font-size: 12px; padding: 5px 8px }
 
   /* rodapé */
   .rodape { padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) }
@@ -1131,3 +1123,36 @@ i.falhou { background: var(--danger, #b42318) }
 .pe-slides button { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; aspect-ratio: 4/5; background: var(--muted) }
 .pe-slides img { width: 100%; height: 100%; object-fit: cover; display: block }
 
+
+/* barra das salas, no alto do andar */
+.pixel-salas { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; gap: 6px; max-width: calc(100% - 24px); overflow-x: auto; scrollbar-width: none; padding: 4px }
+.pixel-salas::-webkit-scrollbar { display: none }
+.pixel-salas button { flex: none; display: inline-flex; align-items: center; gap: 7px; font-family: 'Pixelify Sans', monospace; font-size: 13px; line-height: 1; padding: 6px 10px 7px; background: #fff; color: #1f2330; border: 0; border-radius: 0; box-shadow: 0 0 0 2px #1f2330; cursor: pointer; white-space: nowrap }
+.pixel-salas button:hover { background: #eef2f8 }
+.pixel-salas button.ativo { background: var(--cor); color: #fff }
+.pixel-salas i { width: 10px; height: 10px; background: var(--cor); box-shadow: 0 0 0 2px #1f2330 }
+.pixel-salas button.ativo i { background: #fff }
+.pixel-salas-sit { width: 8px; height: 8px; background: #3969a8; animation: pisca .8s steps(2) infinite }
+.pixel-salas-sit.erro { background: #e05a4f; animation: none }
+.pixel-salas-sit.voce { background: #f2b233 }
+.pixel-salas-conta { background: #e05a4f; color: #fff; font-size: 11px; padding: 2px 5px }
+.pixel-objeto .pixel-nome { pointer-events: none }
+.etapa { top: 58px }
+@media (max-width: 760px) { .pixel-salas { left: 8px; right: 8px; transform: none; max-width: none; top: 6px } .pixel-salas button { font-size: 12px; padding: 5px 8px 6px } }
+
+/* Sua mesa: posts de todas as salas */
+.sm-grupo { display: flex; flex-direction: column; gap: 8px }
+.sm-grupo h3 { font-size: 13px; font-weight: 600; color: var(--muted-foreground) }
+.sm-grupo.erro h3 { color: var(--danger-strong) }
+.sm-grupo ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.sm-post { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); color: var(--foreground); cursor: pointer }
+.sm-post:hover { border-color: var(--border-strong); background: color-mix(in srgb, var(--foreground) 3%, var(--surface)) }
+.sm-capa { flex: none; width: 44px; aspect-ratio: 4/5; border-radius: var(--radius-md); overflow: hidden; background: color-mix(in srgb, var(--cor) 22%, var(--surface)) }
+.sm-capa img { width: 100%; height: 100%; object-fit: cover; display: block }
+.sm-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px }
+.sm-marca { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-foreground) }
+.sm-marca i { width: 8px; height: 8px; border-radius: 2px }
+.sm-texto strong { font-size: 14px; font-weight: 550; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.sm-grupo.erro .sm-post { border-color: color-mix(in srgb, var(--danger) 30%, var(--border)) }
+.sm-ir { flex: none; font-size: 20px; color: var(--muted-foreground) }
+.pixel-balao.gato { font-size: 12px; padding: 4px 8px; background: #eaf4ff }

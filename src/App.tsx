@@ -25,7 +25,7 @@ import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarSala, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
 import { PainelSala } from './ui/PainelSala'
@@ -180,6 +180,8 @@ function Painel({ logado }: { logado: boolean }) {
         })
     }, 600)
   }
+  // o andar inteiro ao vivo: cada sala com o próprio post e tudo que espera você, de todas as marcas
+  const andar = useAndar(logado && !emDemo ? marcas.map((m) => m.id) : [], recarregar)
   const quadrosDoBanco = useQuadrosDoAndar(logado ? marcas.map((m) => m.id) : [], recarregar)
   const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4, referencias: 5 } }), [])
   const quadros = marcas.length ? quadrosDoBanco : quadrosDemo
@@ -250,10 +252,27 @@ function Painel({ logado }: { logado: boolean }) {
 
   const esperando = !emDemo && post?.status === 'aguardando_aprovacao'
   // o post pronto não abre o painel sozinho: você pula na sua mesa e toca um aviso; o painel abre clicando nela
-  const mostrarAprovacao = esperando && !selecionado && foco === 'voce'
   const definirPostEsperandoVoce = useEscritorio((s) => s.definirPostEsperandoVoce)
-  useEffect(() => definirPostEsperandoVoce(emDemo ? null : esperando), [emDemo, esperando, definirPostEsperandoVoce])
-  const mostrarErro = !emDemo && post?.status === 'erro' && !selecionado && foco === 'voce'
+  // na sua mesa: tudo que espera você em qualquer sala; com mais de um, a mesa mostra a lista para você escolher
+  const naSuaMesa = emDemo ? [] : andar.naSuaMesa.length ? andar.naSuaMesa : posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
+  const [escolhido, setEscolhido] = useState<string | null>(null)
+  useEffect(() => {
+    if (foco !== 'voce') setEscolhido(null)
+  }, [foco])
+  const direto = naSuaMesa.length <= 1 || escolhido === post?.id
+  const algoNaMesa = esperando || naSuaMesa.length > 0
+  useEffect(() => definirPostEsperandoVoce(emDemo ? null : algoNaMesa), [emDemo, algoNaMesa, definirPostEsperandoVoce])
+  const mostrarAprovacao = esperando && !selecionado && foco === 'voce' && direto
+  const mostrarErro = !emDemo && post?.status === 'erro' && !selecionado && foco === 'voce' && direto
+  const abrirDaMesa = (p: { id: string; marca_id: string }) => {
+    pararDemo()
+    setEmDemo(false)
+    if (p.marca_id !== marcaId) setMarcaId(p.marca_id)
+    setPostId(p.id)
+    setEscolhido(p.id)
+    focar('voce')
+  }
+  const voltarParaMesa = () => (naSuaMesa.length > 1 ? setEscolhido(null) : focar(null))
   const statusAnterior = useRef<{ id: string; status: string } | null>(null)
   useEffect(() => {
     if (!post) return
@@ -276,7 +295,13 @@ function Painel({ logado }: { logado: boolean }) {
       alerta: alertas.some((x) => x.gravidade === 'alta'),
     }
   }, [financeiro])
-  const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
+  // gasto do mês embaixo do cofrinho de cada sala (a aberta usa o número ao vivo do post aberto)
+  const cofres = useMemo(() => {
+    if (emDemo || !logado) return undefined
+    const x: Record<string, string> = Object.fromEntries(Object.entries(andar.mes).map(([id, v]) => [id, `${dolar(v)} no mês`]))
+    if (marcaId && custos) x[marcaId] = `${dolar(custos.mes)} no mês`
+    return x
+  }, [andar.mes, custos, marcaId, emDemo, logado])
   const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
   return (
@@ -369,7 +394,13 @@ function Painel({ logado }: { logado: boolean }) {
               quadros={quadros}
               aoAbrirQuadro={abrirQuadro}
               financeiro={resumoFin}
-              cofre={custos ? `${dolar(custos.mes)} no mês` : null}
+              cofres={cofres}
+              porSala={andar.porSala}
+              naSuaMesa={naSuaMesa.length}
+              aoEditarSala={(id) => {
+                escolherMarca(id)
+                focar('sala')
+              }}
             />
           ) : (
             <Escritorio
@@ -380,13 +411,13 @@ function Painel({ logado }: { logado: boolean }) {
           )}
         </Suspense>
         {mostrarErro && post ? (
-          <PostComErro post={post} aoMudar={mudou} aoFechar={() => focar(null)} />
+          <PostComErro post={post} aoMudar={mudou} aoFechar={voltarParaMesa} />
         ) : mostrarAprovacao && post ? (
           <Aprovacao
             post={post}
             regras={regras}
             aoMudar={mudou}
-            aoFechar={() => focar(null)}
+            aoFechar={voltarParaMesa}
           />
         ) : foco === 'financeiro' ? (
           <PainelFinanceiro
@@ -417,7 +448,7 @@ function Painel({ logado }: { logado: boolean }) {
             aoAbrirFinanceiro={logado && !emDemo ? () => focar('financeiro') : undefined}
           />
         ) : foco === 'voce' ? (
-          <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
+          <SuaMesa pendentes={naSuaMesa} marcas={marcasNoAndar} emDemo={emDemo} aoAbrirPost={abrirDaMesa} />
         ) : (
           <PainelAgente
             post={emDemo ? null : post}

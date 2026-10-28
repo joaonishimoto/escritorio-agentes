@@ -269,3 +269,63 @@ export function useCustos(marcaId: string | null, postId: string | null, custoDo
   }, [marcaId, postId, custoDoPost, status])
   return custos
 }
+
+export type EstadoNaSala = 'ocioso' | 'na_fila' | 'trabalhando' | 'concluido' | 'esperando_voce' | 'erro'
+export interface Andar {
+  /** o que cada agente está fazendo em cada sala, pelo post em andamento dela */
+  porSala: Record<string, Partial<Record<string, EstadoNaSala>>>
+  /** posts de todas as marcas esperando você (aprovação ou erro), mais novos primeiro */
+  naSuaMesa: Post[]
+  /** gasto do mês em cada sala */
+  mes: Record<string, number>
+}
+const ANDAR_VAZIO: Andar = { porSala: {}, naSuaMesa: [], mes: {} }
+const DO_PASSO: Record<string, EstadoNaSala> = { pendente: 'na_fila', rodando: 'trabalhando', feito: 'concluido', falhou: 'erro' }
+
+/** O andar inteiro ao vivo: cada sala com o próprio post trabalhando e tudo que está esperando na sua mesa. */
+export function useAndar(marcaIds: string[], recarregar: number): Andar {
+  const [andar, setAndar] = useState<Andar>(ANDAR_VAZIO)
+  const chave = marcaIds.join(',')
+  useEffect(() => {
+    if (!supabase || !marcaIds.length) return setAndar(ANDAR_VAZIO)
+    const sb = supabase
+    let valendo = true
+    const buscar = async () => {
+      const inicioDoMes = new Date()
+      inicioDoMes.setDate(1)
+      inicioDoMes.setHours(0, 0, 0, 0)
+      const [vivos, mes] = await Promise.all([
+        sb.from('posts').select('*').in('marca_id', marcaIds).in('status', ['em_producao', 'aprovado', 'aguardando_aprovacao', 'erro']).order('criado_em', { ascending: false }).limit(60),
+        sb.from('posts').select('marca_id, custo_usd').in('marca_id', marcaIds).gte('criado_em', inicioDoMes.toISOString()),
+      ])
+      const posts = (vivos.data as Post[]) ?? []
+      // a sala mostra o post que está andando; se nenhum, o mais novo parado esperando você
+      const daSala = new Map<string, Post>()
+      for (const p of posts) if (['em_producao', 'aprovado'].includes(p.status) && !daSala.has(p.marca_id)) daSala.set(p.marca_id, p)
+      for (const p of posts) if (!daSala.has(p.marca_id)) daSala.set(p.marca_id, p)
+      const ids = [...daSala.values()].map((p) => p.id)
+      const { data: passos } = ids.length ? await sb.from('passos').select('post_id, agente, status, ordem').in('post_id', ids) : { data: [] }
+      const ultimo = new Map<string, { status: string; ordem: number }>()
+      for (const x of (passos ?? []) as { post_id: string; agente: string; status: string; ordem: number }[]) {
+        const k = `${x.post_id}:${x.agente}`
+        if ((ultimo.get(k)?.ordem ?? -1) < x.ordem) ultimo.set(k, x)
+      }
+      const porSala: Andar['porSala'] = {}
+      for (const [marca, p] of daSala) {
+        const estados: Partial<Record<string, EstadoNaSala>> = {}
+        for (const [k, x] of ultimo) if (k.startsWith(`${p.id}:`) && DO_PASSO[x.status]) estados[k.slice(p.id.length + 1)] = DO_PASSO[x.status]
+        porSala[marca] = estados
+      }
+      const gasto: Record<string, number> = {}
+      for (const x of (mes.data ?? []) as { marca_id: string; custo_usd: number }[]) gasto[x.marca_id] = (gasto[x.marca_id] ?? 0) + Number(x.custo_usd)
+      if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro'), mes: gasto })
+    }
+    buscar().catch((e) => console.error('não consegui ver o andar', e))
+    const id = window.setInterval(() => document.visibilityState === 'visible' && buscar().catch(() => {}), 8000)
+    return () => {
+      valendo = false
+      window.clearInterval(id)
+    }
+  }, [chave, recarregar]) // eslint-disable-line react-hooks/exhaustive-deps
+  return andar
+}

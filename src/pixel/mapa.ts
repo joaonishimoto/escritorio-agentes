@@ -7,11 +7,11 @@ export const PASSO_SALA = 336 // sala + parede de 1 bloco
 export const PAREDE_H = 34 // faixa da parede do fundo
 export const SALA_H = 240
 export const CORREDOR_Y = 240
-export const CORREDOR_H = 64
+export const CORREDOR_H = 26
 export const ANDAR_H = CORREDOR_Y + CORREDOR_H
 export const VOCE_W = 160
 export const PORTA_X = 160 // porta principal de cada sala, que dá no corredor
-export const CORREDOR_PES = CORREDOR_Y + 36
+export const CORREDOR_PES = CORREDOR_Y + 14
 
 // ───────── planta da sala: três departamentos em cima, hall embaixo ─────────
 
@@ -34,6 +34,8 @@ export const LINHA_HALL = 174 // onde se anda no hall
 export const CAFE = { x: 262, y: 188 }
 /** Cofrinho do hall: clicar mostra quanto a sala está gastando. */
 export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
+/** Kit de decoração do hall (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
+export const DECORAR = { x: 50, y: 186, w: 30, h: 28 }
 
 /** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
@@ -301,6 +303,30 @@ function tripe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x + 8, y + 16, 2, 4)
 }
 
+/** Mostruário de cores num cavalete e uma lata de tinta com a cor da marca. */
+function kitDecorar(g: Ctx, x: number, y: number, estilo: Estilo) {
+  const contorno = '#1f2330'
+  r(g, 'rgba(0,0,0,.15)', x + 1, y + 25, 28, 2)
+  // cavalete
+  r(g, contorno, x + 3, y + 12, 2, 14)
+  r(g, contorno, x + 13, y + 12, 2, 14)
+  r(g, contorno, x + 1, y, 16, 15)
+  r(g, '#f4efe4', x + 2, y + 1, 14, 13)
+  const amostras = [estilo.parede, estilo.rodape, estilo.piso, estilo.mesa, estilo.tapete, estilo.cadeira]
+  amostras.forEach((c, i) => {
+    r(g, contorno, x + 3 + (i % 3) * 4, y + 2 + Math.floor(i / 3) * 6, 4, 5)
+    r(g, c, x + 4 + (i % 3) * 4, y + 3 + Math.floor(i / 3) * 6, 2, 3)
+  })
+  // lata de tinta com a cor da marca e o rolo encostado
+  r(g, contorno, x + 18, y + 15, 11, 11)
+  r(g, '#c9ced8', x + 19, y + 16, 9, 9)
+  r(g, estilo.rodape, x + 19, y + 18, 9, 4)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.35), x + 19, y + 16, 9, 1)
+  r(g, contorno, x + 22, y + 4, 2, 12)
+  r(g, contorno, x + 19, y + 1, 9, 4)
+  r(g, estilo.rodape, x + 20, y + 2, 7, 2)
+}
+
 /** Porquinho cor-de-rosa num banquinho, com uma moeda entrando. */
 function cofrinho(g: Ctx, x: number, y: number) {
   const contorno = '#1f2330'
@@ -511,6 +537,7 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 183, 98, 1)
   r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 210, 98, 1)
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
+  kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
   planta(g, x0 + 300, 160)
@@ -540,10 +567,10 @@ export const PORTA_VOCE_X = 80
 export function desenharCorredor(g: Ctx, largura: number) {
   r(g, '#ddd6c8', 0, CORREDOR_Y, largura, CORREDOR_H)
   for (let x = 0; x < largura; x += 16) r(g, '#d2cab9', x, CORREDOR_Y, 1, CORREDOR_H)
-  r(g, '#2a5288', 8, CORREDOR_Y + 26, largura - 16, 18)
-  r(g, '#3969a8', 8, CORREDOR_Y + 27, largura - 16, 1)
-  r(g, '#3969a8', 8, CORREDOR_Y + 42, largura - 16, 1)
-  for (let x = 40; x < largura; x += 120) planta(g, x, CORREDOR_Y + 46)
+  // corredor estreito: só uma passadeira para quem leva pastas de uma sala a outra
+  r(g, '#2a5288', 8, CORREDOR_Y + 6, largura - 16, 14)
+  r(g, '#3969a8', 8, CORREDOR_Y + 7, largura - 16, 1)
+  r(g, '#3969a8', 8, CORREDOR_Y + 18, largura - 16, 1)
 }
 
 export function desenharParedeEntre(g: Ctx, x: number) {

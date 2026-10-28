@@ -4,10 +4,10 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
-  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
-  COFRINHO, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
+  COFRINHO, DECORAR, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -51,6 +51,8 @@ interface Andante {
   dist: number
   parouEm: number
   pasta: boolean
+  /** você não levanta: manda uma cartinha que voa da sua mesa até a mesa de quem recebe */
+  carta?: boolean
   alvo?: { sala: number; quem: AgenteId | 'voce' }
 }
 
@@ -82,7 +84,10 @@ export function EscritorioPixel({
   quadros,
   aoAbrirQuadro,
   financeiro,
-  cofre,
+  cofres,
+  porSala,
+  naSuaMesa = 0,
+  aoEditarSala,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
@@ -93,8 +98,14 @@ export function EscritorioPixel({
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
   /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
   financeiro?: { barras: number[]; dicas: number; alerta: boolean }
-  /** o que aparece embaixo do cofrinho da sala ativa (gasto do mês) */
-  cofre?: string | null
+  /** o que aparece embaixo do cofrinho de cada sala (gasto do mês), por marca */
+  cofres?: Record<string, string>
+  /** o que os agentes de cada sala estão fazendo no post dela (a sala aberta usa o post aberto, com as pastas andando) */
+  porSala?: Record<string, Partial<Record<string, Estado>>>
+  /** quantos posts de todas as marcas estão esperando você */
+  naSuaMesa?: number
+  /** clique no kit de decoração de uma sala */
+  aoEditarSala?: (marcaId: string) => void
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -129,7 +140,8 @@ export function EscritorioPixel({
   const estiloDe = (m: MarcaNoAndar, i: number) => estiloDaSala(padraoDe(m, i), corDe(m), m.sala)
 
   // estado que o laço de desenho lê sem precisar renderizar o React de novo
-  const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
+  const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, porSala, irPara: null as number | null, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
+  vivo.current.porSala = porSala
   vivo.current.estados = estados
   vivo.current.aguardando = aguardando
   vivo.current.selecionado = selecionado
@@ -175,6 +187,15 @@ export function EscritorioPixel({
   diasRef.current = diasMarcados
 
   const andantes = useRef<Andante[]>([])
+  const gatos = useRef<Gato[]>(GATOS.map((x, n) => ({ ...x, sala: n, area: -1, x: 60 + n * 150, y: 200, rota: [], dist: 0, ate: 0, dormindo: false, dir: 1 })))
+  const [miau, setMiau] = useState<Record<string, string>>({})
+  const falarGato = (nome: string, texto: string) => {
+    setMiau((m) => ({ ...m, [nome]: texto }))
+    window.setTimeout(() => setMiau((m) => {
+      const { [nome]: _, ...resto } = m
+      return resto
+    }), 2600)
+  }
   const pastasNaMesa = useRef<Map<string, number>>(new Map())
   /** quando cada um recebeu a última pasta: só levanta para entregar depois de um tempo trabalhando nela */
   const recebeuEm = useRef<Map<string, number>>(new Map())
@@ -212,9 +233,9 @@ export function EscritorioPixel({
 
   const pendentes = useRef<Entrega[]>([])
   /** Quem está esperando uma pasta que ainda está a caminho: na tela continua "na fila", mesmo que o servidor já tenha andado. */
-  const aCaminhoDe = () => new Set(andantes.current.filter((a) => a.pasta && a.fase === 'ida' && a.alvo).map((a) => a.alvo!.quem))
+  const aCaminhoDe = () => new Set(andantes.current.filter((a) => (a.pasta || a.carta) && a.fase === 'ida' && a.alvo).map((a) => a.alvo!.quem))
 
-  const andando = (quem: AgenteId | 'voce', sala: number) => andantes.current.some((a) => a.quem === quem && a.sala === sala)
+  const andando = (quem: AgenteId | 'voce', sala: number) => andantes.current.some((a) => a.quem === quem && a.sala === sala && !a.carta)
 
   // cada entrega nova vira alguém levantando e levando a pasta
   useEffect(
@@ -274,9 +295,10 @@ export function EscritorioPixel({
         c.height = Math.round(ch * dpr)
       }
       // no celular a sala inteira cabe na largura: escala menor, mas sempre em pixels inteiros da tela
-      const porAltura = Math.max(2, Math.min(5, Math.floor(ch / (ANDAR_H + 16))))
+      // pixels inteiros da tela (não do CSS): numa tela retina a sala cresce em passos menores e ocupa mais da altura
+      const porAltura = Math.max(2 * dpr, Math.min(6 * dpr, Math.floor((ch * dpr) / (ANDAR_H + 8)))) / dpr
       const porLargura = cw / (SALA_W + 12)
-      const escala = porLargura < porAltura ? Math.max(dpr, Math.floor(porLargura * dpr)) : porAltura * dpr
+      const escala = porLargura < porAltura ? Math.max(dpr, Math.floor(porLargura * dpr)) : Math.round(porAltura * dpr)
       const vistaW = c.width / escala
       // no celular o andar fica no alto, deixando espaço embaixo para as gavetas
       const offY = porLargura < porAltura
@@ -308,7 +330,7 @@ export function EscritorioPixel({
         if (pendentes.current.some((x) => x !== e && x.para === e.de && pendentes.current.indexOf(x) < pendentes.current.indexOf(e))) return true
         const recebeu = recebeuEm.current.get(`${de.sala}:${e.de}`)
         if (recebeu !== undefined && agora - recebeu < TEMPO_MINIMO_NA_MESA) return true
-        const emPe = andantes.current.find((a) => a.quem === e.de && a.sala === de.sala)
+        const emPe = andantes.current.find((a) => a.quem === e.de && a.sala === de.sala && !a.carta)
         if (emPe) {
           // no café: interrompe e volta para a mesa pelo mesmo caminho
           if (!emPe.pasta && emPe.fase !== 'volta') {
@@ -318,6 +340,14 @@ export function EscritorioPixel({
           return true
         }
         const para = { sala: e.para === 'voce' ? -1 : sala, quem: e.para }
+        if (e.de === 'voce' && e.para !== 'voce') {
+          // cartinha em linha reta da sua mesa até a mesa de quem recebe (o arco é desenhado no voo)
+          const m = MESAS[e.para]
+          const ida: Ponto[] = [[xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 4], [sala * PASSO_SALA + m.x + 15, m.y + 2]]
+          andantes.current.push({ id: e.id, quem: 'voce', sala: -1, ida, volta: ida, fase: 'ida', dist: 0, parouEm: 0, pasta: false, carta: true, alvo: para })
+          chegando.add(e.para)
+          return false
+        }
         const ida = caminho(de, para)
         andantes.current.push({ id: e.id, quem: e.de, sala: de.sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: true, alvo: para })
         chegando.add(e.para)
@@ -331,7 +361,8 @@ export function EscritorioPixel({
       }
       const voceAguardando = v.aguardando && pastaEmVoce
       const esperandoPasta = (i: number, id: AgenteId) => i === v.indiceAtivo && (chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id))
-      const estadoNaTela = (i: number, id: AgenteId): Estado => (i !== v.indiceAtivo ? 'ocioso' : esperandoPasta(i, id) ? 'na_fila' : v.estados[id])
+      const estadoNaTela = (i: number, id: AgenteId): Estado =>
+        i !== v.indiceAtivo ? (v.porSala?.[marcas[i]?.id]?.[id] ?? 'ocioso') : esperandoPasta(i, id) ? 'na_fila' : v.estados[id]
 
       if (DEPURAR) {
         ;(window as unknown as { __pixel: unknown }).__pixel = {
@@ -358,9 +389,13 @@ export function EscritorioPixel({
         }
         const rota = a.fase === 'ida' ? a.ida : a.volta
         // caminhos longos (atravessar o corredor) andam mais rápido: ninguém leva mais que ~6 s
-        a.dist += Math.max(VELOCIDADE, comprimento(rota) / 6) * dt
+        a.dist += (a.carta ? Math.max(120, comprimento(rota) / 1.8) : Math.max(VELOCIDADE, comprimento(rota) / 6)) * dt
         if (a.dist >= comprimento(rota)) {
-          if (a.fase === 'ida') {
+          if (a.carta) {
+            pastasNaMesa.current.set(`${a.alvo!.sala}:${a.alvo!.quem}`, agora)
+            recebeuEm.current.set(`${a.alvo!.sala}:${a.alvo!.quem}`, agora)
+            a.dist = -1
+          } else if (a.fase === 'ida') {
             a.fase = 'parado'
             a.parouEm = agora
             if (a.alvo) {
@@ -374,12 +409,12 @@ export function EscritorioPixel({
       andantes.current = andantes.current.filter((a) => a.dist >= 0)
 
       // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
-      const viajante = andantes.current.find((a) => a.pasta && (a.sala === -1 || a.alvo?.sala === -1))
+      const viajante = andantes.current.find((a) => (a.pasta || a.carta) && (a.sala === -1 || a.alvo?.sala === -1))
       // o calendário abre por cima de onde você está (o da sala ou o da sua mesa): a câmera não sai do lugar
       let alvoX =
         v.foco === 'calendario' && alvoAntes.current !== null
           ? alvoAntes.current
-          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? v.indiceAtivo * PASSO_SALA + SALA_W / 2
       alvoAntes.current = alvoX
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
@@ -460,10 +495,10 @@ export function EscritorioPixel({
           const x = i * PASSO_SALA + m.x + MESA_W2 - BONECO.w / 2
           const y = m.y + 10 + dy
           g.drawImage(quadro(VISUAL[a.id], 'cima', 0, true), x, y)
+          if (est === 'na_fila') reticencias(g, x + 2, y - 8, t)
+          if (est === 'esperando_voce' || est === 'erro') exclamacao(g, x + 5, y - 12 + Math.round(Math.sin(t * 6)), est === 'erro' ? '#e05a4f' : '#f2b233')
           if (i === v.indiceAtivo) {
             if (est === 'concluido' && desde < 0.8) faiscas(g, x + 7, y + 4, desde)
-            if (est === 'na_fila') reticencias(g, x + 2, y - 8, t)
-            if (est === 'esperando_voce' || est === 'erro') exclamacao(g, x + 5, y - 12 + Math.round(Math.sin(t * 6)), est === 'erro' ? '#e05a4f' : '#f2b233')
             if (v.selecionado === a.id) seta(g, x + 4, y - 10 + Math.round(Math.sin(t * 5) * 1.5))
             posicoesEtiqueta[a.id] = [x + 7, m.y - 11]
             posicoesNome[a.id] = [x + 7, m.y + 27]
@@ -491,7 +526,6 @@ export function EscritorioPixel({
         posicoesEtiqueta.financeiro = [fx, fy - 14]
         posicoesNome.financeiro = [fx, MESA_FIN.y + 18]
       }
-      posicoesNome.cofre = [v.indiceAtivo * PASSO_SALA + COFRINHO.x + 12, COFRINHO.y + 22]
 
       // quem está andando vai numa camada por cima dos textos, por ordem de altura para um passar na frente do outro
       const cf = frente.current
@@ -513,6 +547,26 @@ export function EscritorioPixel({
         return pa.y - pb.y
       })
       for (const a of ordenados) {
+        if (a.carta) {
+          // voa em arco, balançando, com um rastro de pontinhos
+          const total = comprimento(a.ida)
+          const k = total ? Math.max(0, a.dist) / total : 1
+          const altura = Math.min(70, 24 + total / 12)
+          const ponto = (q: number) => {
+            const p = noCaminho(a.ida, q * total)
+            return [p.x, p.y - Math.sin(q * Math.PI) * altura] as const
+          }
+          gAndando.fillStyle = 'rgba(255,255,255,.7)'
+          for (let r = 1; r <= 4; r++) {
+            const q = k - r * 0.035
+            if (q <= 0) break
+            const [rx, ry] = ponto(q)
+            gAndando.fillRect(Math.round(rx), Math.round(ry), 2, 2)
+          }
+          const [cx, cy] = ponto(k)
+          carta(gAndando, Math.round(cx - 6), Math.round(cy - 4 + Math.sin(t * 14) * 1.5))
+          continue
+        }
         const rota = a.fase === 'volta' ? a.volta : a.ida
         const p = noCaminho(rota, Math.max(0, a.fase === 'parado' ? comprimento(a.ida) : a.dist))
         const passo = a.fase === 'parado' ? 0 : ((Math.floor(t * 8) % 2) + 1) as 1 | 2
@@ -530,6 +584,49 @@ export function EscritorioPixel({
         }
       }
 
+      // Maki e Gojo passeiam pelas salas: param um pouco, às vezes cochilam, às vezes mudam de sala pelo corredor
+      for (const gt of gatos.current) {
+        if (gt.sala >= marcas.length) gt.sala = 0
+        if (!gt.rota.length) {
+          if (agora < gt.ate) {
+            // parado
+          } else {
+            const outra = marcas.length > 1 && Math.random() < 0.25
+            const sala = outra ? Math.floor(Math.random() * marcas.length) : gt.sala
+            const noDepto = Math.random() < 0.35
+            const d = DEPTOS[Math.floor(Math.random() * DEPTOS.length)]
+            const alvo: Ponto = noDepto
+              ? [sala * PASSO_SALA + d.x + 10 + Math.random() * (d.w - 20), LINHA_DEPTO - 4 + Math.random() * 6]
+              : [sala * PASSO_SALA + 14 + Math.random() * (SALA_W - 28), LINHA_HALL + Math.random() * 50]
+            const x0 = gt.sala * PASSO_SALA
+            const rota: Ponto[] = [[gt.x, gt.y]]
+            if (gt.area >= 0) rota.push([x0 + DEPTOS[gt.area].porta, LINHA_DEPTO], [x0 + DEPTOS[gt.area].porta, LINHA_HALL])
+            if (sala !== gt.sala) rota.push([x0 + PORTA_X, LINHA_HALL], [x0 + PORTA_X, CORREDOR_PES], [sala * PASSO_SALA + PORTA_X, CORREDOR_PES], [sala * PASSO_SALA + PORTA_X, LINHA_HALL])
+            if (noDepto) rota.push([sala * PASSO_SALA + d.porta, LINHA_HALL], [sala * PASSO_SALA + d.porta, LINHA_DEPTO])
+            rota.push(alvo)
+            gt.rota = rota
+            gt.dist = 0
+            gt.sala = sala
+            gt.area = noDepto ? DEPTOS.indexOf(d) : -1
+            gt.dormindo = false
+          }
+        } else {
+          gt.dist += 26 * dt
+          const p = noCaminho(gt.rota, gt.dist)
+          if (Math.abs(p.x - gt.x) > 0.01) gt.dir = p.x > gt.x ? 1 : -1
+          gt.x = p.x
+          gt.y = p.y
+          if (gt.dist >= comprimento(gt.rota)) {
+            gt.rota = []
+            gt.dormindo = Math.random() < 0.3
+            gt.ate = agora + (gt.dormindo ? 12000 : 2500) + Math.random() * 6000
+          }
+        }
+        const andandoAgora = gt.rota.length > 0
+        gato(gAndando, Math.round(gt.x), Math.round(gt.y), gt, andandoAgora ? Math.floor(t * 8) % 2 : -1, t)
+        posicoesEtiqueta[`gato:${gt.nome}`] = [gt.x, gt.y - 12]
+      }
+
       // etiquetas em HTML acompanham os bonecos
       for (const [chave, el] of etiquetas.current) {
         if (chave.startsWith('placa:')) {
@@ -541,9 +638,17 @@ export function EscritorioPixel({
           continue
         }
         if (chave.startsWith('depto:')) {
-          const d = DEPTOS[Number(chave.slice(6))]
+          const [s, n] = chave.slice(6).split(':').map(Number)
           // placa de porta: no hall, logo abaixo da porta de cada departamento
-          el.style.transform = `translate(${((v.indiceAtivo * PASSO_SALA + d.porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
+          el.style.transform = `translate(${((s * PASSO_SALA + DEPTOS[n].porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
+          continue
+        }
+        if (chave.startsWith('cofre:') || chave.startsWith('decorar:')) {
+          // embaixo do cofrinho e do kit de decoração de cada sala
+          const cofre = chave.startsWith('cofre:')
+          const s = Number(chave.slice(cofre ? 6 : 8))
+          const ref = cofre ? COFRINHO : DECORAR
+          el.style.transform = `translate(${((s * PASSO_SALA + ref.x + ref.w / 2 - camX) * escala) / dpr}px, ${((ref.y + ref.h + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
         const nome = chave.startsWith('nome:')
@@ -585,6 +690,8 @@ export function EscritorioPixel({
     return { x: ((ev.clientX - rect.left) * dpr) / escala + camX, y: ((ev.clientY - rect.top) * dpr) / escala - offY }
   }
   const clicar = (x: number, y: number) => {
+    const gt = gatos.current.find((g) => Math.abs(g.x - x) < 10 && y > g.y - 14 && y < g.y + 4)
+    if (gt) return falarGato(gt.nome, gt.dormindo ? `${gt.nome} está cochilando… zzz` : `Miau! Eu sou ${gt.nome === 'Maki' ? 'a' : 'o'} ${gt.nome}`)
     if (x >= xFin) {
       const mx = xFin + MESA_FIN.x
       const naMesa = x >= mx - 6 && x <= mx + MESA_FIN.w + 6 && y >= MESA_FIN.y - 24 && y <= MESA_FIN.y + 20
@@ -599,12 +706,17 @@ export function EscritorioPixel({
     }
     const sala = Math.floor(x / PASSO_SALA)
     const lxQ = x - sala * PASSO_SALA
+    vivo.current.irPara = null
+    const dentro = (r: { x: number; y: number; w: number; h: number }, folga = 3) => lxQ >= r.x - folga && lxQ <= r.x + r.w + folga && y >= r.y - folga && y <= r.y + r.h + 8
     // cofrinho do hall: abre os gastos daquela sala
-    if (marcas[sala] && lxQ >= COFRINHO.x - 3 && lxQ <= COFRINHO.x + COFRINHO.w + 3 && y >= COFRINHO.y - 4 && y <= COFRINHO.y + COFRINHO.h + 8) {
+    if (marcas[sala] && dentro(COFRINHO)) {
       if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
       return focar('cofre')
     }
+    // kit de decoração: edita aquela sala
+    if (marcas[sala] && dentro(DECORAR) && aoEditarSala) return aoEditarSala(marcas[sala].id)
     const noQuadro = Object.values(QUADROS).some((r) => lxQ >= r.x - 2 && lxQ <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2)
+    // outra sala: só leva a câmera até ela
     if (sala !== indiceAtivo && marcas[sala] && !noQuadro) {
       focar(null)
       return aoEscolherMarca(marcas[sala].id)
@@ -624,11 +736,47 @@ export function EscritorioPixel({
     selecionar(null)
   }
 
-  const ativa = marcas[indiceAtivo]
+  // barra das salas: leva a câmera até a sala, sem abrir nada
+  const irPara = (alvo: { marca: string } | 'voce' | 'financeiro') => {
+    focar(null)
+    camera.current.arrasto = 0
+    camera.current.soltouEm = 0
+    if (typeof alvo === 'object') {
+      vivo.current.irPara = null
+      return aoEscolherMarca(alvo.marca)
+    }
+    vivo.current.irPara = alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
+  }
+  const situacao = (m: MarcaNoAndar, i: number) => {
+    const lista = Object.values(i === indiceAtivo ? estados : porSala?.[m.id] ?? {})
+    return lista.includes('erro') ? 'erro' : lista.some((e) => e === 'trabalhando' || e === 'na_fila') ? 'trabalhando' : lista.includes('esperando_voce') ? 'voce' : null
+  }
   const nomes: (AgenteId | 'voce')[] = [...AGENTES.map((a) => a.id), 'voce']
 
   return (
     <div className="pixel" ref={caixa}>
+      <nav className="pixel-salas" aria-label="Ir para a sala">
+        {[...marcas].reverse().map((m) => {
+          const i = marcas.indexOf(m)
+          const sit = situacao(m, i)
+          return (
+            <button key={m.id} className={i === indiceAtivo && !foco ? 'ativo' : ''} style={{ ['--cor' as string]: corDe(m) }} onClick={() => irPara({ marca: m.id })}>
+              <i aria-hidden />
+              {m.nome}
+              {sit && <span className={`pixel-salas-sit ${sit}`} title={sit === 'erro' ? 'Parou com erro' : sit === 'trabalhando' ? 'Trabalhando agora' : 'Esperando você'} />}
+            </button>
+          )
+        })}
+        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
+          <i aria-hidden />
+          Sua sala
+          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
+        </button>
+        <button style={{ ['--cor' as string]: '#3f8f5b' }} onClick={() => irPara('financeiro')}>
+          <i aria-hidden />
+          Financeiro
+        </button>
+      </nav>
       <canvas
         ref={tela}
         className="pixel-tela"
@@ -669,7 +817,7 @@ export function EscritorioPixel({
                 else etiquetas.current.delete(id)
               }}
             >
-              {id === 'voce' && aguardando && pastaChegouEmVoce && <div className="pixel-balao alerta">Post esperando você!</div>}
+              {id === 'voce' && aguardando && pastaChegouEmVoce && <div className="pixel-balao alerta">{naSuaMesa > 1 ? `${naSuaMesa} posts esperando você!` : 'Post esperando você!'}</div>}
               {acao && <div key={acao} className="pixel-balao">{acao}</div>}
             </div>
             <div
@@ -684,6 +832,18 @@ export function EscritorioPixel({
           </Fragment>
         )
       })}
+      {GATOS.map(({ nome }) => (
+        <div
+          key={nome}
+          className="pixel-etiqueta"
+          ref={(el) => {
+            if (el) etiquetas.current.set(`gato:${nome}`, el)
+            else etiquetas.current.delete(`gato:${nome}`)
+          }}
+        >
+          {miau[nome] && <div className="pixel-balao gato">{miau[nome]}</div>}
+        </div>
+      ))}
       <div
         className="pixel-etiqueta"
         ref={(el) => {
@@ -702,33 +862,42 @@ export function EscritorioPixel({
       >
         <div className={`pixel-nome${foco === 'financeiro' ? ' ativo' : ''}`}>Financeiro</div>
       </div>
-      <div
-        className="pixel-etiqueta"
-        ref={(el) => {
-          if (el) etiquetas.current.set('nome:cofre', el)
-          else etiquetas.current.delete('nome:cofre')
-        }}
-      >
-        {cofre && <div className={`pixel-nome cofre${foco === 'cofre' ? ' ativo' : ''}`}>{cofre}</div>}
-      </div>
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
-      {ativa && (
-        <button className={`pixel-estilo${foco === 'sala' ? ' ativo' : ''}`} onClick={() => focar(foco === 'sala' ? null : 'sala')} title="Trocar pisos, paredes, cores e móveis desta sala">
-          <span className="amostra" style={{ background: corDe(ativa) }} />
-          Editar sala
-        </button>
-      )}
-      {DEPTOS.map((d, i) => (
-        <div
-          key={d.id}
-          className="pixel-depto"
-          ref={(el) => {
-            if (el) etiquetas.current.set(`depto:${i}`, el)
-            else etiquetas.current.delete(`depto:${i}`)
-          }}
-        >
-          {d.nome}
-        </div>
+      {marcas.map((m, s) => (
+        <Fragment key={m.id}>
+          {DEPTOS.map((d, n) => (
+            <div
+              key={d.id}
+              className="pixel-depto"
+              ref={(el) => {
+                if (el) etiquetas.current.set(`depto:${s}:${n}`, el)
+                else etiquetas.current.delete(`depto:${s}:${n}`)
+              }}
+            >
+              {d.nome}
+            </div>
+          ))}
+          <div
+            className="pixel-etiqueta pixel-objeto"
+            ref={(el) => {
+              if (el) etiquetas.current.set(`cofre:${s}`, el)
+              else etiquetas.current.delete(`cofre:${s}`)
+            }}
+          >
+            {cofres?.[m.id] && <div className={`pixel-nome cofre${foco === 'cofre' && s === indiceAtivo ? ' ativo' : ''}`}>{cofres[m.id]}</div>}
+          </div>
+          {aoEditarSala && (
+            <div
+              className="pixel-etiqueta pixel-objeto"
+              ref={(el) => {
+                if (el) etiquetas.current.set(`decorar:${s}`, el)
+                else etiquetas.current.delete(`decorar:${s}`)
+              }}
+            >
+              <div className={`pixel-nome cofre${foco === 'sala' && s === indiceAtivo ? ' ativo' : ''}`}>Editar sala</div>
+            </div>
+          )}
+        </Fragment>
       ))}
       {marcas.map((m, i) => (
         <div
@@ -756,6 +925,94 @@ function pasta(g: CanvasRenderingContext2D, x: number, y: number) {
   g.fillRect(x, y, 8, 6)
   g.fillStyle = '#ffd36b'
   g.fillRect(x, y, 4, 2)
+}
+
+interface Gato {
+  nome: string
+  mancha: string
+  sala: number
+  /** -1 no hall, senão o índice do departamento */
+  area: number
+  x: number
+  y: number
+  rota: Ponto[]
+  dist: number
+  ate: number
+  dormindo: boolean
+  dir: 1 | -1
+}
+/** Maki e Gojo: branquinhos, com manchas e olhos azuis. */
+const GATOS = [
+  { nome: 'Maki', mancha: '#8a7a6c' },
+  { nome: 'Gojo', mancha: '#3b3f4a' },
+]
+
+/** Gatinho visto de lado; passo -1 é parado (sentado ou deitado, se estiver dormindo). Pés em (x, y). */
+function gato(g: CanvasRenderingContext2D, x: number, y: number, gt: Gato, passo: number, t: number) {
+  const c = '#1f2330'
+  const b = '#ffffff'
+  g.save()
+  g.translate(x, y)
+  if (gt.dir < 0) g.scale(-1, 1)
+  const f = (cor: string, a: number, bb: number, w: number, h: number) => {
+    g.fillStyle = cor
+    g.fillRect(a, bb, w, h)
+  }
+  f('rgba(0,0,0,.18)', -6, -1, 13, 2)
+  if (gt.dormindo && passo < 0) {
+    // enroladinho dormindo
+    f(c, -6, -6, 12, 6)
+    f(c, -5, -7, 10, 1)
+    f(b, -5, -6, 10, 5)
+    f(gt.mancha, -3, -6, 3, 2)
+    f(gt.mancha, 2, -4, 2, 2)
+    f(c, 2, -3, 2, 1) // olho fechado
+    f(b, -7, -3, 2, 2) // rabo
+    f(c, -8, -3, 1, 2)
+    g.restore()
+    const z = Math.floor(t * 1.5) % 3
+    g.fillStyle = '#ffffff'
+    for (let i = 0; i <= z; i++) g.fillRect(x + 5 + i * 3, y - 10 - i * 4, 2, 2)
+    return
+  }
+  const sentado = passo < 0
+  // rabo
+  f(c, -8, sentado ? -9 : -11, 3, sentado ? 7 : 6)
+  f(b, -7, sentado ? -8 : -10, 1, sentado ? 5 : 5)
+  // corpo
+  f(c, -6, sentado ? -8 : -8, 10, sentado ? 7 : 6)
+  f(b, -5, -7, 8, sentado ? 5 : 4)
+  f(gt.mancha, -4, -7, 3, 2)
+  // patas
+  const pa = passo === 1 ? 1 : 0
+  if (sentado) f(c, -4, -2, 8, 2)
+  else {
+    f(c, -5 + pa, -2, 2, 2)
+    f(c, 1 - pa, -2, 2, 2)
+  }
+  // cabeça e orelhas
+  f(c, 2, -12, 7, 6)
+  f(b, 3, -11, 5, 4)
+  f(c, 2, -14, 2, 2)
+  f(c, 7, -14, 2, 2)
+  f('#f2a6b8', 7, -13, 1, 1)
+  f(gt.mancha, 3, -11, 2, 1)
+  // olho azul e focinho
+  f('#4aa3ff', 6, -10, 1, 1)
+  f('#f2a6b8', 8, -8, 1, 1)
+  g.restore()
+}
+
+/** Envelope branco com o selo da marca: o "e-mail" que você manda. */
+function carta(g: CanvasRenderingContext2D, x: number, y: number) {
+  g.fillStyle = '#1f2330'
+  g.fillRect(x - 1, y - 1, 14, 10)
+  g.fillStyle = '#ffffff'
+  g.fillRect(x, y, 12, 8)
+  g.fillStyle = '#c9ced8'
+  for (let i = 0; i < 6; i++) g.fillRect(x + i, y + i * 0.6, 1, 1), g.fillRect(x + 11 - i, y + i * 0.6, 1, 1)
+  g.fillStyle = '#e05a4f'
+  g.fillRect(x + 5, y + 3, 2, 2)
 }
 
 function exclamacao(g: CanvasRenderingContext2D, x: number, y: number, cor: string) {
