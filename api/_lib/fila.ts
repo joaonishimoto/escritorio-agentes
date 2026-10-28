@@ -8,9 +8,10 @@ import { Emissor } from './eventos.js'
 
 const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
 
-/** Põe um agente na fila do post. A `ordem` é o banco que dá (gatilho em passos), para dois passos juntos não repetirem o número. */
+/** Põe um agente na fila do post, com a próxima `ordem` (o gatilho `passos_ordem` no banco faz o mesmo se ela vier vazia). */
 export async function enfileirar(postId: string, agente: string, entrada: Record<string, unknown> = {}) {
-  const { error } = await db.from('passos').insert({ post_id: postId, agente, entrada })
+  const { data: ultimo } = await db.from('passos').select('ordem').eq('post_id', postId).order('ordem', { ascending: false }).limit(1).maybeSingle()
+  const { error } = await db.from('passos').insert({ post_id: postId, agente, ordem: (ultimo?.ordem ?? 0) + 1, entrada })
   if (error) throw new Error(`Falha ao enfileirar ${agente}: ${error.message}`)
 }
 
