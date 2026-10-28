@@ -14,6 +14,7 @@ import { PerfilDaMarca } from './ui/PerfilDaMarca'
 import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
 import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
+import { Gaveta } from './ui/Gaveta'
 import { Calendario } from './ui/Calendario'
 import { PainelGastos, dolar } from './ui/Gastos'
 import { ConectarInstagram } from './ui/ConectarInstagram'
@@ -40,6 +41,7 @@ const ROTULO_STATUS: Record<string, string> = {
   publicado: 'publicado',
   reprovado: 'reprovado',
   erro: 'com erro',
+  guardado: 'na gaveta',
 }
 
 export default function App() {
@@ -191,8 +193,14 @@ function Painel({ logado }: { logado: boolean }) {
   // o andar inteiro ao vivo: cada sala com o próprio post e tudo que espera você, de todas as marcas
   const andar = useAndar(logado && !emDemo ? marcas.map((m) => m.id) : [], recarregar)
   const quadrosDoBanco = useQuadrosDoAndar(logado ? marcas.map((m) => m.id) : [], recarregar)
-  const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4, referencias: 5 } }), [])
-  const quadros = marcas.length ? quadrosDoBanco : quadrosDemo
+  const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4, referencias: 5, gaveta: 2 } }), [])
+  // quantos posts guardados em cada gaveta (a cômoda abre quando tem algum)
+  const quadros = useMemo(() => {
+    if (!marcas.length) return quadrosDemo
+    const x: Record<string, { dias: number[]; regras: number; referencias?: number; gaveta?: number }> = { ...quadrosDoBanco }
+    for (const [id, lista] of Object.entries(andar.gaveta)) x[id] = { ...(x[id] ?? { dias: [], regras: 0 }), gaveta: lista.length }
+    return x
+  }, [marcas.length, quadrosDoBanco, quadrosDemo, andar.gaveta])
   // quadros da parede: referências, calendário, branding e mural de regras abrem para a marca daquela sala
   const abrirQuadro = (id: string, quadro: Quadro) => {
     escolherMarca(id)
@@ -454,6 +462,15 @@ function Painel({ logado }: { logado: boolean }) {
               focar(null)
               setEstadoSala(null)
             }}
+          />
+        ) : foco === 'gaveta' ? (
+          <Gaveta
+            posts={marcaId ? andar.gaveta[marcaId] ?? [] : []}
+            marcaNome={marca?.nome}
+            emDemo={emDemo || !logado}
+            aoMudar={mudou}
+            aoUsar={abrirDaMesa}
+            aoFechar={() => focar(null)}
           />
         ) : foco === 'cofre' ? (
           <PainelGastos

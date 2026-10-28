@@ -18,7 +18,7 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
   })
   const slides = [...(post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
 
-  const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar') => {
+  const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar' | 'guardar') => {
     setEnviando(true)
     setErro(null)
     try {
@@ -92,6 +92,10 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
             <h3>Ficou bom?</h3>
             <button className="primario ap-largo" disabled={enviando} onClick={() => setConfirmar('agendar')}>Aprovar e agendar</button>
             <button className="secundario ap-largo" disabled={enviando} onClick={() => setConfirmar('agora')}>Publicar agora</button>
+            <button className="link ap-gaveta" disabled={enviando} onClick={() => decidir('guardar')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18M10 8h4M10 16h4" /></svg>
+              Guardar na gaveta para usar depois
+            </button>
           </>
         )}
       </section>

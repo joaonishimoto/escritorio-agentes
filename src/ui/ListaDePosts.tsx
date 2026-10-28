@@ -4,6 +4,7 @@ const GRUPOS: [string, string[]][] = [
   ['Esperando você', ['aguardando_aprovacao']],
   ['Em produção', ['em_producao', 'rascunho', 'aprovado']],
   ['Agendados', ['agendado']],
+  ['Na gaveta', ['guardado']],
   ['Com erro', ['erro']],
   ['Publicados', ['publicado']],
   ['Reprovados', ['reprovado']],

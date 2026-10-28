@@ -34,6 +34,8 @@ export const LINHA_HALL = 174 // onde se anda no hall
 export const CAFE = { x: 262, y: 188 }
 /** Cofrinho do hall: clicar mostra quanto a sala está gastando. */
 export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
+/** Gaveta de posts do hall: cômoda com uma gaveta aberta cheia de pastas. */
+export const GAVETA = { x: 258, y: 184, w: 30, h: 28 }
 /** Kit de decoração do hall (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
 export const DECORAR = { x: 50, y: 186, w: 30, h: 28 }
 
@@ -303,28 +305,77 @@ function tripe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x + 8, y + 16, 2, 4)
 }
 
-/** Mostruário de cores num cavalete e uma lata de tinta com a cor da marca. */
+/** Cômoda de madeira; com posts guardados, a gaveta de cima fica aberta mostrando as pastas. */
+function gaveteiro(g: Ctx, x: number, y: number, estilo: Estilo, quantos: number) {
+  const madeira = estilo.mesa === '#ffffff' ? '#8a6a4a' : estilo.mesa
+  const escuro = misturar(madeira, '#000000', 0.3)
+  const claro = misturar(madeira, '#ffffff', 0.18)
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 26, 28, 2)
+  r(g, '#1f2330', x - 1, y + 3, 32, 24)
+  r(g, madeira, x, y + 4, 30, 22)
+  r(g, claro, x, y + 4, 30, 2)
+  for (let i = 0; i < 3; i++) {
+    r(g, escuro, x + 2, y + 8 + i * 6, 26, 1)
+    r(g, '#d9b25f', x + 13, y + 10 + i * 6, 4, 1)
+  }
+  r(g, '#1f2330', x + 2, y + 26, 2, 2)
+  r(g, '#1f2330', x + 26, y + 26, 2, 2)
+  if (quantos > 0) {
+    // gaveta de cima puxada para fora, com pastas coloridas aparecendo
+    r(g, '#1f2330', x + 1, y - 2, 28, 9)
+    r(g, escuro, x + 2, y - 1, 26, 7)
+    const cores = ['#f2b233', '#7fb3e0', '#e07a6f', '#9fd3a8', '#f2a6b8']
+    for (let i = 0; i < Math.min(5, quantos); i++) {
+      r(g, '#1f2330', x + 4 + i * 5, y - 5 + (i % 2), 4, 6)
+      r(g, cores[i % cores.length], x + 4 + i * 5, y - 4 + (i % 2), 3, 5)
+    }
+    r(g, madeira, x + 1, y + 4, 28, 3)
+    r(g, '#d9b25f', x + 13, y + 5, 4, 1)
+  }
+}
+
+/** Cavalete de pintor com um quadrinho da própria sala, paleta de tintas e pote de pincéis. */
 function kitDecorar(g: Ctx, x: number, y: number, estilo: Estilo) {
-  const contorno = '#1f2330'
-  r(g, 'rgba(0,0,0,.15)', x + 1, y + 25, 28, 2)
-  // cavalete
-  r(g, contorno, x + 3, y + 12, 2, 14)
-  r(g, contorno, x + 13, y + 12, 2, 14)
-  r(g, contorno, x + 1, y, 16, 15)
-  r(g, '#f4efe4', x + 2, y + 1, 14, 13)
-  const amostras = [estilo.parede, estilo.rodape, estilo.piso, estilo.mesa, estilo.tapete, estilo.cadeira]
-  amostras.forEach((c, i) => {
-    r(g, contorno, x + 3 + (i % 3) * 4, y + 2 + Math.floor(i / 3) * 6, 4, 5)
-    r(g, c, x + 4 + (i % 3) * 4, y + 3 + Math.floor(i / 3) * 6, 2, 3)
-  })
-  // lata de tinta com a cor da marca e o rolo encostado
-  r(g, contorno, x + 18, y + 15, 11, 11)
-  r(g, '#c9ced8', x + 19, y + 16, 9, 9)
-  r(g, estilo.rodape, x + 19, y + 18, 9, 4)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.35), x + 19, y + 16, 9, 1)
-  r(g, contorno, x + 22, y + 4, 2, 12)
-  r(g, contorno, x + 19, y + 1, 9, 4)
-  r(g, estilo.rodape, x + 20, y + 2, 7, 2)
+  const c = '#1f2330'
+  const madeira = '#b07a45'
+  const madeiraEsc = '#7d5530'
+  r(g, 'rgba(0,0,0,.16)', x + 1, y + 26, 28, 2)
+  // pernas do cavalete (a de trás no meio, as da frente abrindo)
+  r(g, madeiraEsc, x + 14, y + 4, 2, 23)
+  for (let k = 0; k < 20; k++) {
+    const d = Math.floor(k / 7)
+    r(g, c, x + 6 - d - 1, y + 7 + k, 4, 1)
+    r(g, madeira, x + 6 - d, y + 7 + k, 2, 1)
+    r(g, c, x + 21 + d - 1, y + 7 + k, 4, 1)
+    r(g, madeira, x + 21 + d, y + 7 + k, 2, 1)
+  }
+  // tela com a sala pintada: parede, faixa da marca, piso e uma mesinha
+  r(g, c, x + 3, y, 24, 16)
+  r(g, '#f7f1e3', x + 4, y + 1, 22, 14)
+  r(g, estilo.parede, x + 5, y + 2, 20, 5)
+  r(g, misturar(estilo.parede, '#ffffff', 0.35), x + 9, y + 3, 4, 3)
+  r(g, estilo.rodape, x + 5, y + 7, 20, 1)
+  r(g, estilo.piso, x + 5, y + 8, 20, 6)
+  r(g, estilo.pisoLinha, x + 5, y + 10, 20, 1)
+  r(g, estilo.mesa === '#ffffff' ? '#e8e8ee' : estilo.mesa, x + 15, y + 9, 6, 2)
+  r(g, estilo.tapete, x + 7, y + 11, 6, 2)
+  // apoio da tela
+  r(g, c, x + 2, y + 16, 26, 3)
+  r(g, madeira, x + 3, y + 16, 24, 2)
+  // paleta encostada na perna
+  r(g, c, x - 1, y + 20, 12, 7)
+  r(g, '#e9d3a8', x, y + 21, 10, 5)
+  r(g, c, x + 7, y + 23, 2, 2)
+  r(g, '#e05a4f', x + 1, y + 22, 2, 1)
+  r(g, '#3d77b0', x + 4, y + 21, 2, 1)
+  r(g, '#f2b233', x + 1, y + 24, 2, 1)
+  r(g, estilo.rodape, x + 4, y + 24, 2, 1)
+  // pote de pincéis
+  r(g, '#3d77b0', x + 22, y + 15, 1, 6)
+  r(g, '#e05a4f', x + 26, y + 16, 1, 5)
+  r(g, c, x + 21, y + 19, 8, 8)
+  r(g, '#cfe6f2', x + 22, y + 20, 6, 6)
+  r(g, '#9fc6ea', x + 22, y + 23, 6, 3)
 }
 
 /** Porquinho cor-de-rosa num banquinho, com uma moeda entrando. */
@@ -488,7 +539,7 @@ function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
 }
 
 /** Desenha uma sala de marca inteira (sem os bonecos): Pauta, Criação e Revisão em cima, hall embaixo. */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number }) {
+export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number }) {
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
   piso(g, p.hall.estilo, x0, SALA_W, topoHall, SALA_H - topoHall, p.hall.padrao)
@@ -538,6 +589,7 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 210, 98, 1)
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
+  gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
   planta(g, x0 + 300, 160)

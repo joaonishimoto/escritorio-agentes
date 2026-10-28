@@ -4,8 +4,8 @@ import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { limparIas } from './_lib/ias.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 
-type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar'
-const ACOES: Acao[] = ['aprovar', 'agendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar']
+type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar' | 'guardar' | 'tirar_da_gaveta'
+const ACOES: Acao[] = ['aprovar', 'agendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar', 'guardar', 'tirar_da_gaveta']
 
 /** Sua decisão sobre um post: publicar agora, agendar, pedir ajuste (vira regra) ou reprovar. */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
@@ -54,6 +54,17 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     // também serve para um agendado que não conseguiu publicar: volta para você decidir de novo
     if (post.status !== 'agendado' && !(post.status === 'erro' && (post.agendado_para || (post.slides as unknown[] | null)?.length))) return res.status(409).json({ erro: 'Esse post não está agendado' })
     await db.from('posts').update({ status: 'aguardando_aprovacao', agendado_para: null }).eq('id', post_id).eq('status', post.status)
+    return res.status(200).json({ ok: true })
+  }
+  // gaveta de posts: o post pronto fica guardado na sala até você querer usar
+  if (acao === 'guardar') {
+    if (!['aguardando_aprovacao', 'agendado'].includes(post.status)) return res.status(409).json({ erro: 'Só dá para guardar um post pronto' })
+    await db.from('posts').update({ status: 'guardado', agendado_para: null }).eq('id', post_id).eq('status', post.status)
+    return res.status(200).json({ ok: true })
+  }
+  if (acao === 'tirar_da_gaveta') {
+    if (post.status !== 'guardado') return res.status(409).json({ erro: 'Esse post não está na gaveta' })
+    await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', post_id).eq('status', 'guardado')
     return res.status(200).json({ ok: true })
   }
   if (post.status !== 'aguardando_aprovacao') return res.status(409).json({ erro: 'Esse post não está esperando aprovação' })

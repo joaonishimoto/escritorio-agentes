@@ -7,7 +7,7 @@ import {
   ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
-  COFRINHO, DECORAR, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
+  COFRINHO, DECORAR, GAVETA, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -94,7 +94,7 @@ export function EscritorioPixel({
   marcaAtiva: string | null
   aoEscolherMarca: (id: string) => void
   /** o que aparece nos quadros da parede de cada sala: dias com post neste mês e quantas regras estão ativas */
-  quadros?: Record<string, { dias: number[]; regras: number; referencias?: number }>
+  quadros?: Record<string, { dias: number[]; regras: number; referencias?: number; gaveta?: number }>
   /** clique nas referências, no calendário, no branding ou no mural de regras de uma sala */
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
   /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
@@ -167,7 +167,7 @@ export function EscritorioPixel({
     const hoje = new Date().getDate()
     marcas.forEach((m, i) => {
       const q = quadros?.[m.id]
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0 })
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0 })
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
@@ -192,6 +192,8 @@ export function EscritorioPixel({
   const andantes = useRef<Andante[]>([])
   const gatos = useRef<Gato[]>(GATOS.map((x, n) => ({ ...x, sala: n, area: -1, x: 60 + n * 150, y: 200, rota: [], dist: 0, ate: 0, dormindo: false, dir: 1 })))
   const [miau, setMiau] = useState<Record<string, string>>({})
+  /** objeto do hall sob o mouse: o nome dele só aparece assim (ou quando está aberto) */
+  const [sobre, setSobre] = useState<string | null>(null)
   const falarGato = (nome: string, texto: string) => {
     setMiau((m) => ({ ...m, [nome]: texto }))
     window.setTimeout(() => setMiau((m) => {
@@ -646,11 +648,11 @@ export function EscritorioPixel({
           el.style.transform = `translate(${((s * PASSO_SALA + DEPTOS[n].porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
-        if (chave.startsWith('cofre:') || chave.startsWith('decorar:')) {
-          // embaixo do cofrinho e do kit de decoração de cada sala
-          const cofre = chave.startsWith('cofre:')
-          const s = Number(chave.slice(cofre ? 6 : 8))
-          const ref = cofre ? COFRINHO : DECORAR
+        if (chave.startsWith('cofre:') || chave.startsWith('decorar:') || chave.startsWith('gaveta:')) {
+          // embaixo do cofrinho, do kit de decoração e da gaveta de cada sala
+          const [tipo, n] = chave.split(':')
+          const s = Number(n)
+          const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : DECORAR
           el.style.transform = `translate(${((s * PASSO_SALA + ref.x + ref.w / 2 - camX) * escala) / dpr}px, ${((ref.y + ref.h + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
@@ -718,6 +720,11 @@ export function EscritorioPixel({
     }
     // kit de decoração: edita aquela sala
     if (marcas[sala] && dentro(DECORAR) && aoEditarSala) return aoEditarSala(marcas[sala].id)
+    // gaveta de posts guardados daquela sala
+    if (marcas[sala] && dentro(GAVETA)) {
+      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
+      return focar('gaveta')
+    }
     const noQuadro = Object.values(QUADROS).some((r) => lxQ >= r.x - 2 && lxQ <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2)
     // outra sala: só leva a câmera até ela
     if (sala !== indiceAtivo && marcas[sala] && !noQuadro) {
@@ -843,7 +850,17 @@ export function EscritorioPixel({
         }}
         onPointerMove={(e) => {
           const a = arrastando.current
-          if (!a) return
+          if (!a) {
+            if (e.pointerType !== 'mouse') return
+            const p = paraMundo(e)
+            const s = Math.floor(p.x / PASSO_SALA)
+            const lx = p.x - s * PASSO_SALA
+            const em = (r: { x: number; y: number; w: number; h: number }) => lx >= r.x - 3 && lx <= r.x + r.w + 3 && p.y >= r.y - 3 && p.y <= r.y + r.h + 4
+            const alvo = !marcas[s] || p.x >= xVoce ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : null
+            if (alvo !== sobre) setSobre(alvo)
+            ;(e.target as HTMLElement).style.cursor = alvo ? 'pointer' : ''
+            return
+          }
           const dx = e.clientX - a.x
           if (Math.abs(dx) > 4) a.moveu = true
           if (a.moveu) {
@@ -941,8 +958,23 @@ export function EscritorioPixel({
               else etiquetas.current.delete(`cofre:${s}`)
             }}
           >
-            {cofres?.[m.id] && <div className={`pixel-nome cofre${foco === 'cofre' && s === indiceAtivo ? ' ativo' : ''}`}>{cofres[m.id]}</div>}
+            {cofres?.[m.id] && (sobre === `cofre:${s}` || (foco === 'cofre' && s === indiceAtivo)) && (
+              <div className={`pixel-nome cofre${foco === 'cofre' && s === indiceAtivo ? ' ativo' : ''}`}>{cofres[m.id]}</div>
+            )}
           </div>
+          {(quadros?.[m.id]?.gaveta ?? 0) >= 0 && (
+            <div
+              className="pixel-etiqueta pixel-objeto"
+              ref={(el) => {
+                if (el) etiquetas.current.set(`gaveta:${s}`, el)
+                else etiquetas.current.delete(`gaveta:${s}`)
+              }}
+            >
+              {(sobre === `gaveta:${s}` || (foco === 'gaveta' && s === indiceAtivo)) && (
+                <div className={`pixel-nome cofre${foco === 'gaveta' && s === indiceAtivo ? ' ativo' : ''}`}>Gaveta · {quadros?.[m.id]?.gaveta}</div>
+              )}
+            </div>
+          )}
           {aoEditarSala && (
             <div
               className="pixel-etiqueta pixel-objeto"
@@ -951,7 +983,9 @@ export function EscritorioPixel({
                 else etiquetas.current.delete(`decorar:${s}`)
               }}
             >
-              <div className={`pixel-nome cofre${foco === 'sala' && s === indiceAtivo ? ' ativo' : ''}`}>Editar sala</div>
+              {(sobre === `decorar:${s}` || (foco === 'sala' && s === indiceAtivo)) && (
+                <div className={`pixel-nome cofre${foco === 'sala' && s === indiceAtivo ? ' ativo' : ''}`}>Editar sala</div>
+              )}
             </div>
           )}
         </Fragment>

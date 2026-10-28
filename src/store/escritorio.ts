@@ -43,7 +43,7 @@ interface EscritorioState {
   entregas: Entrega[]
   selecionado: AgenteId | null
   /** sua mesa ou o calendário da parede, quando abertos */
-  foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | null
+  foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | null
   aguardandoVoce: boolean
   /** status real do post aberto (fora da demonstração): manda mais que os eventos, que não sabem se você já aprovou ou publicou */
   postEsperandoVoce: boolean | null
@@ -55,7 +55,7 @@ interface EscritorioState {
   /** `animar: false` ao reconstruir um post antigo, para as pastas não voarem todas de uma vez */
   aplicar: (e: Evento, animar?: boolean) => void
   selecionar: (id: AgenteId | null) => void
-  focar: (foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | null) => void
+  focar: (foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | null) => void
   definirAgenda: (agenda: ItemAgenda[]) => void
   definirPosicoes: (posicoes: Partial<Record<AgenteId | 'voce', [number, number]>>) => void
   reiniciar: () => void
