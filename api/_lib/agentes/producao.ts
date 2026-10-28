@@ -44,7 +44,10 @@ export const chefe: Agente = async (ctx, _passo, em) => {
 // ───────── Pesquisador ─────────
 export const pesquisador: Agente = async (ctx, passo, em) => {
   const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
-  await em.inicio('Começando a pesquisa')
+  // devolvido pelo revisor: parte das notas que já existem e só corrige os pontos apontados
+  const anteriores = (ctx.saidas.pesquisador as { notas?: string } | undefined)?.notas
+  const devolvido = !!passo.entrada.feedback && !!anteriores
+  await em.inicio(devolvido ? 'Corrigindo só os pontos que o revisor apontou' : 'Começando a pesquisa')
   const { texto, uso } = await gerarTexto({
     modelo: 'claude-sonnet-5-5',
     sistema: sistemaDoAgente(
@@ -52,8 +55,10 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
       'pesquisador',
       'Você levanta fatos confiáveis para o post. Fato histórico precisa de duas fontes; o que divergir, marque como "dizem" ou deixe de fora. Cite as fontes.',
     ),
-    conteudo: `Pedido: ${ctx.post.briefing}\n\nPauta:\n${JSON.stringify(pauta, null, 2)}\n\n${referenciasDoPost(ctx).texto}\n\nPesquise e entregue notas curtas e verificadas, em tópicos, com as fontes no fim.${feedback(passo)}`,
-    buscaWeb: 5,
+    conteudo: devolvido
+      ? `Pedido: ${ctx.post.briefing}\n\n## Suas notas anteriores\n${anteriores}\n\nRefaça as notas mantendo tudo o que está certo e corrigindo só o que foi apontado para o pesquisador abaixo. Ignore os pontos de outros agentes. Busque na web só o necessário.${feedback(passo)}`
+      : `Pedido: ${ctx.post.briefing}\n\nPauta:\n${JSON.stringify(pauta, null, 2)}\n\n${referenciasDoPost(ctx).texto}\n\nPesquise e entregue notas curtas e verificadas, em tópicos, com as fontes no fim.${feedback(passo)}`,
+    buscaWeb: devolvido ? 2 : 5,
     aoEscrever: (t) => em.texto(t),
     aoBuscar: (q) => em.acao(`Buscando: ${q}`),
   })
@@ -220,7 +225,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'revisor',
-      'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Só aprove se todos os itens passarem.',
+      'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Só aprove se todos os itens passarem. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web. Itens que a equipe não tem como conferir (dados internos, como as receitas do app) não são problema: cite no resumo para o dono conferir.',
     ),
     conteudo: [
       ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
