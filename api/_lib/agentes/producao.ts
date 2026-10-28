@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { gerarJson, gerarTexto } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
+import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarSlides } from '../render.js'
 import { feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
@@ -34,7 +35,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final.`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa.`,
       },
     ],
     schema: Pauta,
@@ -188,7 +189,7 @@ async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente
   return { saida: { html, slides }, uso, entrega: 'Ajuste aplicado' }
 }
 
-export const designer: Agente = async (ctx, passo, em) => {
+const designerSlides: Agente = async (ctx, passo, em) => {
   const correcao = passo.entrada.correcao as Correcao | undefined
   const apontado = passo.entrada.feedback as string | undefined
   const pedido = [correcao ? `Pedido do dono da marca: ${correcao.comentario}\n${correcao.instrucao}` : '', apontado ? `Apontado nesta rodada:\n${apontado}` : '']
@@ -236,6 +237,113 @@ export const designer: Agente = async (ctx, passo, em) => {
   return { saida: { html, slides }, uso: gerado.uso, entrega: `${slides.length} slides renderizados` }
 }
 
+// Reel: depois dos slides (a capa), o designer pede o vídeo na Kling num passo próprio,
+// que se re-enfileira enquanto o vídeo não fica pronto (cada passo cabe no tempo da função).
+export const designer: Agente = async (ctx, passo, em) => {
+  if (passo.entrada.video) return gerarVideo(ctx, passo, em)
+  const r = await designerSlides(ctx, passo, em)
+  if (ctx.post.formato !== 'reel') return r
+  const { correcao, feedback } = passo.entrada
+  return { ...r, proximos: [{ agente: 'designer', entrada: { video: true, ...(correcao ? { correcao } : {}), ...(feedback ? { feedback } : {}) } }] }
+}
+
+const PromptVideo = z.object({
+  refazer: z.boolean().describe('false só se já existe vídeo e os ajustes pedidos não mudam nada no vídeo (ex.: só capa ou legenda)'),
+  prompt: z.string().describe('prompt em inglês para o gerador de vídeo: cena, sujeito, ação, câmera, luz e estilo, em até 600 caracteres; sem texto, letreiro ou logo na tela'),
+  segundos: z.union([z.literal(5), z.literal(10)]).describe('5, ou 10 só se a cena precisar de mais tempo'),
+})
+
+const ESPERA_POR_PASSO_MS = 100_000
+const MAX_ESPERAS = 6
+const RESOLUCAO = '1080p'
+
+async function gerarVideo(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2]): Promise<Resultado> {
+  const anterior = ctx.saidas.designer as Record<string, unknown> | undefined
+  const entrada = passo.entrada as { kling_id?: string; esperas?: number; prompt?: string; segundos?: 5 | 10; feedback?: string; correcao?: Correcao }
+  let { kling_id, prompt, segundos } = entrada
+  let uso = USO_ZERO
+
+  if (!kling_id) {
+    const atual = ctx.post.video
+    const pedido = [entrada.correcao ? `Pedido do dono da marca: ${entrada.correcao.comentario}\n${entrada.correcao.instrucao}` : '', entrada.feedback ?? ''].filter(Boolean).join('\n\n')
+    await em.inicio(atual ? 'Vendo se o vídeo precisa mudar' : 'Escrevendo a cena do vídeo')
+    const refs = referenciasDoPost(ctx)
+    const r = await gerarJson({
+      modelo: 'claude-sonnet-5-5',
+      effort: 'low',
+      sistema: sistemaDoAgente(ctx, 'designer', 'Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (Kling). O texto do post vai na capa e na legenda, não no vídeo.'),
+      conteudo: [
+        ...refs.blocos,
+        {
+          type: 'text' as const,
+          text: [
+            `Pedido: ${ctx.post.briefing}`,
+            `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
+            `Texto da capa:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+            refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '',
+            atual ? `## Vídeo atual\nPrompt: ${atual.prompt}` : '',
+            pedido ? `## Ajustes pedidos nesta rodada\n${pedido}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
+        },
+      ],
+      schema: PromptVideo,
+    })
+    uso = r.uso
+    if (atual && !r.dados.refazer) {
+      await em.texto('O ajuste não mexe no vídeo: mantive o que já estava pronto.')
+      return { saida: { ...anterior, video: atual }, uso, entrega: 'Vídeo mantido' }
+    }
+    prompt = r.dados.prompt
+    segundos = r.dados.segundos
+    await em.texto(`${prompt}\n`)
+    const primeiroQuadro = ctx.post.referencias?.find((x) => x.tipo === 'imagem')?.url
+    await em.acao(`Pedindo ${segundos}s de vídeo na Kling${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
+    kling_id = await pedirVideo({ prompt, segundos, resolucao: RESOLUCAO, primeiroQuadro, idExterno: `${passo.id}` })
+    const custo = custoDoVideo(segundos, RESOLUCAO)
+    uso = { ...uso, custo_usd: uso.custo_usd + custo }
+    await em.acao(`Vídeo na fila da Kling (US$ ${custo.toFixed(2)})`)
+  } else {
+    await em.inicio('Esperando o vídeo da Kling')
+  }
+
+  const inicio = Date.now()
+  let url: string | null = null
+  while (Date.now() - inicio < ESPERA_POR_PASSO_MS) {
+    const r = await consultarVideo(kling_id)
+    if (r.pronto) {
+      url = r.url
+      break
+    }
+    await new Promise((ok) => setTimeout(ok, 10_000))
+  }
+
+  if (!url) {
+    const esperas = (entrada.esperas ?? 0) + 1
+    if (esperas > MAX_ESPERAS) throw new Error(`A Kling não entregou o vídeo depois de ${Math.round((MAX_ESPERAS * ESPERA_POR_PASSO_MS) / 60_000)} minutos (pedido ${kling_id})`)
+    await em.acao('Ainda gerando, volto a olhar já já')
+    // a saída repete a do passo anterior para não perder o HTML dos slides
+    return {
+      saida: { ...anterior },
+      uso,
+      entrega: 'Vídeo ainda na Kling',
+      proximos: [{ agente: 'designer', entrada: { ...entrada, kling_id, prompt, segundos, esperas } }],
+      para: 'designer',
+    }
+  }
+
+  await em.acao('Baixando o vídeo e guardando no app')
+  const baixado = await fetch(url)
+  if (!baixado.ok) throw new Error(`Não consegui baixar o vídeo da Kling (HTTP ${baixado.status})`)
+  const caminho = `${ctx.post.id}/video-${Date.now()}.mp4`
+  const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, Buffer.from(await baixado.arrayBuffer()), { contentType: 'video/mp4', upsert: true })
+  if (error) throw new Error(`Falha ao subir o vídeo: ${error.message}`)
+  const video = { url: urlPublica(caminho), caminho, prompt: prompt ?? '', segundos: segundos ?? 5, modelo: MODELO_KLING, kling_id }
+  await db.from('posts').update({ video }).eq('id', ctx.post.id)
+  return { saida: { ...anterior, video }, uso, entrega: `Vídeo de ${video.segundos}s pronto` }
+}
+
 // ───────── Revisor ─────────
 const Revisao = z.object({
   aprovado: z.boolean(),
@@ -273,6 +381,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
         type: 'text' as const,
         text: [
           `Acima estão os ${slides.length} slides, na ordem.`,
+          ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
           `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
           precisaPesquisa ? `## Pesquisa usada\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? ''}` : '',
           reconferindo

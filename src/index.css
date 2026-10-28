@@ -236,6 +236,7 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 /* aprovação */
 .painel-aprovacao { width: min(420px, calc(100% - 24px)) }
 .slides { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.video-reel { display: block; width: 100%; max-height: 70vh; aspect-ratio: 9 / 16; object-fit: contain; background: #000; border-radius: var(--radius-md) }
 .slides img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-md); display: block; border: 1px solid var(--border) }
 .confirmar { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; color: var(--warning-strong) }
 .regras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }

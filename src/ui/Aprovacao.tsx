@@ -38,6 +38,13 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
         <button className="fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
       </header>
 
+      {post.video?.url && (
+        <section>
+          <h3>Vídeo do Reel</h3>
+          <video className="video-reel" src={post.video.url} controls playsInline preload="metadata" poster={slides[0]?.url} />
+          <p className="muted">A imagem abaixo é a capa.</p>
+        </section>
+      )}
       {slides.length > 0 && (
         <div className="slides">
           {slides.map((s, n) => (

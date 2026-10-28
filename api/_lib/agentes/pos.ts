@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { gerarJson } from '../claude.js'
 import { sistemaDoAgente } from '../contexto.js'
 import { db } from '../db.js'
-import { publicarCarrossel } from '../instagram.js'
+import { publicarCarrossel, publicarReel } from '../instagram.js'
 import { USO_ZERO, type Agente } from './tipos.js'
 
 // ───────── Publicador (sem IA) ─────────
@@ -15,13 +15,11 @@ export const publicador: Agente = async (ctx, _passo, em) => {
   const { data: token, error } = await db.rpc('ler_token_meta', { p_marca: marca.id })
   if (error || !token) throw new Error('Não consegui ler o token da Meta no Vault')
 
-  const { mediaId, permalink } = await publicarCarrossel({
-    contaId: marca.instagram_conta_id,
-    token: token as string,
-    imagens: post.slides.sort((a, b) => a.ordem - b.ordem).map((s) => s.url),
-    legenda: post.legenda ?? '',
-    aoProgredir: (m) => em.acao(m),
-  })
+  const slides = post.slides.sort((a, b) => a.ordem - b.ordem).map((s) => s.url)
+  const comum = { contaId: marca.instagram_conta_id, token: token as string, legenda: post.legenda ?? '', aoProgredir: (m: string) => em.acao(m) }
+  const { mediaId, permalink } = post.video?.url
+    ? await publicarReel({ ...comum, video: post.video.url, capa: slides[0] })
+    : await publicarCarrossel({ ...comum, imagens: slides })
   await db
     .from('posts')
     .update({ status: 'publicado', instagram_media_id: mediaId, publicado_em: new Date().toISOString() })

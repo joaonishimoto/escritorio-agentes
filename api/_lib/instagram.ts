@@ -17,8 +17,8 @@ async function chamar<T>(metodo: 'GET' | 'POST', caminho: string, params: Record
   return json
 }
 
-async function esperarPronto(containerId: string, token: string, aoEsperar: () => Promise<void>) {
-  for (let i = 0; i < 30; i++) {
+async function esperarPronto(containerId: string, token: string, aoEsperar: () => Promise<void>, tentativas = 30) {
+  for (let i = 0; i < tentativas; i++) {
     const { status_code } = await chamar<{ status_code: string }>('GET', containerId, { fields: 'status_code' }, token)
     if (status_code === 'FINISHED') return
     if (status_code === 'ERROR' || status_code === 'EXPIRED') throw new Error(`Instagram recusou a mídia (${status_code})`)
@@ -50,6 +50,27 @@ export async function publicarCarrossel(opts: {
     ).id
   }
   await esperarPronto(criacao, token, () => aoProgredir('Esperando o Instagram processar'))
+  const { id } = await chamar<{ id: string }>('POST', `${contaId}/media_publish`, { creation_id: criacao }, token)
+  const { permalink } = await chamar<{ permalink: string }>('GET', id, { fields: 'permalink' }, token)
+  return { mediaId: id, permalink }
+}
+
+/** Reel: o Instagram baixa o vídeo da URL pública e processa; a capa é o primeiro slide. */
+export async function publicarReel(opts: {
+  contaId: string
+  token: string
+  video: string
+  capa?: string
+  legenda: string
+  aoProgredir: (msg: string) => Promise<void>
+}): Promise<{ mediaId: string; permalink: string }> {
+  const { contaId, token, video, capa, legenda, aoProgredir } = opts
+  await aoProgredir('Enviando o vídeo')
+  const params: Record<string, string> = { media_type: 'REELS', video_url: video, caption: legenda, share_to_feed: 'true' }
+  if (capa) params.cover_url = capa
+  const criacao = (await chamar<{ id: string }>('POST', `${contaId}/media`, params, token)).id
+  // vídeo demora mais que imagem para processar: até ~3 minutos
+  await esperarPronto(criacao, token, () => aoProgredir('Esperando o Instagram processar o vídeo'), 60)
   const { id } = await chamar<{ id: string }>('POST', `${contaId}/media_publish`, { creation_id: criacao }, token)
   const { permalink } = await chamar<{ permalink: string }>('GET', id, { fields: 'permalink' }, token)
   return { mediaId: id, permalink }
