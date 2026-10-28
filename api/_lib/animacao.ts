@@ -38,11 +38,12 @@ async function fim() {
   return btoa(bin)
 }`
 
-const caminhoDoMuxer = createRequire(import.meta.url).resolve('mp4-muxer')
+// resolvido só na hora de gravar: as funções que só importam este arquivo (ex.: /api/posts) não levam o mp4-muxer junto
+const caminhoDoMuxer = () => createRequire(import.meta.url).resolve('mp4-muxer')
 
 /** Grava `segundos` de animação do HTML em MP4 (H.264, 1080x1920). As animações precisam ser CSS (@keyframes). */
 export async function gravarAnimacao(html: string, segundos: number): Promise<Buffer> {
-  const muxer = await readFile(caminhoDoMuxer, 'utf8')
+  const muxer = await readFile(caminhoDoMuxer(), 'utf8')
   const navegador = await abrirNavegador()
   try {
     // WebCodecs só existe em página segura: serve tudo de uma origem https falsa
