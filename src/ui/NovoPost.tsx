@@ -225,7 +225,7 @@ export function NovoPost({
     }
   }
 
-  // o cinegrafista só trabalha em Reel; num carrossel ou foto a escolha dele não vale
+  // o cinegrafista e o narrador só trabalham em Reel; num carrossel ou foto a escolha deles não vale
   const funcionarios = FUNCIONARIOS_IA.filter((f) => !f.video || formato === 'reel' || formato === '')
   const iasDoPost = Object.fromEntries(Object.entries(ias).filter(([a]) => funcionarios.some((f) => f.agente === a)))
   const resumoIas = Object.entries(iasDoPost).map(([a, id]) => `${FUNCIONARIOS_IA.find((f) => f.agente === a)?.nome}: ${nomeDaIA(id)}`)
@@ -461,7 +461,11 @@ export function NovoPost({
                       <label key={f.agente} className="np-ia">
                         <span>
                           <strong>{f.nome}</strong>
-                          <small>{f.video && formato === '' ? 'Só se o post virar Reel · ' : ''}{atual?.desc}</small>
+                          <small>
+                            {f.video && formato === '' ? 'Só se o post virar Reel · ' : ''}
+                            {atual?.desc}
+                            {f.agente === 'narrador' && escolhida !== 'nenhum' && semChave('elevenlabs') ? ' · a voz precisa de ELEVENLABS_API_KEY na Vercel' : ''}
+                          </small>
                         </span>
                         <select value={escolhida} onChange={(e) => setIas((x) => ({ ...x, [f.agente]: e.target.value }))}>
                           <option value="">Padrão ({nomeDaIA(f.padrao)})</option>
@@ -516,7 +520,7 @@ export function NovoPost({
         </div>
 
         <footer className="np-rodape">
-          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {formato === 'reel' ? 'vídeo' : 'design'} → revisão → você</p>}
+          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {formato === 'reel' ? 'vídeo → narração' : 'design'} → revisão → você</p>}
           <button type="button" className="secundario" onClick={aoFechar}>Cancelar</button>
           <button className="primario" disabled={enviando || subindo > 0 || !briefing.trim()}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
         </footer>

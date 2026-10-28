@@ -13,7 +13,7 @@ interface Perfil {
 }
 
 type Item = { chave: string; valor: string }
-type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'sala'
+type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'narracao' | 'sala'
 
 const HEX = /^#[0-9a-f]{6}$/i
 // chaves que têm campo próprio ou que o app cuida sozinho
@@ -23,8 +23,17 @@ const ABAS: { id: Aba; nome: string; quem: string }[] = [
   { id: 'visual', nome: 'Visual', quem: 'Designer e revisor' },
   { id: 'legenda', nome: 'Legenda', quem: 'Redator' },
   { id: 'revisao', nome: 'Revisão', quem: 'Revisor' },
+  { id: 'narracao', nome: 'Narração', quem: 'Narrador (Reels)' },
   { id: 'sala', nome: 'Sala', quem: 'Escritório' },
 ]
+
+// vozes prontas da ElevenLabs (as mesmas de api/_lib/elevenlabs.ts); dá para usar outra pelo ID
+const VOZES_NARRACAO = [
+  { id: 'YU8EsJtXFMyKMxYtheDk', nome: 'Mário' },
+  { id: 'zNEsdgTUa3ndwKry8Xcq', nome: 'Elvis' },
+]
+const NARRACAO_PADRAO = { ativa: true, voz: VOZES_NARRACAO[0].id, velocidade: 0.95, estabilidade: 0.5 }
+type Narracao = typeof NARRACAO_PADRAO
 
 const rotulo = (k: string) => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ')
 const chave = (r: string) => r.trim().toLowerCase().replace(/\s+/g, '_')
@@ -44,6 +53,7 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [hashtags, setHashtags] = useState('')
   const [aviso, setAviso] = useState('')
   const [checklist, setChecklist] = useState('')
+  const [narracao, setNarracao] = useState<Narracao>(NARRACAO_PADRAO)
   const [base, setBase] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -63,9 +73,11 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     setHashtags((p.hashtags_fixas ?? []).join(' '))
     setAviso(p.aviso_final ?? '')
     setChecklist(p.checklist_revisor ?? '')
+    const n = id.narracao && typeof id.narracao === 'object' ? (id.narracao as Partial<Narracao>) : {}
+    setNarracao({ ...NARRACAO_PADRAO, ...n })
   }
 
-  const retrato = JSON.stringify([nome, instagram, corSala, tom, cores, fonte, regras, hashtags, aviso, checklist])
+  const retrato = JSON.stringify([nome, instagram, corSala, tom, cores, fonte, regras, hashtags, aviso, checklist, narracao])
   const mudou = perfil !== null && retrato !== base
 
   useEffect(() => {
@@ -131,6 +143,7 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     else delete identidade.cores
     if (fonte.trim()) identidade.fonte = fonte.trim()
     for (const r of regras) if (r.chave.trim() && r.valor.trim()) identidade[chave(r.chave)] = r.valor.trim()
+    identidade.narracao = { ...narracao, voz: narracao.voz.trim() || NARRACAO_PADRAO.voz }
     try {
       const { marca } = await chamarApi<{ marca: Perfil }>('marcas', {
         acao: 'salvar',
@@ -295,6 +308,36 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                   <label htmlFor="pm-check">Checklist do revisor</label>
                   <p className="pm-dica">Um item por linha. O revisor confere cada um antes de mandar o post para você. {itensChecklist} itens.</p>
                   <textarea id="pm-check" className="pm-tom" value={checklist} onChange={(e) => setChecklist(e.target.value)} />
+                </section>
+              )}
+
+              {aba === 'narracao' && (
+                <section className="pm-secao">
+                  <label className="pm-linha">
+                    <input type="checkbox" checked={narracao.ativa} onChange={(e) => setNarracao({ ...narracao, ativa: e.target.checked })} />
+                    Narrar os Reels desta marca
+                  </label>
+                  <p className="pm-dica">O narrador escreve a fala no tom da marca, grava a voz na ElevenLabs e põe no vídeo. Dá para tirar a narração de um post só em "IAs da equipe".</p>
+                  <label htmlFor="pm-voz">Voz</label>
+                  <select
+                    id="pm-voz"
+                    value={VOZES_NARRACAO.some((v) => v.id === narracao.voz) ? narracao.voz : 'outra'}
+                    onChange={(e) => setNarracao({ ...narracao, voz: e.target.value === 'outra' ? '' : e.target.value })}
+                  >
+                    {VOZES_NARRACAO.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
+                    <option value="outra">Outra voz da ElevenLabs</option>
+                  </select>
+                  {!VOZES_NARRACAO.some((v) => v.id === narracao.voz) && (
+                    <>
+                      <input className="mono" value={narracao.voz} onChange={(e) => setNarracao({ ...narracao, voz: e.target.value.trim() })} placeholder="ID da voz (ex.: YU8EsJtXFMyKMxYtheDk)" aria-label="ID da voz" />
+                      <p className="pm-dica">Na ElevenLabs, abra a voz em Voices e copie o Voice ID.</p>
+                    </>
+                  )}
+                  <label htmlFor="pm-vel">Velocidade: {narracao.velocidade.toFixed(2).replace('.', ',')}</label>
+                  <input id="pm-vel" type="range" min={0.7} max={1.2} step={0.05} value={narracao.velocidade} onChange={(e) => setNarracao({ ...narracao, velocidade: Number(e.target.value) })} />
+                  <label htmlFor="pm-est">Estabilidade: {narracao.estabilidade.toFixed(2).replace('.', ',')}</label>
+                  <input id="pm-est" type="range" min={0} max={1} step={0.05} value={narracao.estabilidade} onChange={(e) => setNarracao({ ...narracao, estabilidade: Number(e.target.value) })} />
+                  <p className="pm-dica">Mais estabilidade deixa a voz mais constante; menos, mais expressiva.</p>
                 </section>
               )}
 

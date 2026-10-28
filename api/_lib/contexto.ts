@@ -31,7 +31,19 @@ export interface Post {
   legenda: string | null
   slides: { ordem: number; url: string; caminho: string }[]
   /** vídeo do Reel, gerado pela IA escolhida e guardado no armazenamento do app */
-  video?: { url: string; caminho: string; prompt: string; segundos: number; modelo: string; motor?: string; pedido_id?: string; kling_id?: string } | null
+  video?: {
+    url: string
+    caminho: string
+    prompt: string
+    segundos: number
+    modelo: string
+    motor?: string
+    pedido_id?: string
+    kling_id?: string
+    /** vídeo sem a narração, para narrar de novo sem voz por cima de voz */
+    original?: { url: string; caminho: string; segundos: number }
+    narracao?: { texto: string; voz: string; modelo: string }
+  } | null
   voltas_revisao: number
   custo_usd: number
   referencias?: Referencia[]
@@ -79,6 +91,7 @@ export const NOMES: Record<string, string> = {
   redator: 'Redator',
   designer: 'Designer',
   cinegrafista: 'Cinegrafista',
+  narrador: 'Narrador',
   revisor: 'Revisor',
   publicador: 'Publicador',
   curador: 'Curador',
@@ -107,6 +120,7 @@ const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: b
   redator: { tom: true, legenda: true },
   designer: { identidade: true },
   cinegrafista: { identidade: true },
+  narrador: { tom: true },
   revisor: { tom: true, identidade: true, legenda: true, outrasRegras: true },
   curador: { outrasRegras: true },
 }
@@ -138,12 +152,13 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
     .join('\n\n')
 }
 
-/** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista entra antes do revisor. */
+/** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista e o narrador entram antes do revisor. */
 export function fluxoDeProducao(etapas: Etapa[], formato?: string) {
   const producao = ['chefe', 'pesquisador', 'redator', 'designer', 'revisor']
   const ativos = etapas.filter((e) => e.ativo && producao.includes(e.agente)).map((e) => e.agente)
   const ordem = ativos.length ? ativos : producao
   if (formato !== 'reel') return ordem
   const revisor = ordem.indexOf('revisor')
-  return revisor < 0 ? [...ordem, 'cinegrafista'] : [...ordem.slice(0, revisor), 'cinegrafista', ...ordem.slice(revisor)]
+  const video = ['cinegrafista', 'narrador']
+  return revisor < 0 ? [...ordem, ...video] : [...ordem.slice(0, revisor), ...video, ...ordem.slice(revisor)]
 }

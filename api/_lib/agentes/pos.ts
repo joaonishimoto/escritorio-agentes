@@ -32,7 +32,7 @@ export const publicador: Agente = async (ctx, _passo, em) => {
 const Curadoria = z.object({
   regras: z.array(
     z.object({
-      agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'revisor', 'publicador', 'todos']),
+      agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos']),
       regra: z.string().describe('curta e verificável, no imperativo'),
       motivo: z.string(),
     }),
@@ -41,8 +41,8 @@ const Curadoria = z.object({
     .boolean()
     .describe('true se a correção é um ajuste pequeno no que já existe (trocar/remover palavra ou letra, mudar uma cor, um tamanho, uma frase da legenda) e não pede novo conteúdo nem nova pesquisa'),
   refazer_a_partir_de: z
-    .enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'nenhum'])
-    .describe('primeiro agente que precisa refazer para atender a correção. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel'),
+    .enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'nenhum'])
+    .describe('primeiro agente que precisa refazer para atender a correção. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel; narrador é só para mudar a fala da narração de um Reel'),
   instrucao: z.string().describe('o que esse agente deve mudar, em uma ou duas frases'),
 })
 

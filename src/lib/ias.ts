@@ -1,6 +1,6 @@
 // Catálogo de IAs que você escolhe por post no Novo post. As chaves são as mesmas de api/_lib/ias.ts.
 
-export type Servico = 'claude' | 'openrouter' | 'kling' | 'fal'
+export type Servico = 'claude' | 'openrouter' | 'kling' | 'fal' | 'elevenlabs'
 export type Servicos = Partial<Record<Servico, boolean>>
 
 export interface OpcaoIA {
@@ -27,6 +27,9 @@ export const MOTORES_VIDEO: OpcaoIA[] = [
   { id: 'fal-seedance', nome: 'Seedance 2.0', desc: 'Pelo fal.ai · 720p', servico: 'fal' },
 ]
 
+/** O narrador escreve com um modelo de texto, ou o Reel vai sem narração. */
+export const OPCOES_NARRADOR: OpcaoIA[] = [...MODELOS_TEXTO, { id: 'nenhum', nome: 'Sem narração', desc: 'O Reel vai só com o vídeo', servico: 'claude' }]
+
 /** Funcionários que dá para trocar de IA, e o que usam se você não escolher. */
 export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; video?: boolean }[] = [
   { agente: 'chefe', nome: 'Chefe de pauta', padrao: 'claude-sonnet-5-5' },
@@ -34,6 +37,7 @@ export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; vi
   { agente: 'redator', nome: 'Redator', padrao: 'claude-opus-5-5' },
   { agente: 'designer', nome: 'Designer', padrao: 'claude-sonnet-5-5' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },
+  { agente: 'narrador', nome: 'Narrador', padrao: 'claude-sonnet-5-5', video: true },
   { agente: 'revisor', nome: 'Revisor', padrao: 'claude-sonnet-5-5' },
 ]
 
@@ -42,12 +46,13 @@ export const CHAVE_DO_SERVICO: Record<Servico, string> = {
   openrouter: 'OPENROUTER_API_KEY',
   kling: 'KLING_API_KEY',
   fal: 'FAL_KEY',
+  elevenlabs: 'ELEVENLABS_API_KEY',
 }
 
 export function opcoesDe(agente: string) {
-  return agente === 'cinegrafista' ? MOTORES_VIDEO : MODELOS_TEXTO
+  return agente === 'cinegrafista' ? MOTORES_VIDEO : agente === 'narrador' ? OPCOES_NARRADOR : MODELOS_TEXTO
 }
 
 export function nomeDaIA(id: string) {
-  return [...MODELOS_TEXTO, ...MOTORES_VIDEO].find((o) => o.id === id)?.nome ?? id
+  return [...OPCOES_NARRADOR, ...MOTORES_VIDEO].find((o) => o.id === id)?.nome ?? id
 }
