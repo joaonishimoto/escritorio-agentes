@@ -35,6 +35,7 @@ async function chamar<T>(metodo: 'GET' | 'POST', caminho: string, corpo?: unknow
   if (!r.ok || !json || json.code !== 0) {
     const msg = json?.message ?? `HTTP ${r.status}`
     if (r.status === 401) throw new Error(`Kling recusou a chave. Confira KLING_API_KEY na Vercel. (${msg})`)
+    if (json?.code === 1102 || /balance|insufficient|quota/i.test(msg)) throw new Error('Kling: sem créditos na conta (saldo insuficiente).')
     if (json?.code === 1303) throw new Error('Kling: já tem vídeo demais sendo gerado ao mesmo tempo no seu pacote. Tente de novo em alguns minutos.')
     throw new Error(`Kling: ${msg}`)
   }

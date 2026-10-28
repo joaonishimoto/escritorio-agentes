@@ -405,15 +405,31 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   let novo: PedidoVideo
   let segundos: number = r.dados.segundos
   let custo: number
-  if (motor === 'kling') {
-    await em.acao(`Pedindo ${segundos}s de vídeo na Kling${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
-    novo = { motor, id: await pedirVideo({ prompt, segundos: r.dados.segundos, resolucao: RESOLUCAO, primeiroQuadro, idExterno: `${passo.id}` }) }
-    custo = custoDoVideo(segundos, RESOLUCAO)
-  } else {
-    segundos = duracaoFal(motor, segundos)
-    await em.acao(`Pedindo ${segundos}s de vídeo no ${NOME_DO_MOTOR(motor)}${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
-    novo = { motor, ...(await pedirVideoFal(motor, { prompt, segundos, primeiroQuadro })) }
-    custo = custoFal(motor, segundos)
+  try {
+    if (motor === 'kling') {
+      await em.acao(`Pedindo ${segundos}s de vídeo na Kling${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
+      novo = { motor, id: await pedirVideo({ prompt, segundos: r.dados.segundos, resolucao: RESOLUCAO, primeiroQuadro, idExterno: `${passo.id}` }) }
+      custo = custoDoVideo(segundos, RESOLUCAO)
+    } else {
+      segundos = duracaoFal(motor, segundos)
+      await em.acao(`Pedindo ${segundos}s de vídeo no ${NOME_DO_MOTOR(motor)}${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
+      novo = { motor, ...(await pedirVideoFal(motor, { prompt, segundos, primeiroQuadro })) }
+      custo = custoFal(motor, segundos)
+    }
+  } catch (e) {
+    // sem créditos no serviço de vídeo: em vez de parar o post, o Claude anima o Reel (não depende de saldo de terceiros)
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!/sem créditos|sem saldo|saldo insuficiente/i.test(msg)) throw e
+    await em.texto(`${NOME_DO_MOTOR(motor)} está sem créditos. Vou fazer o vídeo como animação do Claude.\n`)
+    const preferencias = { ...(ctx.post.preferencias ?? {}), ias: { ...(ctx.post.preferencias?.ias ?? {}), cinegrafista: 'claude' } }
+    await db.from('posts').update({ preferencias }).eq('id', ctx.post.id)
+    return {
+      saida: { troca: `${NOME_DO_MOTOR(motor)} sem créditos, seguindo com animação do Claude` },
+      uso,
+      entrega: `${NOME_DO_MOTOR(motor)} sem créditos: trocando para animação do Claude`,
+      proximos: [{ agente: 'cinegrafista', entrada: { ...entrada } }],
+      para: 'cinegrafista',
+    }
   }
   uso = { ...uso, custo_usd: uso.custo_usd + custo }
   await em.acao(custo ? `Vídeo na fila (US$ ${custo.toFixed(2)})` : 'Vídeo na fila (o custo aparece no painel do fal.ai)')

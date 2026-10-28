@@ -1108,3 +1108,26 @@ i.falhou { background: var(--danger, #b42318) }
   .sl-pisos .sl-padroes { grid-column: 1 / -1; justify-content: flex-start }
   .sl-rodape { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) }
 }
+
+/* Post com erro */
+.ag-icone.erro::after { display: none }
+.pe .ag-capa p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.pe-motivo { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent) }
+.pe-motivo small { font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--danger-strong) }
+.pe-motivo h3 { font-size: 17px; font-weight: 650; color: var(--foreground) }
+.pe-motivo p { font-size: 14px; line-height: 1.5; color: var(--muted-foreground) }
+.pe-motivo .pe-detalhe { align-self: flex-start; padding: 2px 0; font-size: 13px; text-decoration: underline; text-underline-offset: 3px }
+.pe-cru { display: block; font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--border); color: var(--muted-foreground); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 140px; overflow: auto }
+.pe-acoes { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.pe-acoes > button { width: 100%; min-height: 40px; white-space: normal }
+.pe-acoes .aviso { margin: 0 }
+.pe-ia { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; min-width: 0 }
+.pe-ia span { font-size: 13px; color: var(--muted-foreground) }
+.pe-ia select { width: 100%; min-width: 0; height: 38px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--foreground); font: inherit; font-size: 14px; text-overflow: ellipsis }
+.pe-acoes .pe-voltar { align-self: center; white-space: normal; text-align: center; font-size: 13px }
+.pe-pronto { display: flex; flex-direction: column; gap: 8px }
+.pe-pronto h3 { font-size: 14px; font-weight: 600 }
+.pe-slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px }
+.pe-slides button { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; aspect-ratio: 4/5; background: var(--muted) }
+.pe-slides img { width: 100%; height: 100%; object-fit: cover; display: block }
+
