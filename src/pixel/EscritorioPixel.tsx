@@ -452,23 +452,13 @@ export function EscritorioPixel({
       }
       andantes.current = andantes.current.filter((a) => a.dist >= 0)
 
-      // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
-      const viajante = andantes.current.find((a) => (a.pasta || a.carta) && (a.sala === -1 || a.alvo?.sala === -1))
+      // câmera: fica na sala escolhida (ou na sua / do Financeiro); só sai dali quando você clica ou arrasta
       // o calendário abre por cima de onde você está (o da sala ou o da sua mesa): a câmera não sai do lugar
-      let alvoX =
+      const alvoX =
         v.foco === 'calendario' && alvoAntes.current !== null
           ? alvoAntes.current
           : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? v.indiceAtivo * PASSO_SALA + SALA_W / 2
       alvoAntes.current = alvoX
-      const voando = folhas.current.find((f) => agora >= f.inicio)
-      if (voando && !viajante && !v.foco) {
-        const k = Math.min(1, (agora - voando.inicio) / 1800)
-        alvoX = voando.de[0] + (xVoce + CALENDARIO.x - voando.de[0]) * Math.min(1, k * 1.4)
-      }
-      if (viajante) {
-        const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
-        alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
-      }
       const cam = camera.current
       const livre = agora - cam.soltouEm > 8000
       const maxX = Math.max(0, largura - vistaW)
