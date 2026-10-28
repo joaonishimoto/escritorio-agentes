@@ -8,11 +8,18 @@ import { Emissor } from './eventos.js'
 
 const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
 
+/** Põe um agente na fila do post. A `ordem` é o banco que dá (gatilho em passos), para dois passos juntos não repetirem o número. */
 export async function enfileirar(postId: string, agente: string, entrada: Record<string, unknown> = {}) {
-  const { count } = await db.from('passos').select('id', { count: 'exact', head: true }).eq('post_id', postId)
-  const { error } = await db.from('passos').insert({ post_id: postId, agente, ordem: (count ?? 0) + 1, entrada })
+  const { error } = await db.from('passos').insert({ post_id: postId, agente, entrada })
   if (error) throw new Error(`Falha ao enfileirar ${agente}: ${error.message}`)
 }
+
+// Instabilidade passageira (IA sobrecarregada, limite de taxa, rede, navegador que caiu): o passo volta para a fila
+// em vez de parar o post. Erro de verdade (chave errada, sem crédito, conteúdo recusado) não entra aqui.
+const TRANSITORIO = /overloaded|sobrecarreg|rate.?limit|too many requests|\b(429|500|502|503|504|529)\b|timeout|timed out|demorou demais|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|fetch failed|network|browser has been closed|target page, context or browser|internal server error/i
+const MAX_TENTATIVAS = 3
+
+export const eErroTransitorio = (msg: string) => TRANSITORIO.test(msg) && !/sem cr[ée]ditos|sem saldo|saldo insuficiente|recusou a chave|falta configurar/i.test(msg)
 
 /** Dispara o executor sem esperar a resposta (a função continua viva até o fetch sair). */
 export function acordarExecutor(origem: string) {
@@ -65,7 +72,15 @@ export async function rodarUmPasso(): Promise<boolean> {
     await em.entrega(r.para ?? proximos?.[0]?.agente ?? 'voce', r.entrega, r.uso.custo_usd)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error(`passo ${passo.id} (${passo.agente}) falhou`, e)
+    console.error(`passo ${passo.id} (${passo.agente}) falhou (tentativa ${passo.tentativas})`, e)
+    if (eErroTransitorio(msg) && passo.tentativas < MAX_TENTATIVAS) {
+      // espera um pouco (mais a cada tentativa) e devolve o mesmo passo para a fila; o escritório avisa
+      const espera = 5_000 * passo.tentativas
+      await em.acao(`Instabilidade no serviço, tentando de novo em ${Math.round(espera / 1000)} s (${passo.tentativas + 1}ª de ${MAX_TENTATIVAS})`)
+      await new Promise((ok) => setTimeout(ok, espera))
+      const { error } = await db.from('passos').update({ status: 'pendente', saida: { erro_anterior: msg } }).eq('id', passo.id).eq('status', 'rodando')
+      if (!error) return true
+    }
     await db.from('passos').update({ status: 'falhou', saida: { erro: msg }, terminado_em: new Date().toISOString() }).eq('id', passo.id)
     await db.from('posts').update({ status: 'erro' }).eq('id', passo.post_id)
     await em.erro(msg.slice(0, 300))
