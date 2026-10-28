@@ -17,11 +17,14 @@ export function diasDoMes(ano: number, mes: number): (Date | null)[] {
   return dias
 }
 
+const SEM_ITENS: ItemAgenda[] = []
+
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 /** Calendário grande que abre ao clicar no da parede: o mês com as capas dos posts e, ao lado, o dia escolhido com o preview. */
-export function Calendario({ aoAbrirPost, aoMudar }: { aoAbrirPost: (id: string) => void; aoMudar?: () => void }) {
-  const agenda = useEscritorio((s) => s.agenda)
+export function Calendario({ aoAbrirPost, aoMudar, marcaNome, carregando = false }: { aoAbrirPost: (id: string) => void; aoMudar?: () => void; marcaNome?: string; carregando?: boolean }) {
+  const agendaDaMarca = useEscritorio((s) => s.agenda)
+  const agenda = carregando ? SEM_ITENS : agendaDaMarca
   const focar = useEscritorio((s) => s.focar)
   const hoje = new Date()
   const [mes, setMes] = useState({ ano: hoje.getFullYear(), mes: hoje.getMonth() })
@@ -53,12 +56,12 @@ export function Calendario({ aoAbrirPost, aoMudar }: { aoAbrirPost: (id: string)
         <header className="painel-topo">
           <div className="cal-nav">
             <button className="icone" onClick={() => mudarMes(-1)} aria-label="Mês anterior">‹</button>
-            <h2>{MESES[mes.mes]} {mes.ano}</h2>
+            <h2>{MESES[mes.mes]} {mes.ano}{marcaNome && <small className="cal-marca"> · {marcaNome}</small>}</h2>
             <button className="icone" onClick={() => mudarMes(1)} aria-label="Próximo mês">›</button>
             <button className="secundario cal-hoje" onClick={() => { setMes({ ano: hoje.getFullYear(), mes: hoje.getMonth() }); escolher(chaveDia(hoje)) }}>Hoje</button>
           </div>
           <div className="cal-topo-dir">
-            <span className="muted">{proximos ? `${proximos} agendado${proximos > 1 ? 's' : ''} pela frente` : 'Nada agendado pela frente'}</span>
+            <span className="muted">{carregando ? 'Carregando os posts…' : proximos ? `${proximos} agendado${proximos > 1 ? 's' : ''} pela frente` : 'Nada agendado pela frente'}</span>
             <button className="fechar" onClick={() => focar(null)} aria-label="Fechar calendário">×</button>
           </div>
         </header>

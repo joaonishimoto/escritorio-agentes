@@ -181,6 +181,8 @@ export function EscritorioPixel({
   const [pastaChegouEmVoce, setPastaChegouEmVoce] = useState(true)
   const pastaEmVoceRef = useRef(true)
   const camera = useRef({ x: 0, arrasto: 0, soltouEm: 0 })
+  /** para onde a câmera olhava antes de abrir o calendário */
+  const alvoAntes = useRef<number | null>(null)
   const geom = useRef({ escala: 3, offY: 0, larguraVista: 0 })
 
   // ── caminhos ──
@@ -373,7 +375,12 @@ export function EscritorioPixel({
 
       // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
       const viajante = andantes.current.find((a) => a.pasta && (a.sala === -1 || a.alvo?.sala === -1))
-      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco && v.foco !== 'cofre' && v.foco !== 'sala' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+      // o calendário abre por cima de onde você está (o da sala ou o da sua mesa): a câmera não sai do lugar
+      let alvoX =
+        v.foco === 'calendario' && alvoAntes.current !== null
+          ? alvoAntes.current
+          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+      alvoAntes.current = alvoX
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x

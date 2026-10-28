@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { agentePorId, type AgenteId } from './agents/catalogo'
 import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
@@ -133,7 +133,7 @@ function Painel({ logado }: { logado: boolean }) {
     if (!marcaId && marcas[0]) setMarcaId(marcas[0].id)
   }, [marcas, marcaId])
 
-  const posts = usePosts(marcaId, recarregar)
+  const { posts, carregado: postsCarregados } = usePosts(marcaId, recarregar)
   const post = usePostAoVivo(emDemo ? null : postId)
   const regras = useRegrasPropostas(marcaId, recarregar)
   const marca = marcas.find((m) => m.id === marcaId)
@@ -202,7 +202,8 @@ function Painel({ logado }: { logado: boolean }) {
   }, [post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // o calendário da parede mostra o que tem data: agendados pela data marcada, publicados pela data em que saíram
-  useEffect(() => {
+  // (antes de pintar a tela, para o calendário não mostrar por um instante os posts da sala anterior)
+  useLayoutEffect(() => {
     if (emDemo && posts.length === 0) return definirAgenda(agendaDemo())
     definirAgenda(
       posts.flatMap((p) => {
@@ -447,7 +448,7 @@ function Painel({ logado }: { logado: boolean }) {
         <LinhaDoTempo />
       </footer>
 
-      {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
+      {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} marcaNome={marca?.nome} carregando={!emDemo && logado && !postsCarregados} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} marcaNome={marca?.nome} marcaCor={marca ? corDaMarca(marca) : undefined} aoFechar={() => setBiblioteca(false)} />}
       {muralRegras && marcaId && <RegrasDaMarca marcaId={marcaId} nomeMarca={marca?.nome ?? ''} aoFechar={() => setMuralRegras(false)} aoMudar={mudou} />}
       {perfilMarca && marcaId && <PerfilDaMarca marcaId={marcaId} aoFechar={() => setPerfilMarca(false)} aoSalvar={() => setVersaoMarcas((v) => v + 1)} />}

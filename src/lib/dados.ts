@@ -72,22 +72,28 @@ export function useMarcas(ativo: boolean, versao = 0) {
   return marcas
 }
 
+/** Posts da marca aberta, e de qual marca é a lista que está na mão (para não mostrar a da sala anterior enquanto carrega). */
 export function usePosts(marcaId: string | null, recarregar: number) {
-  const [posts, setPosts] = useState<Post[]>([])
+  const [lista, setLista] = useState<{ de: string | null; posts: Post[] }>({ de: null, posts: [] })
   useEffect(() => {
-    // trocou de marca: some a lista da anterior na hora
-    setPosts((atual) => (atual.length && atual[0].marca_id !== marcaId ? [] : atual))
     if (!supabase || !marcaId) return
+    let valendo = true
     supabase
       .from('posts')
       .select('*')
       .eq('marca_id', marcaId)
       .order('criado_em', { ascending: false })
       .limit(100)
-      .then(({ data }) => setPosts((data as Post[]) ?? []))
+      .then(({ data }) => valendo && setLista({ de: marcaId, posts: (data as Post[]) ?? [] }))
+    return () => {
+      valendo = false
+    }
   }, [marcaId, recarregar])
-  return posts
+  // trocou de marca: a lista da anterior some na hora, sem esperar o banco
+  const daMarca = lista.de === marcaId
+  return { posts: daMarca ? lista.posts : SEM_POSTS, carregado: daMarca }
 }
+const SEM_POSTS: Post[] = []
 
 /** Acompanha um post: reconstrói o escritório com os eventos já gravados e assina os novos. */
 export function usePostAoVivo(postId: string | null) {
