@@ -128,9 +128,12 @@ function Painel({ logado }: { logado: boolean }) {
     if (emDemo && posts.length === 0) return definirAgenda(agendaDemo())
     definirAgenda(
       posts.flatMap((p) => {
-        const data = p.status === 'agendado' ? p.agendado_para : p.status === 'publicado' ? p.publicado_em : null
+        // agendado que deu erro na hora de publicar aparece como "falhou" no dia marcado
+        const falhou = p.status === 'erro' && !!p.agendado_para
+        const data = p.status === 'agendado' || falhou ? p.agendado_para : p.status === 'publicado' ? p.publicado_em : null
         const slides = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem).map((x) => x.url)
-        return data ? [{ id: p.id, data, titulo: p.briefing, status: p.status as 'agendado' | 'publicado', slides, legenda: p.legenda }] : []
+        const status = falhou ? 'falhou' : (p.status as 'agendado' | 'publicado')
+        return data ? [{ id: p.id, data, titulo: p.briefing, status, slides, legenda: p.legenda }] : []
       }),
     )
   }, [posts, emDemo, definirAgenda])

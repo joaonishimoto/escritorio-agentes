@@ -16,12 +16,13 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (!post_id || !acao || !ACOES.includes(acao)) return res.status(400).json({ erro: 'Pedido inválido' })
   if ((acao === 'corrigir' || acao === 'reprovar') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
 
-  const { data: post } = await db.from('posts').select('id, marca_id, status').eq('id', post_id).single()
+  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para').eq('id', post_id).single()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
 
   if (acao === 'desagendar') {
-    if (post.status !== 'agendado') return res.status(409).json({ erro: 'Esse post não está agendado' })
-    await db.from('posts').update({ status: 'aguardando_aprovacao', agendado_para: null }).eq('id', post_id).eq('status', 'agendado')
+    // também serve para um agendado que não conseguiu publicar: volta para você decidir de novo
+    if (post.status !== 'agendado' && !(post.status === 'erro' && post.agendado_para)) return res.status(409).json({ erro: 'Esse post não está agendado' })
+    await db.from('posts').update({ status: 'aguardando_aprovacao', agendado_para: null }).eq('id', post_id).eq('status', post.status)
     return res.status(200).json({ ok: true })
   }
   if (post.status !== 'aguardando_aprovacao') return res.status(409).json({ erro: 'Esse post não está esperando aprovação' })

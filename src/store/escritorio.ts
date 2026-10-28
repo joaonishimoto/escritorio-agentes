@@ -28,7 +28,7 @@ export interface ItemAgenda {
   /** dia e hora em ISO */
   data: string
   titulo: string
-  status: 'agendado' | 'publicado'
+  status: 'agendado' | 'publicado' | 'falhou'
   /** urls dos slides, na ordem (vazio na demonstração) */
   slides?: string[]
   legenda?: string | null

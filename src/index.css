@@ -435,3 +435,10 @@ i.publicado { background: #3f7650 }
   .seletor-topo { max-width: 46vw }
   .seletor-topo .chip { display: none }
 }
+
+/* quem está andando passa por cima dos nomes e balões */
+.pixel-frente { position: absolute; inset: 0; pointer-events: none; z-index: 1500 }
+.pixel-estilo { z-index: 2000 }
+i.falhou { background: var(--danger, #b42318) }
+.cal-capas img.falhou { border-color: var(--danger, #b42318) }
+.cal-post-sem.falhou { background: color-mix(in srgb, var(--danger, #b42318) 25%, var(--surface)) }

@@ -52,7 +52,7 @@ export function CalendarioParede({ x, z, rot }: { x: number; z: number; rot: num
                 <span key={i} className={`cal-dia${eHoje ? ' hoje' : ''}${d ? '' : ' vazio'}`}>
                   {d?.getDate()}
                   {status.length > 0 && (
-                    <i className={status.includes('agendado') ? 'agendado' : 'publicado'} />
+                    <i className={status.includes('falhou') ? 'falhou' : status.includes('agendado') ? 'agendado' : 'publicado'} />
                   )}
                 </span>
               )

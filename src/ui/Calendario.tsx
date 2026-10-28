@@ -101,6 +101,7 @@ export function Calendario({ aoAbrirPost, aoMudar }: { aoAbrirPost: (id: string)
             <div className="cal-legenda muted">
               <span><i className="agendado" /> agendado</span>
               <span><i className="publicado" /> publicado</span>
+              <span><i className="falhou" /> não publicou</span>
             </div>
           </div>
 
@@ -153,7 +154,7 @@ function PostDoDia({ item, aberto, aoAlternar, aoAbrirPost, aoMudar }: { item: I
           <strong>{item.titulo}</strong>
           <span className="muted mono">{hora(item.data)} · {slides.length ? `${slides.length} slides` : 'sem slides'}</span>
         </span>
-        <span className={`chip status-${item.status}`}>{item.status}</span>
+        <span className={`chip status-${item.status === 'falhou' ? 'erro' : item.status}`}>{item.status === 'falhou' ? 'não publicou' : item.status}</span>
       </button>
       {aberto && (
         <div className="cal-post-detalhe">
@@ -166,11 +167,15 @@ function PostDoDia({ item, aberto, aoAlternar, aoAbrirPost, aoMudar }: { item: I
               ))}
             </div>
           )}
+          {item.status === 'falhou' && <p className="aviso">Chegou a hora, mas não deu para publicar. Veja o motivo no histórico do post.</p>}
           {item.legenda && <pre className="rascunho cal-post-legenda">{item.legenda}</pre>}
           <div className="acoes">
             {!demo && <button className="secundario" onClick={aoAbrirPost}>Abrir no escritório</button>}
             {item.status === 'agendado' && !demo && (
               <button className="perigo" disabled={cancelando} onClick={cancelar}>Cancelar agendamento</button>
+            )}
+            {item.status === 'falhou' && !demo && (
+              <button className="primario" disabled={cancelando} onClick={cancelar}>Voltar para aprovação</button>
             )}
           </div>
         </div>

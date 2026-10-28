@@ -80,6 +80,8 @@ export function EscritorioPixel({
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
+  /** camada só com quem está andando, por cima dos nomes e balões */
+  const frente = useRef<HTMLCanvasElement>(null)
   const etiquetas = useRef<Map<string, HTMLDivElement>>(new Map())
   const [estilos, setEstilos] = useState<Record<string, string>>(() => {
     try {
@@ -447,7 +449,20 @@ export function EscritorioPixel({
       } else posicoesEtiqueta.voce = null
       desenharMesaVoce(g, xVoce)
 
-      // quem está andando, por ordem de altura para um passar na frente do outro
+      // quem está andando vai numa camada por cima dos textos, por ordem de altura para um passar na frente do outro
+      const cf = frente.current
+      const gf = cf?.getContext('2d')
+      if (cf && gf) {
+        if (cf.width !== c.width || cf.height !== c.height) {
+          cf.width = c.width
+          cf.height = c.height
+        }
+        gf.setTransform(1, 0, 0, 1, 0, 0)
+        gf.clearRect(0, 0, cf.width, cf.height)
+        gf.imageSmoothingEnabled = false
+        gf.setTransform(escala, 0, 0, escala, -Math.round(camX * escala), offY * escala)
+      }
+      const gAndando = gf ?? g
       const ordenados = [...andantes.current].sort((a, b) => {
         const pa = noCaminho(a.fase === 'volta' ? a.volta : a.ida, Math.max(0, a.dist))
         const pb = noCaminho(b.fase === 'volta' ? b.volta : b.ida, Math.max(0, b.dist))
@@ -460,10 +475,10 @@ export function EscritorioPixel({
         const dir = a.fase === 'parado' ? 'cima' : p.dir
         const x = Math.round(p.x - BONECO.w / 2)
         const y = Math.round(p.y - BONECO.h)
-        g.fillStyle = 'rgba(0,0,0,.18)'
-        g.fillRect(x + 2, y + BONECO.h - 2, BONECO.w - 4, 3)
-        g.drawImage(quadro(VISUAL[a.quem], dir, passo), x, y)
-        if (a.pasta) pasta(g, x + 3, y - 6 + (passo === 1 ? -1 : 0))
+        gAndando.fillStyle = 'rgba(0,0,0,.18)'
+        gAndando.fillRect(x + 2, y + BONECO.h - 2, BONECO.w - 4, 3)
+        gAndando.drawImage(quadro(VISUAL[a.quem], dir, passo), x, y)
+        if (a.pasta) pasta(gAndando, x + 3, y - 6 + (passo === 1 ? -1 : 0))
         if (a.sala === v.indiceAtivo || a.quem === 'voce') {
           posicoesEtiqueta[a.quem] = [x + 7, y - 2]
           posicoesNome[a.quem] = [x + 7, y + BONECO.h + 1]
@@ -605,6 +620,7 @@ export function EscritorioPixel({
           </Fragment>
         )
       })}
+      <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
       {ativa && (
         <button className="pixel-estilo" onClick={() => trocarEstilo(ativa.id, indiceAtivo)} title="Trocar o estilo desta sala">
           🎨 {estiloBase(ativa.id, indiceAtivo).nome}
