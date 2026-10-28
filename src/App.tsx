@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { Escritorio } from './office/Escritorio'
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
-import { Login } from './ui/Login'
+import { Login, TrocarSenha } from './ui/Login'
 import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
 import { useEscritorio } from './store/escritorio'
@@ -51,6 +51,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [postId, setPostId] = useState<string | null>(null)
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
+  const [trocarSenha, setTrocarSenha] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
 
   useEffect(() => {
@@ -115,6 +116,7 @@ function Painel({ logado }: { logado: boolean }) {
           )}
           <button className="secundario" onClick={demo}>Ver demonstração</button>
           {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
+          {logado && <button className="link" onClick={() => setTrocarSenha(true)}>Trocar senha</button>}
           {logado && <button className="link" onClick={() => supabase?.auth.signOut()}>Sair</button>}
         </div>
       </header>
@@ -131,7 +133,7 @@ function Painel({ logado }: { logado: boolean }) {
         {logado && marcas.length === 0 && (
           <div className="vazio">
             <h2>Nenhuma marca ainda</h2>
-            <p className="muted">Sua conta está criada. Me avise no chat que eu cadastro a Drinfy como primeira marca.</p>
+            <p className="muted">Peça no chat para cadastrar uma marca.</p>
           </div>
         )}
         {!mostrarAprovacao && !selecionado && regras.length > 0 && !emDemo && (
@@ -146,6 +148,7 @@ function Painel({ logado }: { logado: boolean }) {
         {!emDemo && post && <span className="custo mono muted">custo deste post: US$ {Number(post.custo_usd).toFixed(2)}</span>}
       </footer>
 
+      {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost
           marcaId={marcaId}

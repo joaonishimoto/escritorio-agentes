@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Só a conta do dono existe; novos cadastros são recusados no banco.
 export function Login() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [criando, setCriando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -13,38 +13,56 @@ export function Login() {
     if (!supabase) return
     setEnviando(true)
     setAviso(null)
-    const { error } = criando
-      ? await supabase.auth.signUp({ email, password: senha, options: { emailRedirectTo: window.location.origin } })
-      : await supabase.auth.signInWithPassword({ email, password: senha })
+    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     setEnviando(false)
     if (error) setAviso(error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error.message)
-    else if (criando) setAviso('Conta criada. Se pedir confirmação, abra o link que chegou no seu e-mail e entre aqui.')
   }
 
   return (
     <div className="login">
       <form className="login-caixa" onSubmit={entrar}>
         <h1>Escritório de Agentes</h1>
-        <p className="muted">{criando ? 'Crie sua conta para montar sua equipe.' : 'Entre para ver sua equipe trabalhando.'}</p>
+        <p className="muted">Entre para ver sua equipe trabalhando.</p>
         <label htmlFor="email">E-mail</label>
         <input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <label htmlFor="senha">Senha</label>
-        <input
-          id="senha"
-          type="password"
-          autoComplete={criando ? 'new-password' : 'current-password'}
-          minLength={8}
-          required
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-        />
+        <input id="senha" type="password" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
         {aviso && <p className="aviso">{aviso}</p>}
-        <button className="primario" disabled={enviando}>
-          {enviando ? 'Aguarde…' : criando ? 'Criar conta' : 'Entrar'}
-        </button>
-        <button type="button" className="link" onClick={() => setCriando(!criando)}>
-          {criando ? 'Já tenho conta' : 'Criar conta'}
-        </button>
+        <button className="primario" disabled={enviando}>{enviando ? 'Aguarde…' : 'Entrar'}</button>
+      </form>
+    </div>
+  )
+}
+
+export function TrocarSenha({ aoFechar }: { aoFechar: () => void }) {
+  const [senha, setSenha] = useState('')
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+
+  const salvar = async (e: FormEvent) => {
+    e.preventDefault()
+    const { error } = (await supabase?.auth.updateUser({ password: senha })) ?? {}
+    if (error) setAviso(error.message)
+    else setOk(true)
+  }
+
+  return (
+    <div className="modal-fundo" onClick={aoFechar}>
+      <form className="modal" onSubmit={salvar} onClick={(e) => e.stopPropagation()}>
+        <h2>Trocar senha</h2>
+        {ok ? (
+          <p>Senha trocada.</p>
+        ) : (
+          <>
+            <label htmlFor="nova-senha">Nova senha</label>
+            <input id="nova-senha" type="password" autoComplete="new-password" minLength={10} required value={senha} onChange={(e) => setSenha(e.target.value)} />
+            {aviso && <p className="aviso">{aviso}</p>}
+          </>
+        )}
+        <div className="acoes">
+          <button type="button" className="secundario" onClick={aoFechar}>Fechar</button>
+          {!ok && <button className="primario">Salvar</button>}
+        </div>
       </form>
     </div>
   )

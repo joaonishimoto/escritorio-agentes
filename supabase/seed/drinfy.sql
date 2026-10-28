@@ -1,4 +1,4 @@
--- Cadastra a Drinfy como primeira marca do dono mais antigo (você, no uso pessoal).
+-- Cadastra a Drinfy como primeira marca do dono mais antigo (você, no uso pessoal). Já aplicado no projeto.
 -- Rode no SQL Editor depois de criar sua conta no app. Pode rodar de novo: não duplica.
 do $seed$
 declare
