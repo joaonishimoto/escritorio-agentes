@@ -6,11 +6,11 @@ import type { Agente } from '../agents/catalogo'
 import { useEscritorio, type Estado } from '../store/escritorio'
 
 export const COR_ESTADO: Record<Estado, string> = {
-  ocioso: '#9aa1b0',
-  trabalhando: '#e08a2c',
-  concluido: '#2fa06a',
-  esperando_voce: '#9a52d6',
-  erro: '#d63c3c',
+  ocioso: '#a2a39a',
+  trabalhando: '#3969a8',
+  concluido: '#3f7650',
+  esperando_voce: '#976822',
+  erro: '#b74e45',
 }
 
 export function EstacaoAgente({ agente }: { agente: Agente }) {
@@ -74,12 +74,12 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* mesa */}
       <mesh castShadow receiveShadow position={[0, 0.75, -0.35]}>
         <boxGeometry args={[1.8, 0.08, 0.9]} />
-        <meshStandardMaterial color="#c49a6c" flatShading />
+        <meshStandardMaterial color="#e3d6bf" flatShading />
       </mesh>
       {[[-0.82, -0.72], [0.82, -0.72], [-0.82, 0.02], [0.82, 0.02]].map(([px, pz], i) => (
         <mesh key={i} castShadow position={[px, 0.37, pz]}>
           <boxGeometry args={[0.06, 0.74, 0.06]} />
-          <meshStandardMaterial color="#8a6a48" />
+          <meshStandardMaterial color="#bfb9a5" />
         </mesh>
       ))}
       {/* monitor */}
@@ -104,11 +104,11 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* cadeira */}
       <mesh castShadow position={[0, 0.45, 0.55]}>
         <boxGeometry args={[0.6, 0.08, 0.6]} />
-        <meshStandardMaterial color="#3b3f4a" />
+        <meshStandardMaterial color="#45473f" />
       </mesh>
       <mesh castShadow position={[0, 0.8, 0.85]}>
         <boxGeometry args={[0.6, 0.7, 0.08]} />
-        <meshStandardMaterial color="#3b3f4a" />
+        <meshStandardMaterial color="#45473f" />
       </mesh>
 
       {/* boneco */}

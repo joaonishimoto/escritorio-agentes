@@ -14,7 +14,7 @@ export function LinhaDoTempo() {
         <ol>
           {visiveis.map((e) => {
             const nome = e.agente === 'voce' ? 'Você' : agentePorId(e.agente).nome
-            const cor = e.agente === 'voce' ? '#9a52d6' : agentePorId(e.agente).cor
+            const cor = e.agente === 'voce' ? '#976822' : agentePorId(e.agente).cor
             return (
               <li key={e.id}>
                 <button onClick={() => e.agente !== 'voce' && selecionar(e.agente)}>

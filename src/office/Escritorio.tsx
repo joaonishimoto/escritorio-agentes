@@ -17,8 +17,8 @@ export function Escritorio() {
       camera={{ position: [13, 12, 13], fov: 32 }}
       onPointerMissed={() => selecionar(null)}
     >
-      <color attach="background" args={['#e9ebf0']} />
-      <hemisphereLight args={['#ffffff', '#b9bfcc', 0.9]} />
+      <color attach="background" args={['#faf9f5']} />
+      <hemisphereLight args={['#ffffff', '#eeebe2', 1.15]} />
       <directionalLight
         position={[6, 12, 4]}
         intensity={1.6}

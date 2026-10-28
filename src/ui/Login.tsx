@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { Logo } from './Logo'
 
 // Só a conta do dono existe; novos cadastros são recusados no banco.
 export function Login() {
@@ -21,6 +22,7 @@ export function Login() {
   return (
     <div className="login">
       <form className="login-caixa" onSubmit={entrar}>
+        <Logo />
         <h1>Escritório de Agentes</h1>
         <p className="muted">Entre para ver sua equipe trabalhando.</p>
         <label htmlFor="email">E-mail</label>

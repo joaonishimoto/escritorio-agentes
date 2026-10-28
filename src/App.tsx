@@ -7,6 +7,7 @@ import { Login, TrocarSenha } from './ui/Login'
 import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
 import { Biblioteca } from './ui/Biblioteca'
+import { Logo } from './ui/Logo'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
@@ -94,6 +95,7 @@ function Painel({ logado }: { logado: boolean }) {
     <div className="app">
       <header className="topo">
         <div className="marca">
+          <Logo />
           <h1>Escritório de Agentes</h1>
           {logado && marcas.length > 1 ? (
             <select aria-label="Marca" value={marcaId ?? ''} onChange={(e) => { setMarcaId(e.target.value); setPostId(null) }}>
@@ -116,7 +118,7 @@ function Painel({ logado }: { logado: boolean }) {
               ))}
             </select>
           )}
-          <button className="secundario" onClick={demo}>Ver demonstração</button>
+          <button className="link" onClick={demo}>Ver demonstração</button>
           {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
           {logado && marcaId && <button className="link" onClick={() => setBiblioteca(true)}>Fotos da marca</button>}
           {logado && <button className="link" onClick={() => setTrocarSenha(true)}>Trocar senha</button>}

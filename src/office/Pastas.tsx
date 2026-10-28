@@ -31,7 +31,7 @@ function Pasta({ entrega }: { entrega: Entrega }) {
     <group ref={ref}>
       <mesh castShadow>
         <boxGeometry args={[0.5, 0.06, 0.36]} />
-        <meshStandardMaterial color="#f2c14e" flatShading />
+        <meshStandardMaterial color="#2a5288" flatShading />
       </mesh>
       <mesh position={[0, 0.04, 0]}>
         <boxGeometry args={[0.42, 0.02, 0.3]} />
