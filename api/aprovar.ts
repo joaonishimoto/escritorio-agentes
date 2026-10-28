@@ -67,7 +67,9 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', post_id).eq('status', 'guardado')
     return res.status(200).json({ ok: true })
   }
-  if (post.status !== 'aguardando_aprovacao') return res.status(409).json({ erro: 'Esse post não está esperando aprovação' })
+  // da gaveta também dá para pedir ajuste: o post sai da gaveta e volta para a equipe
+  const daGaveta = post.status === 'guardado' && acao === 'corrigir'
+  if (post.status !== 'aguardando_aprovacao' && !daGaveta) return res.status(409).json({ erro: 'Esse post não está esperando aprovação' })
 
   if (acao === 'agendar') {
     const data = quando ? new Date(quando) : null

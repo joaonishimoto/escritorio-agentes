@@ -1196,3 +1196,8 @@ i.falhou { background: var(--danger, #b42318) }
 .gv-info .primario { align-self: flex-start; margin-top: auto; min-height: 34px }
 .ap-gaveta { align-self: center; display: inline-flex; align-items: center; gap: 6px; font-size: 13px }
 .cal-post-marca { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0 }
+.gv-botoes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto }
+.gv-botoes button { min-height: 34px }
+.gv-info .gv-botoes .primario { margin-top: 0 }
+.gv-ajuste { display: flex; flex-direction: column; gap: 6px; margin-top: 4px }
+.gv-ajuste textarea { width: 100%; box-sizing: border-box; font-size: 14px }

@@ -33,6 +33,23 @@ export function Gaveta({
   const [enviando, setEnviando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [vendo, setVendo] = useState<string[] | null>(null)
+  const [ajustando, setAjustando] = useState<string | null>(null)
+  const [comentario, setComentario] = useState('')
+
+  const pedirAjuste = async (p: Post) => {
+    setEnviando(p.id)
+    setErro(null)
+    try {
+      await chamarApi('aprovar', { post_id: p.id, acao: 'corrigir', comentario })
+      setAjustando(null)
+      setComentario('')
+      aoMudar()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu certo')
+    } finally {
+      setEnviando(null)
+    }
+  }
 
   const usar = async (p: Post) => {
     setEnviando(p.id)
@@ -84,9 +101,32 @@ export function Gaveta({
                       {formato ? `${FORMATO[formato] ?? formato} · ` : ''}guardado {new Date(p.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                     </small>
                     <strong>{p.briefing}</strong>
-                    <button className="primario" disabled={enviando === p.id} onClick={() => usar(p)}>
-                      {enviando === p.id ? 'Tirando da gaveta…' : 'Usar agora'}
-                    </button>
+                    {ajustando === p.id ? (
+                      <div className="gv-ajuste">
+                        <textarea
+                          rows={3}
+                          autoFocus
+                          placeholder="O que mudar? Ex.: trocar a capa por uma foto do produto"
+                          value={comentario}
+                          onChange={(e) => setComentario(e.target.value)}
+                        />
+                        <div className="gv-botoes">
+                          <button className="primario" disabled={enviando === p.id || !comentario.trim()} onClick={() => pedirAjuste(p)}>
+                            {enviando === p.id ? 'Mandando…' : 'Mandar para a equipe'}
+                          </button>
+                          <button className="link" onClick={() => setAjustando(null)}>Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="gv-botoes">
+                        <button className="primario" disabled={enviando === p.id} onClick={() => usar(p)}>
+                          {enviando === p.id ? 'Tirando da gaveta…' : 'Usar agora'}
+                        </button>
+                        <button className="secundario" disabled={enviando === p.id} onClick={() => { setAjustando(p.id); setComentario('') }}>
+                          Pedir ajuste
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </li>
               )
