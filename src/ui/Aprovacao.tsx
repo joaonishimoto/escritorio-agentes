@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { chamarApi } from '../lib/api'
+import { VerSlides } from './VerSlides'
 import { decidirRegra, type Post, type Regra } from '../lib/dados'
 
 /** Sua mesa: slides e legenda para aprovar, ajustar ou reprovar, e regras novas para aceitar. */
-export function Aprovacao({ post, regras, aoMudar }: { post: Post; regras: Regra[]; aoMudar: () => void }) {
+export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; regras: Regra[]; aoMudar: () => void; aoFechar: () => void }) {
+  const [vendo, setVendo] = useState<number | null>(null)
   const [comentario, setComentario] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -32,17 +34,19 @@ export function Aprovacao({ post, regras, aoMudar }: { post: Post; regras: Regra
           <h2>Sua aprovação</h2>
           <p className="muted">{post.briefing}</p>
         </div>
+        <button className="fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
       </header>
 
       {slides.length > 0 && (
         <div className="slides">
-          {slides.map((s) => (
-            <a key={s.ordem} href={s.url} target="_blank" rel="noreferrer">
+          {slides.map((s, n) => (
+            <button key={s.ordem} className="slide-mini" onClick={() => setVendo(n)} aria-label={`Ver slide ${s.ordem}`}>
               <img src={s.url} alt={`Slide ${s.ordem}`} loading="lazy" />
-            </a>
+            </button>
           ))}
         </div>
       )}
+      {vendo !== null && <VerSlides urls={slides.map((s) => s.url)} inicial={vendo} aoFechar={() => setVendo(null)} />}
 
       <section>
         <h3>Legenda</h3>

@@ -323,3 +323,20 @@ i.publicado { background: #3f7650 }
   background: #fff; color: #1f2330; font-family: 'Pixelify Sans', var(--font-sans); font-size: 15px; box-shadow: 0 0 0 2px #1f2330, 3px 3px 0 2px rgba(0,0,0,.25) }
 .etapa-ponto { width: 10px; height: 10px; background: #3969a8; animation: pisca .8s steps(2) infinite }
 .etapa-ponto.voce { background: #f2b233 }
+
+/* miniaturas e visualizador de slides */
+.slide-mini { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-md) }
+.slide-mini:hover img { outline: 2px solid var(--primary); outline-offset: 1px }
+.ver-slides { position: fixed; inset: 0; z-index: 80; background: rgba(15, 18, 26, .9); display: grid; place-items: center; padding: 56px 72px }
+.ver-slides img { max-width: 100%; max-height: calc(100vh - 140px); aspect-ratio: 4 / 5; object-fit: contain; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5) }
+.ver-seta, .ver-fechar { position: absolute; border: 0; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; display: grid; place-items: center }
+.ver-seta { top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; font-size: 30px; line-height: 1 }
+.ver-seta.esquerda { left: 16px }
+.ver-seta.direita { right: 16px }
+.ver-fechar { top: 14px; right: 16px; width: 40px; height: 40px; border-radius: 50%; font-size: 26px }
+.ver-seta:hover, .ver-fechar:hover { background: rgba(255,255,255,.24) }
+.ver-pontos { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px }
+.ver-pontos button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.35); cursor: pointer }
+.ver-pontos button.ativo { background: #fff }
+.ver-contador { position: absolute; top: 22px; left: 22px; color: rgba(255,255,255,.8); font-size: 14px }
+@media (max-width: 600px) { .ver-slides { padding: 56px 8px } .ver-seta { top: auto; bottom: 48px; transform: none } }

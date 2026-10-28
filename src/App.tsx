@@ -153,7 +153,9 @@ function Painel({ logado }: { logado: boolean }) {
   }
 
   const esperando = !emDemo && post?.status === 'aguardando_aprovacao'
-  const mostrarAprovacao = esperando && !selecionado && (foco === 'voce' || foco === null)
+  // o painel abre sozinho quando um post chega; fechou, só volta clicando na sua mesa
+  const [fechouAprovacao, setFechouAprovacao] = useState<string | null>(null)
+  const mostrarAprovacao = esperando && !selecionado && (foco === 'voce' || (foco === null && fechouAprovacao !== post?.id))
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
 
   return (
@@ -214,7 +216,15 @@ function Painel({ logado }: { logado: boolean }) {
           )}
         </Suspense>
         {mostrarAprovacao && post ? (
-          <Aprovacao post={post} regras={regras} aoMudar={mudou} />
+          <Aprovacao
+            post={post}
+            regras={regras}
+            aoMudar={mudou}
+            aoFechar={() => {
+              setFechouAprovacao(post.id)
+              focar(null)
+            }}
+          />
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
         ) : (
