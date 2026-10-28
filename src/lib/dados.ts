@@ -5,6 +5,25 @@ import { useEscritorio, type Evento } from '../store/escritorio'
 export interface Marca {
   id: string
   nome: string
+  identidade?: Record<string, unknown> | null
+}
+
+/** Cor que representa a marca no escritório: a escolhida na sala, senão a primeira cor da identidade visual. */
+export function corDaMarca(m: Marca): string {
+  const id = m.identidade ?? {}
+  if (typeof id.cor_sala === 'string') return id.cor_sala
+  const achar = (v: unknown): string | null => {
+    if (typeof v === 'string') return /^#[0-9a-f]{6}$/i.test(v) ? v : null
+    if (v && typeof v === 'object') for (const x of Object.values(v)) { const c = achar(x); if (c) return c }
+    return null
+  }
+  return achar(id.cores) ?? achar(id) ?? '#2a5288'
+}
+
+/** Guarda a cor da sala na identidade da marca (o dono pode editar a própria marca). */
+export async function salvarCorDaMarca(m: Marca, cor: string) {
+  if (!supabase) return
+  await supabase.from('marcas').update({ identidade: { ...(m.identidade ?? {}), cor_sala: cor } }).eq('id', m.id)
 }
 
 export interface Post {
@@ -34,7 +53,7 @@ export function useMarcas(ativo: boolean) {
     if (!supabase || !ativo) return
     supabase
       .from('marcas')
-      .select('id, nome')
+      .select('id, nome, identidade')
       .order('criado_em')
       .then(({ data }) => setMarcas(data ?? []))
   }, [ativo])
@@ -118,4 +137,38 @@ export function useRegrasPropostas(marcaId: string | null, recarregar: number) {
 
 export async function decidirRegra(id: string, status: 'ativa' | 'arquivada') {
   await supabase?.from('regras').update({ status }).eq('id', id)
+}
+
+export interface Custos {
+  post: number
+  mes: number
+  postsNoMes: number
+  porAgente: { agente: string; custo: number }[]
+}
+
+/** Quanto já foi gasto: no post aberto (por agente) e no mês, somando todos os posts da marca. */
+export function useCustos(marcaId: string | null, postId: string | null, custoDoPost: number | undefined) {
+  const [custos, setCustos] = useState<Custos | null>(null)
+  useEffect(() => {
+    if (!supabase || !marcaId) return
+    const sb = supabase
+    const inicioDoMes = new Date()
+    inicioDoMes.setDate(1)
+    inicioDoMes.setHours(0, 0, 0, 0)
+    Promise.all([
+      sb.from('posts').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', inicioDoMes.toISOString()),
+      postId ? sb.from('passos').select('agente, custo_usd').eq('post_id', postId) : Promise.resolve({ data: [] }),
+    ]).then(([mes, passos]) => {
+      const soma = new Map<string, number>()
+      for (const p of (passos.data ?? []) as { agente: string; custo_usd: number }[]) soma.set(p.agente, (soma.get(p.agente) ?? 0) + Number(p.custo_usd))
+      const lista = (mes.data ?? []) as { custo_usd: number }[]
+      setCustos({
+        post: Number(custoDoPost ?? 0),
+        mes: lista.reduce((s, p) => s + Number(p.custo_usd), 0),
+        postsNoMes: lista.length,
+        porAgente: [...soma].map(([agente, custo]) => ({ agente, custo })).sort((a, b) => b.custo - a.custo),
+      })
+    })
+  }, [marcaId, postId, custoDoPost])
+  return custos
 }

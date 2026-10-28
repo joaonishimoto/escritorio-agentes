@@ -53,6 +53,22 @@ export const ESTILOS: Record<string, Estilo> = {
 }
 export const ORDEM_ESTILOS = ['d', 'e', 'f']
 
+/** Onde fica a placa com o nome da marca na parede (o texto é HTML por cima, para ficar nítido). */
+export const PLACA = { x: 106, y: 8 }
+
+const misturar = (a: string, b: string, t: number) => {
+  const pa = parseInt(a.slice(1), 16)
+  const pb = parseInt(b.slice(1), 16)
+  const c = [16, 8, 0].map((s) => Math.round(((pa >> s) & 255) * (1 - t) + ((pb >> s) & 255) * t))
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
+/** O estilo da sala pintado com a cor da marca: rodapé, cadeiras e tapete. */
+export function comCorDaMarca(e: Estilo, cor: string): Estilo {
+  if (!/^#[0-9a-f]{6}$/i.test(cor)) return e
+  return { ...e, rodape: cor, cadeira: misturar(cor, '#1f2330', 0.25), tapete: misturar(cor, e.piso, 0.72) }
+}
+
 const VOCE: Estilo = { nome: 'Sua sala', piso: '#ece1cc', pisoLinha: '#ddcfb5', parede: '#1e3d66', paredeDetalhe: '#1a3559', rodape: '#976822', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#976822', tapete: '#dce6f5' }
 
 /** Sua mesa, na sua sala (coordenadas locais). Você senta atrás dela, de frente para nós. */
@@ -171,21 +187,13 @@ export function cadeira(g: Ctx, e: Estilo, x: number, y: number) {
 }
 
 /** Desenha uma sala de marca inteira (sem os bonecos). */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, nome: string, noite: boolean) {
+export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean) {
   piso(g, estilo, x0, SALA_W, PAREDE_H, SALA_H - PAREDE_H, estilo.tijolo ? 'concreto' : 'tabua')
   parede(g, estilo, x0, SALA_W)
   janela(g, x0 + 150, 7, 30, noite)
   janela(g, x0 + 186, 7, 30, noite)
   estante(g, x0 + 8, 2)
   quadro(g, x0 + 60, 5)
-  // placa com o nome da marca
-  g.font = '700 9px "Pixelify Sans", monospace'
-  g.textBaseline = 'middle'
-  const largura = Math.ceil(g.measureText(nome).width) + 10
-  r(g, '#1f2330', x0 + 106 - 1, 8, largura + 2, 15)
-  r(g, estilo.rodape, x0 + 106, 9, largura, 13)
-  g.fillStyle = '#ffffff'
-  g.fillText(nome, x0 + 111, 16)
   // tapete e sofá no canto
   r(g, estilo.tapete, x0 + 166, 104, 52, 40)
   sofa(g, x0 + 172, 108, estilo.cadeira)

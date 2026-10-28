@@ -13,11 +13,12 @@ import { Biblioteca } from './ui/Biblioteca'
 import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
+import { Gastos } from './ui/Gastos'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
-import { useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -101,7 +102,13 @@ function Painel({ logado }: { logado: boolean }) {
     setPostId(null)
   }
   // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
-  const marcasNoAndar = marcas.length ? marcas : [{ id: 'demo', nome: 'Drinfy' }, { id: 'demo-2', nome: 'Outra marca' }]
+  const marcasNoAndar = marcas.length
+    ? marcas.map((m) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m) }))
+    : [{ id: 'demo', nome: 'Drinfy', cor: '#EE382B' }, { id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73' }]
+  const mudarCor = (id: string, cor: string) => {
+    const m = marcas.find((x) => x.id === id)
+    if (m) salvarCorDaMarca(m, cor).catch((e) => console.error('não salvou a cor da sala', e))
+  }
 
   useEffect(() => {
     if (!postId && posts[0] && !emDemo) setPostId(posts[0].id)
@@ -156,6 +163,7 @@ function Painel({ logado }: { logado: boolean }) {
   // o painel abre sozinho quando um post chega; fechou, só volta clicando na sua mesa
   const [fechouAprovacao, setFechouAprovacao] = useState<string | null>(null)
   const mostrarAprovacao = esperando && !selecionado && (foco === 'voce' || (foco === null && fechouAprovacao !== post?.id))
+  const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
 
   return (
@@ -199,10 +207,12 @@ function Painel({ logado }: { logado: boolean }) {
       </header>
 
       <main className="palco">
+        {custos && <Gastos custos={custos} />}
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
           {visual === 'pixel' ? (
             <EscritorioPixel
+              aoMudarCor={mudarCor}
               marcas={marcasNoAndar}
               marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}
@@ -244,7 +254,7 @@ function Painel({ logado }: { logado: boolean }) {
       </main>
 
       <footer className="rodape">
-        <LinhaDoTempo extra={!emDemo && post && <span className="custo mono muted">US$ {Number(post.custo_usd).toFixed(2)}</span>} />
+        <LinhaDoTempo />
       </footer>
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} />}

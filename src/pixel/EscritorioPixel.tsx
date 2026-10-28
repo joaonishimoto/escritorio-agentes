@@ -3,7 +3,7 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
-  ANDAR_H, CALENDARIO, COLUNA_X, CORREDOR_PES, ESTILOS, LINHA_FRENTE, MESAS, MESA_VOCE, ORDEM_ESTILOS, PASSO_SALA,
+  ANDAR_H, CALENDARIO, PLACA, comCorDaMarca, COLUNA_X, CORREDOR_PES, ESTILOS, LINHA_FRENTE, MESAS, MESA_VOCE, ORDEM_ESTILOS, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, linhaDaMesa,
 } from './mapa'
@@ -11,6 +11,8 @@ import {
 export interface MarcaNoAndar {
   id: string
   nome: string
+  /** cor que representa a marca na sala */
+  cor?: string
 }
 
 // cada agente tem um cabelo e um tom de pele, para dar para reconhecer de longe
@@ -66,10 +68,12 @@ export function EscritorioPixel({
   marcas,
   marcaAtiva,
   aoEscolherMarca,
+  aoMudarCor,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
   aoEscolherMarca: (id: string) => void
+  aoMudarCor?: (id: string, cor: string) => void
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -94,7 +98,16 @@ export function EscritorioPixel({
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
   const xVoce = marcas.length * PASSO_SALA
   const largura = xVoce + VOCE_W
-  const estiloDe = (id: string, i: number) => ESTILOS[estilos[id] ?? ORDEM_ESTILOS[i % ORDEM_ESTILOS.length]]
+  const [cores, setCores] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cores-sala') ?? '{}')
+    } catch {
+      return {}
+    }
+  })
+  const corDe = (m: MarcaNoAndar) => cores[m.id] ?? m.cor ?? '#2a5288'
+  const estiloBase = (id: string, i: number) => ESTILOS[estilos[id] ?? ORDEM_ESTILOS[i % ORDEM_ESTILOS.length]]
+  const estiloDe = (m: MarcaNoAndar, i: number) => comCorDaMarca(estiloBase(m.id, i), corDe(m))
 
   // estado que o laço de desenho lê sem precisar renderizar o React de novo
   const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
@@ -118,13 +131,13 @@ export function EscritorioPixel({
     const g = c.getContext('2d')!
     desenharCorredor(g, largura)
     marcas.forEach((m, i) => {
-      const e = estiloDe(m.id, i)
-      desenharSala(g, i * PASSO_SALA, e, m.nome, e === ESTILOS.e)
+      const base = estiloBase(m.id, i)
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e)
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
     return c
-  }, [marcas, estilos, largura, xVoce]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas, estilos, cores, largura, xVoce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -192,6 +205,10 @@ export function EscritorioPixel({
     return [...saida, ...chegada]
   }
 
+  const pendentes = useRef<Entrega[]>([])
+  /** Quem está esperando uma pasta que ainda está a caminho: na tela continua "na fila", mesmo que o servidor já tenha andado. */
+  const aCaminhoDe = () => new Set(andantes.current.filter((a) => a.pasta && a.fase === 'ida' && a.alvo).map((a) => a.alvo!.quem))
+
   const andando = (quem: AgenteId | 'voce', sala: number) => andantes.current.some((a) => a.quem === quem && a.sala === sala)
 
   // cada entrega nova vira alguém levantando e levando a pasta
@@ -199,14 +216,8 @@ export function EscritorioPixel({
     () =>
       useEscritorio.subscribe((s, antes) => {
         const novas = s.entregas.filter((e) => !antes.entregas.some((x) => x.id === e.id))
-        novas.forEach((e: Entrega) => {
-          const sala = vivo.current.indiceAtivo
-          const de = { sala: e.de === 'voce' ? -1 : sala, quem: e.de }
-          const para = { sala: e.para === 'voce' ? -1 : sala, quem: e.para }
-          const ida = caminho(de, para)
-          andantes.current = andantes.current.filter((a) => !(a.quem === e.de && a.sala === de.sala))
-          andantes.current.push({ id: e.id, quem: e.de, sala: de.sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: true, alvo: para })
-        })
+        // não sai andando na hora: entra na fila e só sai quando a pasta anterior chegar até quem entrega
+        pendentes.current.push(...novas)
       }),
     [marcas.length], // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -252,6 +263,22 @@ export function EscritorioPixel({
           andantes.current.push({ id: `cafe-${agora}`, quem: a.id, sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: false })
         }
       }
+
+      // solta as entregas da fila na ordem, quando quem entrega já recebeu a pasta e está sentado
+      const chegando = aCaminhoDe()
+      pendentes.current = pendentes.current.filter((e) => {
+        const sala = v.indiceAtivo
+        const de = { sala: e.de === 'voce' ? -1 : sala, quem: e.de }
+        if (chegando.has(e.de) || andantes.current.some((a) => a.quem === e.de && a.sala === de.sala && a.pasta)) return true
+        const para = { sala: e.para === 'voce' ? -1 : sala, quem: e.para }
+        const ida = caminho(de, para)
+        andantes.current = andantes.current.filter((a) => !(a.quem === e.de && a.sala === de.sala))
+        andantes.current.push({ id: e.id, quem: e.de, sala: de.sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: true, alvo: para })
+        chegando.add(e.para)
+        return false
+      })
+      const esperandoPasta = (i: number, id: AgenteId) => i === v.indiceAtivo && (chegando.has(id) || pendentes.current.some((e) => e.de === id))
+      const estadoNaTela = (i: number, id: AgenteId): Estado => (i !== v.indiceAtivo ? 'ocioso' : esperandoPasta(i, id) ? 'na_fila' : v.estados[id])
 
       // anda com quem está andando
       for (const a of andantes.current) {
@@ -304,7 +331,7 @@ export function EscritorioPixel({
           const m = MESAS[a.id]
           const x = i * PASSO_SALA + m.x + 8
           const y = m.y - 8
-          const est = i === v.indiceAtivo ? v.estados[a.id] : 'ocioso'
+          const est = estadoNaTela(i, a.id)
           if (est === 'trabalhando') {
             g.fillStyle = '#0f1a2a'
             g.fillRect(x, y, 14, 9)
@@ -346,7 +373,7 @@ export function EscritorioPixel({
         for (const a of AGENTES) {
           if (andando(a.id, i)) continue
           const m = MESAS[a.id]
-          const est = i === v.indiceAtivo ? v.estados[a.id] : 'ocioso'
+          const est = estadoNaTela(i, a.id)
           const desde = (agora - (v.mudouEm[a.id] ?? 0)) / 1000
           let dy = 0
           if (est === 'trabalhando') dy = Math.floor(t * 8) % 2
@@ -402,9 +429,17 @@ export function EscritorioPixel({
 
       // etiquetas em HTML acompanham os bonecos
       for (const [chave, el] of etiquetas.current) {
+        if (chave.startsWith('placa:')) {
+          const i = Number(chave.slice(6))
+          const sx = ((i * PASSO_SALA + PLACA.x - camX) * escala) / dpr
+          const sy = ((PLACA.y + offY) * escala) / dpr
+          el.style.transform = `translate(${sx}px, ${sy}px)`
+          el.style.fontSize = `${(escala / dpr) * 9}px`
+          continue
+        }
         const nome = chave.startsWith('nome:')
         const id = nome ? chave.slice(5) : chave
-        const pos = (nome ? posicoesNome : posicoesEtiqueta)[id]
+        const pos = !nome && id !== 'voce' && esperandoPasta(v.indiceAtivo, id as AgenteId) ? null : (nome ? posicoesNome : posicoesEtiqueta)[id]
         if (!pos) {
           el.style.opacity = '0'
           continue
@@ -525,9 +560,42 @@ export function EscritorioPixel({
       })}
       {ativa && (
         <button className="pixel-estilo" onClick={() => trocarEstilo(ativa.id, indiceAtivo)} title="Trocar o estilo desta sala">
-          🎨 {estiloDe(ativa.id, indiceAtivo).nome}
+          🎨 {estiloBase(ativa.id, indiceAtivo).nome}
         </button>
       )}
+      {ativa && (
+        <label className="pixel-estilo pixel-cor" title="Cor da marca nesta sala">
+          <span className="amostra" style={{ background: corDe(ativa) }} />
+          Cor da sala
+          <input
+            type="color"
+            value={corDe(ativa)}
+            onChange={(e) => {
+              const novo = { ...cores, [ativa.id]: e.target.value }
+              setCores(novo)
+              try {
+                localStorage.setItem('cores-sala', JSON.stringify(novo))
+              } catch {
+                // sem armazenamento local: fica salvo só no banco
+              }
+            }}
+            onBlur={(e) => aoMudarCor?.(ativa.id, e.target.value)}
+          />
+        </label>
+      )}
+      {marcas.map((m, i) => (
+        <div
+          key={m.id}
+          className="pixel-placa"
+          style={{ background: corDe(m) }}
+          ref={(el) => {
+            if (el) etiquetas.current.set(`placa:${i}`, el)
+            else etiquetas.current.delete(`placa:${i}`)
+          }}
+        >
+          {m.nome}
+        </div>
+      ))}
     </div>
   )
 }

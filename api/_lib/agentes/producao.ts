@@ -92,7 +92,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px.',
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere → ou desenhe com CSS.',
     ),
     conteudo: [
       ctx.marca.modelo_slides_html ? `## Modelo da marca (siga o visual e as classes)\n${ctx.marca.modelo_slides_html}` : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.',
