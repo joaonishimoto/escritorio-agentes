@@ -41,7 +41,7 @@ const SETAS: Record<string, string> = {
 }
 
 /** Troca as setas só no texto (fora das tags), para não quebrar atributos nem CSS. */
-function desenharSetas(html: string) {
+export function desenharSetas(html: string) {
   const corpo = html.search(/<body[\s>]/i)
   const inicio = corpo >= 0 ? corpo : 0
   const resto = html.slice(inicio).replace(/>([^<]*)</g, (_, texto: string) => `>${texto.replace(/[→←➜➔⟶]/g, (c) => SETAS[c])}<`)
@@ -64,11 +64,17 @@ export async function renderizarSlides(html: string, largura = 1080, altura = 13
   }
 }
 
-async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load'): Promise<Buffer[]> {
+/** Abre o Chromium: na Vercel o do @sparticuz/chromium, localmente o de CHROMIUM_PATH. */
+export async function abrirNavegador() {
   const local = process.env.CHROMIUM_PATH
-  const executavel = local ?? (await chromium.executablePath())
-  if (!local) await instalarFontesReserva()
-  const navegador = await playwright.launch(local ? { executablePath: local, args: ['--no-sandbox'] } : { executablePath: executavel, args: chromium.args })
+  if (local) return playwright.launch({ executablePath: local, args: ['--no-sandbox'] })
+  const executavel = await chromium.executablePath()
+  await instalarFontesReserva()
+  return playwright.launch({ executablePath: executavel, args: chromium.args })
+}
+
+async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load'): Promise<Buffer[]> {
+  const navegador = await abrirNavegador()
   try {
     const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
     await pagina.setContent(html, { waitUntil: espera, timeout: 45_000 })

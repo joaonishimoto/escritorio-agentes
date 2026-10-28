@@ -30,13 +30,13 @@ export interface Post {
   status: string
   legenda: string | null
   slides: { ordem: number; url: string; caminho: string }[]
-  /** vídeo do Reel, gerado na Kling e guardado no armazenamento do app */
-  video?: { url: string; caminho: string; prompt: string; segundos: number; modelo: string; kling_id: string } | null
+  /** vídeo do Reel, gerado pela IA escolhida e guardado no armazenamento do app */
+  video?: { url: string; caminho: string; prompt: string; segundos: number; modelo: string; motor?: string; pedido_id?: string; kling_id?: string } | null
   voltas_revisao: number
   custo_usd: number
   referencias?: Referencia[]
   /** escolhas do dono no Novo post */
-  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string }
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string> }
 }
 
 export type Referencia = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }

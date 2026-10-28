@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { gerarJson, gerarTexto } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
+import { gravarAnimacao } from '../animacao.js'
+import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
+import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarSlides } from '../render.js'
 import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
@@ -44,7 +47,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   ].filter(Boolean)
   const textoEscolhas = escolhas.length ? `\n\n## Escolhas do dono para este post (obrigatórias, valem mais que os caminhos sorteados)\n${escolhas.map((e) => `- ${e}`).join('\n')}` : ''
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'chefe'),
     effort: 'low',
     sistema: sistemaDoAgente(ctx, 'chefe', 'Você transforma o pedido em uma pauta clara para a equipe.'),
     conteudo: [
@@ -79,7 +82,7 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
   }
   await em.inicio(devolvido ? 'Corrigindo só os pontos que o revisor apontou' : 'Começando a pesquisa')
   const { texto, uso } = await gerarTexto({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'pesquisador'),
     sistema: sistemaDoAgente(
       ctx,
       'pesquisador',
@@ -119,7 +122,7 @@ export const redator: Agente = async (ctx, passo, em) => {
   const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
   const jaUsado = ajuste ? '' : textoJaUsado(await postsRecentes(ctx))
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-opus-5-5',
+    modelo: modeloDe(ctx, 'redator'),
     effort: 'medium',
     sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
     conteudo: [
@@ -182,7 +185,7 @@ async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente
   if (!anterior) return null
   await em.inicio('Editando os slides prontos')
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'designer'),
     effort: 'low',
     sistema: sistemaDoAgente(
       ctx,
@@ -234,7 +237,7 @@ export const designer: Agente = async (ctx, passo, em) => {
   const refsDesign = referenciasDoPost(ctx)
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'designer'),
     sistema: sistemaDoAgente(
       ctx,
       'designer',
@@ -268,71 +271,160 @@ export const designer: Agente = async (ctx, passo, em) => {
 }
 
 // ───────── Cinegrafista (só em Reels) ─────────
-// Pede o vídeo na Kling e se re-enfileira enquanto ele não fica pronto (cada passo cabe no tempo da função).
+// Gera o vídeo com a IA escolhida no post: Kling direto, um modelo do fal.ai, ou uma animação escrita pelo Claude
+// e gravada pelo próprio app. Nos serviços de fora, pede o vídeo e se re-enfileira enquanto ele não fica pronto
+// (cada passo cabe no tempo da função); na animação, escreve num passo e grava no seguinte.
 const PromptVideo = z.object({
   refazer: z.boolean().describe('false só se já existe vídeo e os ajustes pedidos não mudam nada no vídeo (ex.: só capa ou legenda)'),
   prompt: z.string().describe('prompt em inglês para o gerador de vídeo: cena, sujeito, ação, câmera, luz e estilo, em até 600 caracteres; sem texto, letreiro ou logo na tela'),
   segundos: z.union([z.literal(5), z.literal(10)]).describe('5, ou 10 só se a cena precisar de mais tempo'),
 })
 
+const Animacao = z.object({
+  refazer: z.boolean().describe('false só se já existe vídeo e os ajustes pedidos não mudam nada no vídeo (ex.: só capa ou legenda)'),
+  descricao: z.string().describe('o que a animação mostra, em uma ou duas frases'),
+  segundos: z.number().int().describe('duração total, de 5 a 8 segundos'),
+  html: z.string().describe('documento HTML completo da animação'),
+})
+
+const REGRAS_ANIMACAO = `## Como escrever a animação
+- Um documento HTML completo, com <body> de exatamente 1080x1920 px (vertical), margin 0 e overflow hidden.
+- Anime só com CSS: @keyframes e animation. Nada de JavaScript, <video>, GIF ou transição disparada por hover/clique: o app grava quadro a quadro controlando o tempo das animações CSS.
+- Use animation-fill-mode: both e tempos (delay + duração) que caibam na duração total. O último quadro precisa ficar bonito parado.
+- Pode ter texto na tela: frases curtas, grandes e legíveis no celular (título com 90 px ou mais), longe das bordas (120 px de margem embaixo e 200 px em cima, por causa dos botões do Instagram).
+- Fontes do Google Fonts via <link> e imagens só por URL https das referências; nada de outro recurso externo.
+- Movimento com intenção: entradas em sequência, um elemento principal por vez, ritmo de Reel. Use as cores e a fonte da identidade visual.`
+
 const ESPERA_POR_PASSO_MS = 100_000
 const MAX_ESPERAS = 6
 const RESOLUCAO = '1080p'
 
-export const cinegrafista: Agente = async (ctx, passo, em) => {
-  const entrada = passo.entrada as { kling_id?: string; esperas?: number; prompt?: string; segundos?: 5 | 10; feedback?: string; correcao?: Correcao }
-  let { kling_id, prompt, segundos } = entrada
-  let uso = USO_ZERO
+interface PedidoVideo {
+  motor: MotorVideo
+  id: string
+  status_url?: string
+  response_url?: string
+}
+interface EntradaCinegrafista {
+  pedido?: PedidoVideo
+  /** pedido feito antes da escolha de IA por post, sempre na Kling */
+  kling_id?: string
+  animacao?: string
+  esperas?: number
+  prompt?: string
+  segundos?: number
+  feedback?: string
+  correcao?: Correcao
+}
 
-  if (!kling_id) {
-    const atual = ctx.post.video
-    const pedido = [entrada.correcao ? `Pedido do dono da marca: ${entrada.correcao.comentario}\n${entrada.correcao.instrucao}` : '', entrada.feedback ?? ''].filter(Boolean).join('\n\n')
-    await em.inicio(atual ? 'Vendo se o vídeo precisa mudar' : 'Escrevendo a cena do vídeo')
-    const refs = referenciasDoPost(ctx)
+const NOME_DO_MOTOR = (m: MotorVideo) => (m === 'kling' ? 'Kling' : m === 'claude' ? 'Claude' : `${MODELOS_FAL[m].nome} (fal.ai)`)
+
+async function guardarVideo(ctx: Parameters<Agente>[0], mp4: Buffer, dados: { prompt: string; segundos: number; motor: MotorVideo; pedido_id?: string }) {
+  const caminho = `${ctx.post.id}/video-${Date.now()}.mp4`
+  const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, mp4, { contentType: 'video/mp4', upsert: true })
+  if (error) throw new Error(`Falha ao subir o vídeo: ${error.message}`)
+  const modelo = dados.motor === 'kling' ? MODELO_KLING : dados.motor === 'claude' ? 'animação do Claude' : MODELOS_FAL[dados.motor].nome
+  const video = { url: urlPublica(caminho), caminho, prompt: dados.prompt, segundos: dados.segundos, modelo, motor: dados.motor, pedido_id: dados.pedido_id }
+  await db.from('posts').update({ video }).eq('id', ctx.post.id)
+  return video
+}
+
+export const cinegrafista: Agente = async (ctx, passo, em) => {
+  const entrada = passo.entrada as EntradaCinegrafista
+  const pedido: PedidoVideo | undefined = entrada.pedido ?? (entrada.kling_id ? { motor: 'kling', id: entrada.kling_id } : undefined)
+  if (entrada.animacao) return gravarAnimacaoDoPost(ctx, entrada, em)
+  if (pedido) return esperarVideo(ctx, entrada, pedido, em)
+
+  const motor = motorDeVideo(ctx)
+  const atual = ctx.post.video
+  const ajustes = [entrada.correcao ? `Pedido do dono da marca: ${entrada.correcao.comentario}\n${entrada.correcao.instrucao}` : '', entrada.feedback ?? ''].filter(Boolean).join('\n\n')
+  await em.inicio(atual ? 'Vendo se o vídeo precisa mudar' : motor === 'claude' ? 'Escrevendo a animação do Reel' : 'Escrevendo a cena do vídeo')
+  const refs = referenciasDoPost(ctx)
+  const contexto = [
+    `Pedido: ${ctx.post.briefing}`,
+    `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
+    `Texto dos slides:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+    atual ? `## Vídeo atual\n${atual.prompt}` : '',
+    ajustes ? `## Ajustes pedidos nesta rodada\n${ajustes}` : '',
+  ]
+
+  if (motor === 'claude') {
     const r = await gerarJson({
-      modelo: 'claude-sonnet-5-5',
-      effort: 'low',
-      sistema: sistemaDoAgente(ctx, 'cinegrafista', 'Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (Kling). O texto do post vai na capa e na legenda, não no vídeo.'),
+      modelo: 'claude-opus-5-5',
+      effort: 'medium',
+      sistema: sistemaDoAgente(ctx, 'cinegrafista', 'Você faz o vídeo do Reel como motion designer: escreve uma animação em HTML e CSS que o app grava em vídeo.'),
       conteudo: [
         ...refs.blocos,
-        {
-          type: 'text' as const,
-          text: [
-            `Pedido: ${ctx.post.briefing}`,
-            `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
-            `Texto da capa:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
-            refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '',
-            atual ? `## Vídeo atual\nPrompt: ${atual.prompt}` : '',
-            pedido ? `## Ajustes pedidos nesta rodada\n${pedido}` : '',
-          ]
-            .filter(Boolean)
-            .join('\n\n'),
-        },
+        { type: 'text' as const, text: [...contexto, refs.tem ? refs.texto : '', REGRAS_ANIMACAO].filter(Boolean).join('\n\n') },
       ],
-      schema: PromptVideo,
+      schema: Animacao,
     })
-    uso = r.uso
     if (atual && !r.dados.refazer) {
       await em.texto('O ajuste não mexe no vídeo: mantive o que já estava pronto.')
-      return { saida: { video: atual }, uso, entrega: 'Vídeo mantido' }
+      return { saida: { video: atual }, uso: r.uso, entrega: 'Vídeo mantido' }
     }
-    prompt = r.dados.prompt
-    segundos = r.dados.segundos
-    await em.texto(`${prompt}\n`)
-    const primeiroQuadro = ctx.post.referencias?.find((x) => x.tipo === 'imagem')?.url
-    await em.acao(`Pedindo ${segundos}s de vídeo na Kling${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
-    kling_id = await pedirVideo({ prompt, segundos, resolucao: RESOLUCAO, primeiroQuadro, idExterno: `${passo.id}` })
-    const custo = custoDoVideo(segundos, RESOLUCAO)
-    uso = { ...uso, custo_usd: uso.custo_usd + custo }
-    await em.acao(`Vídeo na fila da Kling (US$ ${custo.toFixed(2)})`)
-  } else {
-    await em.inicio('Esperando o vídeo da Kling')
+    const segundos = Math.min(8, Math.max(5, r.dados.segundos))
+    await em.texto(`${r.dados.descricao}\n`)
+    return {
+      saida: { descricao: r.dados.descricao, segundos },
+      uso: r.uso,
+      entrega: 'Animação escrita, agora gravando',
+      proximos: [{ agente: 'cinegrafista', entrada: { ...entrada, animacao: r.dados.html, prompt: r.dados.descricao, segundos } }],
+      para: 'cinegrafista',
+    }
   }
 
+  const r = await gerarJson({
+    modelo: 'claude-sonnet-5-5',
+    effort: 'low',
+    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo.`),
+    conteudo: [
+      ...refs.blocos,
+      {
+        type: 'text' as const,
+        text: [...contexto, refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '']
+          .filter(Boolean)
+          .join('\n\n'),
+      },
+    ],
+    schema: PromptVideo,
+  })
+  let uso = r.uso
+  if (atual && !r.dados.refazer) {
+    await em.texto('O ajuste não mexe no vídeo: mantive o que já estava pronto.')
+    return { saida: { video: atual }, uso, entrega: 'Vídeo mantido' }
+  }
+  const prompt = r.dados.prompt
+  await em.texto(`${prompt}\n`)
+  const primeiroQuadro = ctx.post.referencias?.find((x) => x.tipo === 'imagem')?.url
+  let novo: PedidoVideo
+  let segundos: number = r.dados.segundos
+  let custo: number
+  if (motor === 'kling') {
+    await em.acao(`Pedindo ${segundos}s de vídeo na Kling${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
+    novo = { motor, id: await pedirVideo({ prompt, segundos: r.dados.segundos, resolucao: RESOLUCAO, primeiroQuadro, idExterno: `${passo.id}` }) }
+    custo = custoDoVideo(segundos, RESOLUCAO)
+  } else {
+    segundos = duracaoFal(motor, segundos)
+    await em.acao(`Pedindo ${segundos}s de vídeo no ${NOME_DO_MOTOR(motor)}${primeiroQuadro ? ' a partir da sua imagem' : ''}`)
+    novo = { motor, ...(await pedirVideoFal(motor, { prompt, segundos, primeiroQuadro })) }
+    custo = custoFal(motor, segundos)
+  }
+  uso = { ...uso, custo_usd: uso.custo_usd + custo }
+  await em.acao(custo ? `Vídeo na fila (US$ ${custo.toFixed(2)})` : 'Vídeo na fila (o custo aparece no painel do fal.ai)')
+  return esperarVideo(ctx, { ...entrada, prompt, segundos }, novo, em, uso)
+}
+
+/** Acompanha o pedido no serviço de vídeo; se não ficar pronto neste passo, volta para a fila. */
+async function esperarVideo(ctx: Parameters<Agente>[0], entrada: EntradaCinegrafista, pedido: PedidoVideo, em: Parameters<Agente>[2], uso = USO_ZERO): Promise<Resultado> {
+  const nome = NOME_DO_MOTOR(pedido.motor)
+  if (uso === USO_ZERO) await em.inicio(`Esperando o vídeo do ${nome}`)
+  const consultar = () =>
+    pedido.motor === 'kling' ? consultarVideo(pedido.id) : consultarVideoFal({ status_url: pedido.status_url ?? '', response_url: pedido.response_url ?? '' })
   const inicio = Date.now()
   let url: string | null = null
   while (Date.now() - inicio < ESPERA_POR_PASSO_MS) {
-    const r = await consultarVideo(kling_id)
+    const r = await consultar()
     if (r.pronto) {
       url = r.url
       break
@@ -342,26 +434,34 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
 
   if (!url) {
     const esperas = (entrada.esperas ?? 0) + 1
-    if (esperas > MAX_ESPERAS) throw new Error(`A Kling não entregou o vídeo depois de ${Math.round((MAX_ESPERAS * ESPERA_POR_PASSO_MS) / 60_000)} minutos (pedido ${kling_id})`)
+    if (esperas > MAX_ESPERAS) throw new Error(`${nome} não entregou o vídeo depois de ${Math.round((MAX_ESPERAS * ESPERA_POR_PASSO_MS) / 60_000)} minutos (pedido ${pedido.id})`)
     await em.acao('Ainda gerando, volto a olhar já já')
+    const resto = { ...entrada }
+    delete resto.kling_id
     return {
-      saida: { kling_id, esperas },
+      saida: { pedido, esperas },
       uso,
-      entrega: 'Vídeo ainda na Kling',
-      proximos: [{ agente: 'cinegrafista', entrada: { ...entrada, kling_id, prompt, segundos, esperas } }],
+      entrega: `Vídeo ainda no ${nome}`,
+      proximos: [{ agente: 'cinegrafista', entrada: { ...resto, pedido, esperas } }],
       para: 'cinegrafista',
     }
   }
 
   await em.acao('Baixando o vídeo e guardando no app')
   const baixado = await fetch(url)
-  if (!baixado.ok) throw new Error(`Não consegui baixar o vídeo da Kling (HTTP ${baixado.status})`)
-  const caminho = `${ctx.post.id}/video-${Date.now()}.mp4`
-  const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, Buffer.from(await baixado.arrayBuffer()), { contentType: 'video/mp4', upsert: true })
-  if (error) throw new Error(`Falha ao subir o vídeo: ${error.message}`)
-  const video = { url: urlPublica(caminho), caminho, prompt: prompt ?? '', segundos: segundos ?? 5, modelo: MODELO_KLING, kling_id }
-  await db.from('posts').update({ video }).eq('id', ctx.post.id)
+  if (!baixado.ok) throw new Error(`Não consegui baixar o vídeo do ${nome} (HTTP ${baixado.status})`)
+  const video = await guardarVideo(ctx, Buffer.from(await baixado.arrayBuffer()), { prompt: entrada.prompt ?? '', segundos: entrada.segundos ?? 5, motor: pedido.motor, pedido_id: pedido.id })
   return { saida: { video }, uso, entrega: `Vídeo de ${video.segundos}s pronto` }
+}
+
+/** Grava a animação que o Claude escreveu no passo anterior. */
+async function gravarAnimacaoDoPost(ctx: Parameters<Agente>[0], entrada: EntradaCinegrafista, em: Parameters<Agente>[2]): Promise<Resultado> {
+  const segundos = entrada.segundos ?? 6
+  await em.inicio(`Gravando ${segundos}s da animação`)
+  const mp4 = await gravarAnimacao(entrada.animacao!, segundos)
+  await em.acao('Guardando o vídeo no app')
+  const video = await guardarVideo(ctx, mp4, { prompt: entrada.prompt ?? '', segundos, motor: 'claude' })
+  return { saida: { video }, uso: USO_ZERO, entrega: `Vídeo de ${segundos}s pronto` }
 }
 
 // ───────── Revisor ─────────
@@ -388,7 +488,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const slides = ctx.post.slides ?? []
   const precisaPesquisa = !reconferindo || anterior!.problemas.some((p) => p.agente === 'pesquisador' || p.agente === 'redator')
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'revisor'),
     effort: reconferindo ? 'low' : 'medium',
     sistema: sistemaDoAgente(
       ctx,
@@ -452,7 +552,7 @@ async function revisarCorrecao(ctx: Parameters<Agente>[0], passo: Parameters<Age
   await em.inicio('Conferindo se o seu ajuste foi aplicado')
   const slides = ctx.post.slides ?? []
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-sonnet-5-5',
+    modelo: modeloDe(ctx, 'revisor'),
     effort: 'low',
     sistema: sistemaDoAgente(ctx, 'revisor', 'Você confere se um ajuste pedido pelo dono da marca foi aplicado. Olhe só o pedido e se algo visivelmente quebrou (texto cortado, sobreposto, caractere estranho). Não reavalie o resto do post.'),
     conteudo: [

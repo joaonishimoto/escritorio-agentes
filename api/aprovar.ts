@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, enfileirar } from './_lib/fila.js'
+import { limparIas } from './_lib/ias.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 
 type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar'
@@ -12,11 +13,11 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
 
-  const { post_id, acao, comentario, quando } = (req.body ?? {}) as { post_id?: string; acao?: Acao; comentario?: string; quando?: string }
+  const { post_id, acao, comentario, quando, ia } = (req.body ?? {}) as { post_id?: string; acao?: Acao; comentario?: string; quando?: string; ia?: string }
   if (!post_id || !acao || !ACOES.includes(acao)) return res.status(400).json({ erro: 'Pedido inválido' })
   if ((acao === 'corrigir' || acao === 'reprovar') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
 
-  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides').eq('id', post_id).single()
+  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides, preferencias').eq('id', post_id).single()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
 
   // post que deu erro: o mesmo agente que falhou tenta de novo, do ponto em que parou
@@ -32,9 +33,19 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
       .maybeSingle()
     const agente = falhou?.agente ?? 'chefe'
     const publicar = agente === 'publicador'
+    let entrada = (falhou?.entrada as Record<string, unknown>) ?? {}
+    // tentar de novo com outra IA: troca só a do agente que falhou, e o vídeo começa um pedido novo
+    const trocar = ia ? limparIas({ [agente]: ia }) : {}
+    if (trocar[agente]) {
+      const preferencias = (post.preferencias as { ias?: Record<string, string> } | null) ?? {}
+      await db.from('posts').update({ preferencias: { ...preferencias, ias: { ...preferencias.ias, ...trocar } } }).eq('id', post_id)
+      if (agente === 'cinegrafista') {
+        entrada = Object.fromEntries(Object.entries(entrada).filter(([k]) => !['pedido', 'kling_id', 'esperas', 'animacao'].includes(k)))
+      }
+    }
     await db.from('posts').update({ status: publicar ? 'aprovado' : 'em_producao' }).eq('id', post_id).eq('status', 'erro')
     await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'entrega', mensagem: publicar ? 'Tentar publicar de novo' : 'Tentar de novo', para: agente })
-    await enfileirar(post_id, agente, (falhou?.entrada as Record<string, unknown>) ?? {})
+    await enfileirar(post_id, agente, entrada)
     acordarExecutor(origemDaRequisicao(req))
     return res.status(200).json({ ok: true, agente })
   }

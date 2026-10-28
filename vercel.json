@@ -3,7 +3,8 @@
   "functions": {
     "api/executar.ts": {
       "maxDuration": 300,
-      "memory": 2048
+      "memory": 2048,
+      "includeFiles": "node_modules/mp4-muxer/build/mp4-muxer.js"
     },
     "api/posts.ts": {
       "maxDuration": 30
@@ -13,11 +14,13 @@
     },
     "api/acordar.ts": {
       "maxDuration": 300,
-      "memory": 2048
+      "memory": 2048,
+      "includeFiles": "node_modules/mp4-muxer/build/mp4-muxer.js"
     },
     "api/publicar-agendados.ts": {
       "maxDuration": 300,
-      "memory": 2048
+      "memory": 2048,
+      "includeFiles": "node_modules/mp4-muxer/build/mp4-muxer.js"
     },
     "api/conectar-instagram.ts": {
       "maxDuration": 30
