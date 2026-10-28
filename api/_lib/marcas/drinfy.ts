@@ -4,12 +4,12 @@ Quem fala: Drinfy (no perfil e no app: DrinfyApp, @drinfyapp). Site: lp.drinfy.c
 
 Como soa:
 - Amigo que entende de drink, não bartender metido. Português do dia a dia: "dá pra", "bora", "pra próxima sexta".
-- Frases curtas, uma ideia por frase. Pergunta no começo para puxar conversa ("Sentiu nossa falta?").
+- Frases curtas, uma ideia por frase, com uma mais longa de vez em quando. Às vezes abre com pergunta ("Sentiu nossa falta?"), mas não sempre.
 - Concreto: fala de ingrediente real (limão, açúcar, gelo, gin e tônica no fundo da geladeira).
 - Emoji com moderação, um ou dois por legenda (🍹 🍸 🍋 🧊 🔖 👇).
-- Termina com pergunta ou chamada simples: "Conta aqui nos comentários", "Salva pra próxima sexta".
+- Termina com uma chamada simples, diferente a cada post (salvar, mandar pra alguém, comentar, testar hoje). Não repita o fecho dos últimos posts.
 
-Frases que já funcionam:
+Frases de exemplo (mostram o jeito de falar; não copie, e a frase-base não vai na capa):
 - "Você já tem um drink em casa. Só não sabe qual."
 - "Marque o que tem e veja na hora o que dá pra fazer."
 - "Duzentas receitas com dose certa."
