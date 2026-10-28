@@ -29,6 +29,7 @@ import { corDaMarca, salvarSala, useCustos, useMarcas, usePostAoVivo, usePosts, 
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
 import { PainelSala } from './ui/PainelSala'
+import { Abertura } from './ui/Abertura'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -55,7 +56,7 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (carregando) return <p className="carregando">Carregando…</p>
+  if (carregando) return <Abertura />
   if (!modoDemo && !sessao) return <Login />
   return <Painel logado={!!sessao} />
 }
@@ -357,9 +358,9 @@ function Painel({ logado }: { logado: boolean }) {
       />
       <main className="palco">
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
-        <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
+        <Suspense fallback={<Abertura noPalco frase="Montando o escritório…" />}>
           {carregandoMarcas ? (
-            <p className="carregando">Montando o escritório…</p>
+            <Abertura noPalco frase="Montando o escritório…" />
           ) : visual === 'pixel' ? (
             <EscritorioPixel
               marcas={marcasNoAndar}
