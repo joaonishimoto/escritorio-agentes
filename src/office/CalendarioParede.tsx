@@ -2,6 +2,7 @@ import { Html } from '@react-three/drei'
 import { useEscritorio } from '../store/escritorio'
 import { SALA } from './salas'
 import { diasDoMes, MESES, chaveDia } from '../ui/Calendario'
+import { GRADIENTE } from './toon'
 
 /** Calendário pendurado na parede do fundo: mostra o mês atual com os posts agendados e publicados. */
 export function CalendarioParede() {
@@ -33,7 +34,7 @@ export function CalendarioParede() {
     >
       <mesh castShadow>
         <boxGeometry args={[2.9, 2.25, 0.06]} />
-        <meshStandardMaterial color="#1e3d66" />
+        <meshToonMaterial gradientMap={GRADIENTE} color="#1e3d66" />
       </mesh>
       {/* o clique fica na moldura 3D; o HTML é só a folha do calendário */}
       <Html transform position={[0, 0, 0.04]} distanceFactor={2} zIndexRange={[5, 0]} pointerEvents="none">

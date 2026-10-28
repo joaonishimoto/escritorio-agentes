@@ -1,4 +1,5 @@
-import { Canvas } from '@react-three/fiber'
+import { useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, ContactShadows } from '@react-three/drei'
 import { AGENTES, MESA_VOCE } from '../agents/catalogo'
 import { useEscritorio } from '../store/escritorio'
@@ -15,7 +16,7 @@ export function Escritorio() {
   return (
     <Canvas
       shadows
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       camera={{ position: [13, 12, 13], fov: 32 }}
       onPointerMissed={() => { selecionar(null) }}
     >
@@ -32,6 +33,7 @@ export function Escritorio() {
         shadow-camera-bottom={-10}
       />
 
+      <Entrada />
       <Ambiente />
       <CalendarioParede />
       {AGENTES.map((a) => (
@@ -51,4 +53,20 @@ export function Escritorio() {
       />
     </Canvas>
   )
+}
+
+/** Câmera desce girando até a posição normal quando o escritório abre. */
+function Entrada() {
+  const inicio = useRef<number | null>(null)
+  useFrame(({ camera, clock }) => {
+    if (inicio.current === null) inicio.current = clock.elapsedTime
+    const p = Math.min((clock.elapsedTime - inicio.current) / 1.6, 1)
+    if (p >= 1) return
+    const e = 1 - Math.pow(1 - p, 3)
+    const ang = Math.PI / 4 + (1 - e) * 0.9
+    const r = 18.4 + (1 - e) * 10
+    camera.position.set(Math.sin(ang) * r, 12 + (1 - e) * 6, Math.cos(ang) * r)
+    camera.lookAt(0, 0, 0)
+  })
+  return null
 }
