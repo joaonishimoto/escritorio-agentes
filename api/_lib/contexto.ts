@@ -30,6 +30,8 @@ export interface Post {
   status: string
   legenda: string | null
   slides: { ordem: number; url: string; caminho: string }[]
+  /** vídeo do Reel, gerado na Kling e guardado no armazenamento do app */
+  video?: { url: string; caminho: string; prompt: string; segundos: number; modelo: string; kling_id: string } | null
   voltas_revisao: number
   custo_usd: number
   referencias?: Referencia[]

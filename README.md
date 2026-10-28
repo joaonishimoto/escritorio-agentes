@@ -21,6 +21,7 @@ Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app a
    - `SUPABASE_URL` (igual ao de cima) e `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API Keys → service_role / secret)
    - `ANTHROPIC_API_KEY` (console da Anthropic)
    - `EXECUTOR_SECRET` (qualquer texto longo e aleatório; protege a rota que roda os agentes)
+   - `KLING_API_KEY` (opcional; console da Kling AI em kling.ai, área de API). Sem ela os posts em Reel param no passo do vídeo.
 3. No Supabase, em Authentication → URL Configuration, ponha a URL da Vercel em Site URL.
 
 ## Como os agentes rodam

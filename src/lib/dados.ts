@@ -34,6 +34,8 @@ export interface Post {
   status: string
   legenda: string | null
   slides: { ordem: number; url: string }[]
+  /** Reel: vídeo gerado na Kling */
+  video?: { url: string; segundos: number } | null
   custo_usd: number
   agendado_para: string | null
   publicado_em: string | null
