@@ -67,3 +67,14 @@ export async function rodarUmPasso(): Promise<boolean> {
   }
   return true
 }
+
+/** Roda passos seguidos enquanto houver fila e tempo (para caber nos 300 s da função com folga). */
+export async function rodarAteOLimite(limiteMs = 120_000) {
+  const inicio = Date.now()
+  let rodou = 0
+  while (Date.now() - inicio < limiteMs) {
+    if (!(await rodarUmPasso())) return { rodou, sobrou: false }
+    rodou++
+  }
+  return { rodou, sobrou: true }
+}

@@ -9,6 +9,7 @@ import { CONTORNO, GRADIENTE } from './toon'
 
 export const COR_ESTADO: Record<Estado, string> = {
   ocioso: '#a2a39a',
+  na_fila: '#7a8fb0',
   trabalhando: '#3969a8',
   concluido: '#3f7650',
   esperando_voce: '#976822',
@@ -153,7 +154,7 @@ export function EstacaoAgente({
   })
 
   const [x, z, rotacao] = mesa
-  const mostrarBalao = (estado === 'trabalhando' || estado === 'esperando_voce') && acao
+  const mostrarBalao = (estado === 'trabalhando' || estado === 'esperando_voce' || estado === 'na_fila') && acao
   const toon = (cor: string) => <meshToonMaterial color={cor} gradientMap={GRADIENTE} />
 
   return (

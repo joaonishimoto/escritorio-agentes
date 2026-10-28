@@ -4,6 +4,7 @@ import { COR_ESTADO } from '../office/EstacaoAgente'
 
 const ROTULO_ESTADO = {
   ocioso: 'Ocioso',
+  na_fila: 'Na fila',
   trabalhando: 'Trabalhando',
   concluido: 'Concluído',
   esperando_voce: 'Esperando você',

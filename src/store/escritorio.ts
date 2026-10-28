@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AgenteId } from '../agents/catalogo'
 
-export type Estado = 'ocioso' | 'trabalhando' | 'concluido' | 'esperando_voce' | 'erro'
+export type Estado = 'ocioso' | 'na_fila' | 'trabalhando' | 'concluido' | 'esperando_voce' | 'erro'
 
 /** Espelha uma linha da tabela `eventos` do Supabase. */
 export interface Evento {
@@ -55,6 +55,16 @@ interface EscritorioState {
   reiniciar: () => void
 }
 
+const NOMES_CURTOS: Record<AgenteId, string> = {
+  chefe: 'Chefe de pauta',
+  pesquisador: 'Pesquisador',
+  redator: 'Redator',
+  designer: 'Designer',
+  revisor: 'Revisor',
+  publicador: 'Publicador',
+  curador: 'Curador',
+}
+
 const estadosIniciais = (): Record<AgenteId, Estado> => ({
   chefe: 'ocioso',
   pesquisador: 'ocioso',
@@ -86,6 +96,15 @@ export const useEscritorio = create<EscritorioState>((set) => ({
           animar && e.tipo === 'entrega' && e.para && e.para !== 'voce'
             ? [...s.entregas, { id: e.id, de: 'voce' as const, para: e.para, inicio: performance.now() }].slice(-6)
             : s.entregas
+        if (e.tipo === 'entrega' && e.para && e.para !== 'voce') {
+          return {
+            eventos,
+            entregas,
+            aguardandoVoce: false,
+            estados: { ...s.estados, [e.para]: 'na_fila' as Estado },
+            acaoAtual: { ...s.acaoAtual, [e.para]: 'Recebeu seu pedido, vai começar' },
+          }
+        }
         return { eventos, entregas, aguardandoVoce: false }
       }
       const id = e.agente
@@ -116,6 +135,11 @@ export const useEscritorio = create<EscritorioState>((set) => ({
         case 'entrega':
           estados[id] = 'concluido'
           if (e.para) {
+            // quem recebe a pasta fica "na fila" até começar, para dar para ver em que etapa o post está
+            if (e.para !== 'voce') {
+              estados[e.para] = 'na_fila'
+              acaoAtual[e.para] = `Recebeu de ${NOMES_CURTOS[id]}, vai começar`
+            }
             if (animar) entregas = [...entregas, { id: e.id, de: id, para: e.para, inicio: performance.now() }].slice(-6)
             aguardandoVoce = e.para === 'voce'
           }

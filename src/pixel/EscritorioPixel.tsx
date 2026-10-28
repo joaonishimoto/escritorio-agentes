@@ -153,20 +153,28 @@ export function EscritorioPixel({
     const x0 = sala * PASSO_SALA
     const [sx, sy] = pes(sala, quem)
     const ly = linhaDaMesa(MESAS[quem])
-    return [[sx, sy], [sx, ly], [x0 + COLUNA_X, ly], [x0 + COLUNA_X, LINHA_FRENTE]]
-  }
-  const doHubAte = (sala: number, quem: AgenteId): Ponto[] => {
-    const x0 = sala * PASSO_SALA
-    const [sx] = pes(sala, quem)
-    const ly = linhaDaMesa(MESAS[quem])
-    return [[x0 + COLUNA_X, ly], [sx, ly]]
+    return ly === LINHA_FRENTE ? [[sx, sy], [sx, ly]] : [[sx, sy], [sx, ly], [x0 + COLUNA_X, ly], [x0 + COLUNA_X, LINHA_FRENTE]]
   }
   const daSuaMesaAtePorta = (): Ponto[] => {
     const [x, y] = pes(-1, 'voce')
     return [[x, y], [xVoce + 50, y], [xVoce + 50, 124], [xVoce + PORTA_VOCE_X, 124], [xVoce + PORTA_VOCE_X, CORREDOR_PES]]
   }
+  // em pé ao lado da cadeira de quem recebe
+  const aoLado = (sala: number, quem: AgenteId): Ponto => {
+    const [sx, sy] = pes(sala, quem)
+    return [sx + 13, sy]
+  }
   const caminho = (de: { sala: number; quem: AgenteId | 'voce' }, para: { sala: number; quem: AgenteId | 'voce' }): Ponto[] => {
-    if (de.quem !== 'voce' && para.quem !== 'voce' && de.sala === para.sala) return [...ateOHub(de.sala, de.quem), ...doHubAte(para.sala, para.quem)]
+    // mesma sala: desce para o corredorzinho da própria fileira, anda até a outra mesa e para ao lado da cadeira
+    if (de.quem !== 'voce' && para.quem !== 'voce' && de.sala === para.sala) {
+      const x0 = de.sala * PASSO_SALA
+      const [sx, sy] = pes(de.sala, de.quem)
+      const [ax, ay] = aoLado(para.sala, para.quem)
+      const l1 = linhaDaMesa(MESAS[de.quem])
+      const l2 = linhaDaMesa(MESAS[para.quem])
+      const meio: Ponto[] = l1 === l2 ? [] : [[x0 + COLUNA_X, l1], [x0 + COLUNA_X, l2]]
+      return [[sx, sy], [sx, l1], ...meio, [ax, l2], [ax, ay]]
+    }
     const saida: Ponto[] =
       de.quem === 'voce'
         ? daSuaMesaAtePorta()
@@ -174,7 +182,13 @@ export function EscritorioPixel({
     const chegada: Ponto[] =
       para.quem === 'voce'
         ? [...daSuaMesaAtePorta()].reverse().slice(0, -1).concat([[pes(-1, 'voce')[0], MESA_VOCE.y + 24]])
-        : [[para.sala * PASSO_SALA + PORTA_X, CORREDOR_PES], [para.sala * PASSO_SALA + PORTA_X, LINHA_FRENTE], [para.sala * PASSO_SALA + COLUNA_X, LINHA_FRENTE], ...doHubAte(para.sala, para.quem)]
+        : [
+            [para.sala * PASSO_SALA + PORTA_X, CORREDOR_PES],
+            [para.sala * PASSO_SALA + PORTA_X, LINHA_FRENTE],
+            ...(linhaDaMesa(MESAS[para.quem]) === LINHA_FRENTE ? [] : ([[para.sala * PASSO_SALA + COLUNA_X, LINHA_FRENTE], [para.sala * PASSO_SALA + COLUNA_X, linhaDaMesa(MESAS[para.quem])]] as Ponto[])),
+            [aoLado(para.sala, para.quem)[0], linhaDaMesa(MESAS[para.quem])],
+            aoLado(para.sala, para.quem),
+          ]
     return [...saida, ...chegada]
   }
 
@@ -203,7 +217,7 @@ export function EscritorioPixel({
     const g = c.getContext('2d')!
     let quadroId = 0
     let anterior = performance.now()
-    let proximoPasseio = performance.now() + 6000
+    let proximoPasseio = performance.now() + 30000
 
     const desenhar = (agora: number) => {
       const dt = Math.min((agora - anterior) / 1000, 0.05)
@@ -223,14 +237,18 @@ export function EscritorioPixel({
       geom.current = { escala, offY, larguraVista: vistaW }
 
       // passeio até o café de vez em quando, para o andar não ficar parado
-      if (agora > proximoPasseio) {
-        proximoPasseio = agora + 7000 + Math.random() * 8000
+      // raro, um por vez, e nunca na sala que está com post em produção
+      const salaOcupada = AGENTES.some((a) => ['trabalhando', 'na_fila', 'esperando_voce'].includes(v.estados[a.id]))
+      if (agora > proximoPasseio && !andantes.current.some((a) => !a.pasta)) {
+        proximoPasseio = agora + 40000 + Math.random() * 40000
         const sala = Math.floor(Math.random() * marcas.length)
-        const livres = AGENTES.filter((a) => (sala !== v.indiceAtivo || ['ocioso', 'concluido'].includes(v.estados[a.id])) && !andando(a.id, sala))
+        const livres = sala === v.indiceAtivo && salaOcupada ? [] : AGENTES.filter((a) => !andando(a.id, sala))
         const a = livres[Math.floor(Math.random() * livres.length)]
         if (a) {
           const x0 = sala * PASSO_SALA
-          const ida: Ponto[] = [...ateOHub(sala, a.id), [x0 + 182, LINHA_FRENTE], [x0 + 182, 96]]
+          const ly = linhaDaMesa(MESAS[a.id])
+          const [sx, sy] = pes(sala, a.id)
+          const ida: Ponto[] = [[sx, sy], [sx, ly], [x0 + COLUNA_X, ly], [x0 + COLUNA_X, 96], [x0 + 196, 96]]
           andantes.current.push({ id: `cafe-${agora}`, quem: a.id, sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: false })
         }
       }
@@ -337,6 +355,7 @@ export function EscritorioPixel({
           g.drawImage(quadro(VISUAL[a.id], 'cima', 0, true), x, y)
           if (i === v.indiceAtivo) {
             if (est === 'concluido' && desde < 0.8) faiscas(g, x + 7, y + 4, desde)
+            if (est === 'na_fila') reticencias(g, x + 2, y - 8, t)
             if (est === 'esperando_voce' || est === 'erro') exclamacao(g, x + 5, y - 12 + Math.round(Math.sin(t * 6)), est === 'erro' ? '#e05a4f' : '#f2b233')
             if (v.selecionado === a.id) seta(g, x + 4, y - 10 + Math.round(Math.sin(t * 5) * 1.5))
             posicoesEtiqueta[a.id] = [x + 7, m.y - 11]
@@ -474,7 +493,7 @@ export function EscritorioPixel({
       />
       {nomes.map((id) => {
         const est = id === 'voce' ? null : estados[id]
-        const acao = id !== 'voce' && (est === 'trabalhando' || est === 'esperando_voce') ? acoes[id] : null
+        const acao = id !== 'voce' && (est === 'trabalhando' || est === 'esperando_voce' || est === 'na_fila') ? acoes[id] : null
         const nome = id === 'voce' ? 'Você' : agentePorId(id).nome
         return (
           <Fragment key={id}>
@@ -542,4 +561,14 @@ function faiscas(g: CanvasRenderingContext2D, x: number, y: number, desde: numbe
     const a = (i / 8) * Math.PI * 2
     g.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.7), 2, 2)
   }
+}
+
+function reticencias(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  g.fillStyle = '#1f2330'
+  g.fillRect(x - 1, y - 1, 13, 6)
+  g.fillStyle = '#ffffff'
+  g.fillRect(x, y, 11, 4)
+  g.fillStyle = '#1f2330'
+  const n = Math.floor(t * 3) % 4
+  for (let i = 0; i < n; i++) g.fillRect(x + 2 + i * 3, y + 1, 2, 2)
 }

@@ -1,4 +1,6 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { agentePorId, type AgenteId } from './agents/catalogo'
+import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
 import { Escritorio } from './office/Escritorio'
 import { EscritorioPixel } from './pixel/EscritorioPixel'
@@ -14,6 +16,7 @@ import { Calendario } from './ui/Calendario'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
+import { chamarApi } from './lib/api'
 import { useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
 
 const ROTULO_STATUS: Record<string, string> = {
@@ -53,6 +56,8 @@ function Painel({ logado }: { logado: boolean }) {
   const foco = useEscritorio((s) => s.foco)
   const focar = useEscritorio((s) => s.focar)
   const definirAgenda = useEscritorio((s) => s.definirAgenda)
+  const estados = useEscritorio((s) => s.estados)
+  const eventos = useEscritorio((s) => s.eventos)
 
   const marcas = useMarcas(logado)
   const [marcaId, setMarcaId] = useState<string | null>(null)
@@ -118,6 +123,22 @@ function Painel({ logado }: { logado: boolean }) {
     )
   }, [posts, emDemo, definirAgenda])
 
+  // rede de segurança: se o post em produção ficar 45 s sem nenhum evento, pede para o servidor rodar a fila
+  const ultimoEvento = eventos.at(-1)?.criado_em
+  const cutucando = useRef(false)
+  useEffect(() => {
+    if (emDemo || !post || !['em_producao', 'aprovado'].includes(post.status)) return
+    const id = window.setInterval(() => {
+      const desde = Date.now() - new Date(ultimoEvento ?? post.criado_em).getTime()
+      if (desde < 45_000 || cutucando.current) return
+      cutucando.current = true
+      chamarApi('acordar', { post_id: post.id })
+        .catch((e) => console.error('não consegui retomar o post', e))
+        .finally(() => (cutucando.current = false))
+    }, 15_000)
+    return () => window.clearInterval(id)
+  }, [emDemo, post, ultimoEvento])
+
   const demo = () => {
     setEmDemo(true)
     pararDemo()
@@ -176,6 +197,7 @@ function Painel({ logado }: { logado: boolean }) {
       </header>
 
       <main className="palco">
+        <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
           {visual === 'pixel' ? (
             <EscritorioPixel
@@ -276,6 +298,27 @@ function Menu({ children }: { children: ReactNode }) {
           {children}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Em que etapa o post está agora, sempre visível no canto do escritório. */
+function Etapa({ estados, aguardando, ativo }: { estados: Record<AgenteId, Estado>; aguardando: boolean; ativo: boolean }) {
+  const ids = Object.keys(estados) as AgenteId[]
+  const trabalhando = ids.find((id) => estados[id] === 'trabalhando')
+  const naFila = ids.find((id) => estados[id] === 'na_fila')
+  const texto = aguardando
+    ? 'Esperando sua aprovação'
+    : trabalhando
+      ? `${agentePorId(trabalhando).nome} trabalhando`
+      : naFila
+        ? `${agentePorId(naFila).nome} vai começar`
+        : null
+  if (!texto || (!ativo && !aguardando)) return null
+  return (
+    <div className="etapa" role="status">
+      <span className={`etapa-ponto${aguardando ? ' voce' : ''}`} />
+      {texto}
     </div>
   )
 }
