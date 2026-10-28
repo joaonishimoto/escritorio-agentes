@@ -133,16 +133,27 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
   background: var(--background); border-bottom: 1px solid var(--border);
 }
-.marca { display: flex; align-items: center; gap: 10px; min-width: 0 }
-.marca h1 { font-size: 15px; font-weight: 600; white-space: nowrap }
+.marca { display: flex; align-items: center; gap: 8px; min-width: 0 }
 .logo { width: 24px; height: 24px; flex: none; display: block }
-.marca select, .topo-acoes select { height: 28px; font-size: 13px }
-.topo-acoes { display: flex; align-items: center; gap: 6px; min-width: 0 }
-.topo-acoes select { max-width: 260px }
+.nome-marca { font-size: 14px; font-weight: 600; white-space: nowrap; margin-left: 2px }
+.barra { color: var(--border-strong); font-size: 18px; font-weight: 300 }
+.seletor { height: 28px; min-width: 0; max-width: 320px; font-size: 14px; font-weight: 500; color: var(--foreground);
+  border-color: transparent; background-color: transparent; padding-inline: 6px 24px; text-overflow: ellipsis }
+.seletor:hover { border-color: transparent; background-color: var(--surface-hover) }
+.topo-acoes { display: flex; align-items: center; gap: 4px; flex: none }
+.icone { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-md);
+  background: none; color: var(--muted-foreground); fill: currentColor; cursor: pointer }
+.icone:hover, .icone[aria-expanded="true"] { background: var(--surface-hover); color: var(--primary) }
+.menu { position: relative }
+.menu-lista { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 200px; padding: 4px;
+  display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md) }
+.menu-lista button { text-align: left; background: none; border: 0; border-radius: var(--radius-md); padding: 7px 10px;
+  font-size: 14px; color: var(--foreground); cursor: pointer }
+.menu-lista button:hover { background: var(--surface-hover); color: var(--primary) }
+.menu-lista hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0 }
 @media (max-width: 900px) {
-  .app { grid-template-rows: auto 1fr auto }
-  .topo { flex-wrap: wrap; padding-block: 8px }
-  .topo-acoes { flex-wrap: wrap }
+  .seletor { max-width: 40vw }
 }
 
 .palco { position: relative; min-height: 0; background: var(--background) }
@@ -184,12 +195,17 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .historico li { display: grid; grid-template-columns: auto 1fr; gap: 10px }
 
 /* linha do tempo */
-.rodape { background: var(--background); border-top: 1px solid var(--border); padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); max-height: 128px; overflow-y: auto }
-.linha p { font-size: 13px }
-.linha ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column }
-.linha button { display: flex; gap: 12px; width: 100%; text-align: left; background: none; border: 0; padding: 3px 6px; border-radius: var(--radius-sm); font-size: 13px; color: var(--foreground) }
-.linha button:hover { background: var(--surface-hover) }
-.linha .quem { font-weight: 500; min-width: 110px }
+.rodape { position: relative; background: var(--background); border-top: 1px solid var(--border); padding: 6px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)) }
+.linha-atual { display: flex; align-items: center; gap: 12px; min-height: 28px }
+.linha-atual p { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; overflow: hidden }
+.linha-atual p .muted { overflow: hidden; text-overflow: ellipsis }
+.linha-atual .ponto { width: 8px; height: 8px; border-radius: 50%; flex: none }
+.linha-atual .link { font-size: 13px; padding: 4px 8px }
+.linha-historico { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); max-height: min(360px, 50vh); overflow-y: auto; z-index: 20;
+  list-style: none; margin: 0; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md) }
+.linha-historico button { display: flex; gap: 12px; width: 100%; text-align: left; background: none; border: 0; padding: 4px 8px; border-radius: var(--radius-sm); font-size: 13px; color: var(--foreground) }
+.linha-historico button:hover { background: var(--surface-hover) }
+.linha-historico .quem { font-weight: 500; min-width: 110px }
 .custo { font-size: 12px; display: block; margin-top: 4px }
 
 /* login */
@@ -226,3 +242,39 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .biblioteca img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md); background: var(--surface-muted); border: 1px solid var(--border) }
 .biblioteca figcaption { display: flex; gap: 6px; align-items: center; flex-wrap: wrap }
 .biblioteca .link { align-self: flex-start; padding: 2px 4px; font-size: 12px }
+
+/* ───────── calendário ───────── */
+.cal-parede { width: 540px; height: 420px; padding: 22px 26px; border-radius: 6px; background: #fdfcfa;
+  font-family: var(--font-sans); color: #262820; display: flex; flex-direction: column; gap: 10px; text-align: center }
+.cal-parede-mes { font-size: 34px; font-weight: 700; color: #1e3d66 }
+.cal-parede-mes span { font-weight: 400; color: #74766d }
+.cal-parede-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; flex: 1 }
+.cal-parede-grade .cal-sem { font-size: 17px; font-weight: 600; color: #74766d }
+.cal-parede-grade .cal-dia { position: relative; font-size: 21px; display: grid; place-items: center; border-radius: 4px }
+.cal-parede-grade .cal-dia.hoje { background: #1e3d66; color: #fff; font-weight: 700 }
+.cal-parede-grade .cal-dia i { position: absolute; bottom: 2px; width: 10px; height: 10px; border-radius: 50% }
+i.agendado { background: #976822 }
+i.publicado { background: #3f7650 }
+.calendario { width: min(560px, 100%); gap: 14px }
+.cal-nav { display: flex; align-items: center; gap: 6px }
+.cal-nav h2 { min-width: 160px; text-align: center }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px }
+.cal-grade .cal-sem { font-size: 12px; font-weight: 500; color: var(--muted-foreground); text-align: center; padding-bottom: 2px }
+.cal-grade .cal-dia { height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); font-size: 13px; color: var(--foreground); cursor: pointer }
+.cal-grade .cal-dia:hover { background: var(--surface-hover) }
+.cal-grade .cal-dia.hoje span:first-child { color: var(--primary); font-weight: 700 }
+.cal-grade .cal-dia.escolhido { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) }
+.cal-pontos { display: flex; gap: 3px; height: 6px }
+.cal-pontos i, .cal-legenda i { display: inline-block; width: 6px; height: 6px; border-radius: 50% }
+.cal-legenda { display: flex; gap: 16px; font-size: 12px }
+.cal-legenda span { display: inline-flex; align-items: center; gap: 6px }
+.cal-lista { display: flex; flex-direction: column; gap: 4px }
+.cal-lista p { font-size: 13px }
+.cal-lista button { display: flex; align-items: center; gap: 12px; text-align: left; background: none; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; font-size: 14px; color: var(--foreground); cursor: pointer }
+.cal-lista button:hover { background: var(--surface-hover) }
+.cal-lista button span:nth-child(2) { flex: 1 }
+.lista-pendentes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px }
+.lista-pendentes button { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; font-size: 14px; color: var(--foreground); cursor: pointer }
+.lista-pendentes button:hover { background: var(--surface-hover); color: var(--primary) }
+.status-agendado { background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning-strong) }

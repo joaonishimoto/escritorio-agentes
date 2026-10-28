@@ -23,6 +23,14 @@ export interface Entrega {
   inicio: number
 }
 
+export interface ItemAgenda {
+  id: string
+  /** dia e hora em ISO */
+  data: string
+  titulo: string
+  status: 'agendado' | 'publicado'
+}
+
 interface EscritorioState {
   estados: Record<AgenteId, Estado>
   acaoAtual: Partial<Record<AgenteId, string>>
@@ -31,10 +39,16 @@ interface EscritorioState {
   eventos: Evento[]
   entregas: Entrega[]
   selecionado: AgenteId | null
+  /** sua mesa ou o calendário da parede, quando abertos */
+  foco: 'voce' | 'calendario' | null
   aguardandoVoce: boolean
+  /** posts com data, para o calendário da parede */
+  agenda: ItemAgenda[]
   /** `animar: false` ao reconstruir um post antigo, para as pastas não voarem todas de uma vez */
   aplicar: (e: Evento, animar?: boolean) => void
   selecionar: (id: AgenteId | null) => void
+  focar: (foco: 'voce' | 'calendario' | null) => void
+  definirAgenda: (agenda: ItemAgenda[]) => void
   reiniciar: () => void
 }
 
@@ -55,7 +69,9 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   eventos: [],
   entregas: [],
   selecionado: null,
+  foco: null,
   aguardandoVoce: false,
+  agenda: [],
 
   aplicar: (e, animar = true) =>
     set((s) => {
@@ -113,7 +129,9 @@ export const useEscritorio = create<EscritorioState>((set) => ({
       return { eventos, estados, acaoAtual, rascunho, entregas, aguardandoVoce }
     }),
 
-  selecionar: (id) => set({ selecionado: id }),
+  selecionar: (id) => set({ selecionado: id, foco: null }),
+  focar: (foco) => set({ foco, selecionado: null }),
+  definirAgenda: (agenda) => set({ agenda }),
 
   reiniciar: () =>
     set({ estados: estadosIniciais(), acaoAtual: {}, rascunho: {}, eventos: [], entregas: [], aguardandoVoce: false }),

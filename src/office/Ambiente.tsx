@@ -37,11 +37,6 @@ export function Ambiente() {
         <boxGeometry args={[0.2, 3, 10]} />
         <meshStandardMaterial color="#fdfcfa" />
       </mesh>
-      {/* quadro de pauta na parede */}
-      <mesh position={[-3, 1.8, -4.88]}>
-        <boxGeometry args={[3, 1.3, 0.05]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
       {/* janela */}
       <mesh position={[3.5, 1.9, -4.88]}>
         <boxGeometry args={[3.2, 1.4, 0.05]} />

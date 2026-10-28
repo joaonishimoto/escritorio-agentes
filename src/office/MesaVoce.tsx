@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import type { MeshStandardMaterial } from 'three'
@@ -7,6 +7,9 @@ import { useEscritorio } from '../store/escritorio'
 /** Sua mesa de aprovação: pisca quando algum post espera por você. */
 export function MesaVoce({ posicao }: { posicao: [number, number] }) {
   const aguardando = useEscritorio((s) => s.aguardandoVoce)
+  const focar = useEscritorio((s) => s.focar)
+  const aberta = useEscritorio((s) => s.foco === 'voce')
+  const [hover, setHover] = useState(false)
   const tampo = useRef<MeshStandardMaterial>(null)
 
   useFrame(({ clock }) => {
@@ -15,7 +18,26 @@ export function MesaVoce({ posicao }: { posicao: [number, number] }) {
   })
 
   return (
-    <group position={[posicao[0], 0, posicao[1]]}>
+    <group
+      position={[posicao[0], 0, posicao[1]]}
+      onClick={(e) => {
+        e.stopPropagation()
+        focar('voce')
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        setHover(true)
+        document.body.style.cursor = 'pointer'
+      }}
+      onPointerOut={() => {
+        setHover(false)
+        document.body.style.cursor = ''
+      }}
+    >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[0.8, aberta || hover ? 0.98 : 0.88, 32]} />
+        <meshBasicMaterial color="#976822" transparent opacity={aberta || hover || aguardando ? 0.85 : 0.35} />
+      </mesh>
       <mesh castShadow receiveShadow position={[0, 0.75, 0]}>
         <boxGeometry args={[1.4, 0.08, 1]} />
         <meshStandardMaterial ref={tampo} color="#faf5eb" emissive="#976822" emissiveIntensity={0} />

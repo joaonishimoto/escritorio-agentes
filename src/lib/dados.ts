@@ -15,6 +15,8 @@ export interface Post {
   legenda: string | null
   slides: { ordem: number; url: string }[]
   custo_usd: number
+  agendado_para: string | null
+  publicado_em: string | null
   criado_em: string
 }
 
@@ -48,7 +50,7 @@ export function usePosts(marcaId: string | null, recarregar: number) {
       .select('*')
       .eq('marca_id', marcaId)
       .order('criado_em', { ascending: false })
-      .limit(20)
+      .limit(100)
       .then(({ data }) => setPosts((data as Post[]) ?? []))
   }, [marcaId, recarregar])
   return posts

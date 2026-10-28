@@ -1,24 +1,29 @@
+import { useState } from 'react'
 import { agentePorId } from '../agents/catalogo'
-import { useEscritorio } from '../store/escritorio'
+import { useEscritorio, type Evento } from '../store/escritorio'
 
-export function LinhaDoTempo() {
+const quem = (e: Evento) =>
+  e.agente === 'voce' ? { nome: 'Você', cor: '#976822' } : { nome: agentePorId(e.agente).nome, cor: agentePorId(e.agente).cor }
+
+/** Rodapé de uma linha: só o último acontecimento. O histórico completo abre por cima quando você pede. */
+export function LinhaDoTempo({ extra }: { extra?: React.ReactNode }) {
   const eventos = useEscritorio((s) => s.eventos)
   const selecionar = useEscritorio((s) => s.selecionar)
-  const visiveis = eventos.filter((e) => e.tipo !== 'texto').slice(-30).reverse()
+  const [aberto, setAberto] = useState(false)
+  const visiveis = eventos.filter((e) => e.tipo !== 'texto')
+  const ultimo = visiveis.at(-1)
 
   return (
-    <div className="linha" aria-label="Linha do tempo do post">
-      {visiveis.length === 0 ? (
-        <p className="muted">Nenhum post em andamento. Rode a demonstração para ver a equipe trabalhando.</p>
-      ) : (
-        <ol>
-          {visiveis.map((e) => {
-            const nome = e.agente === 'voce' ? 'Você' : agentePorId(e.agente).nome
-            const cor = e.agente === 'voce' ? '#976822' : agentePorId(e.agente).cor
+    <div className="linha">
+      {aberto && visiveis.length > 0 && (
+        <ol className="linha-historico" aria-label="Histórico do post">
+          {visiveis.slice(-60).reverse().map((e) => {
+            const q = quem(e)
             return (
               <li key={e.id}>
                 <button onClick={() => e.agente !== 'voce' && selecionar(e.agente)}>
-                  <span className="quem" style={{ color: cor }}>{nome}</span>
+                  <time className="mono muted">{new Date(e.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>
+                  <span className="quem" style={{ color: q.cor }}>{q.nome}</span>
                   <span>{e.mensagem}</span>
                 </button>
               </li>
@@ -26,6 +31,23 @@ export function LinhaDoTempo() {
           })}
         </ol>
       )}
+      <div className="linha-atual">
+        {ultimo ? (
+          <p>
+            <span className="ponto" style={{ background: quem(ultimo).cor }} />
+            <strong>{quem(ultimo).nome}</strong>
+            <span className="muted">{ultimo.mensagem}</span>
+          </p>
+        ) : (
+          <p className="muted">Nenhum post em andamento.</p>
+        )}
+        {extra}
+        {visiveis.length > 1 && (
+          <button className="link" onClick={() => setAberto((a) => !a)} aria-expanded={aberto}>
+            {aberto ? 'Fechar histórico' : `Histórico (${visiveis.length})`}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { EstacaoAgente } from './EstacaoAgente'
 import { MesaVoce } from './MesaVoce'
 import { Pastas } from './Pastas'
 import { Ambiente } from './Ambiente'
+import { CalendarioParede } from './CalendarioParede'
 
 export function Escritorio() {
   const selecionar = useEscritorio((s) => s.selecionar)
@@ -15,7 +16,7 @@ export function Escritorio() {
       shadows
       dpr={[1, 2]}
       camera={{ position: [13, 12, 13], fov: 32 }}
-      onPointerMissed={() => selecionar(null)}
+      onPointerMissed={() => { selecionar(null) }}
     >
       <color attach="background" args={['#faf9f5']} />
       <hemisphereLight args={['#ffffff', '#eeebe2', 1.15]} />
@@ -31,6 +32,7 @@ export function Escritorio() {
       />
 
       <Ambiente />
+      <CalendarioParede />
       {AGENTES.map((a) => (
         <EstacaoAgente key={a.id} agente={a} />
       ))}
