@@ -305,7 +305,6 @@ function Painel({ logado }: { logado: boolean }) {
     if (marcaId && custos) x[marcaId] = `${dolar(custos.mes)} no mês`
     return x
   }, [andar.mes, custos, marcaId, emDemo, logado])
-  const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
   return (
     <div className="app">
@@ -349,13 +348,6 @@ function Painel({ logado }: { logado: boolean }) {
           )}
         </div>
         <div className="topo-acoes">
-          <button className="botao-topo" onClick={() => focar('calendario')} aria-label="Calendário">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
-            </svg>
-            <span className="so-largo">Calendário</span>
-            {agendados > 0 && <span className="contador">{agendados}</span>}
-          </button>
           {logado && marcaId && <button className="primario so-lista-fechada" data-lista={listaAberta ? 'aberta' : 'fechada'} onClick={() => setNovo(true)}>Novo<span className="so-largo"> post</span></button>}
           <Menu>
             {logado && marca && (
