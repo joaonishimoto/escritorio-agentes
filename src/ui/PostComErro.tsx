@@ -9,6 +9,7 @@ const NOMES: Record<string, string> = {
   pesquisador: 'pesquisador',
   redator: 'redator',
   designer: 'designer',
+  cinegrafista: 'cinegrafista',
   revisor: 'revisor',
   publicador: 'publicador',
   curador: 'curador',
