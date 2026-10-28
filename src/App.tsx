@@ -6,6 +6,7 @@ import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
 import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
+import { Biblioteca } from './ui/Biblioteca'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
@@ -52,6 +53,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
   const [trocarSenha, setTrocarSenha] = useState(false)
+  const [biblioteca, setBiblioteca] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
 
   useEffect(() => {
@@ -116,6 +118,7 @@ function Painel({ logado }: { logado: boolean }) {
           )}
           <button className="secundario" onClick={demo}>Ver demonstração</button>
           {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
+          {logado && marcaId && <button className="link" onClick={() => setBiblioteca(true)}>Fotos da marca</button>}
           {logado && <button className="link" onClick={() => setTrocarSenha(true)}>Trocar senha</button>}
           {logado && <button className="link" onClick={() => supabase?.auth.signOut()}>Sair</button>}
         </div>
@@ -148,6 +151,7 @@ function Painel({ logado }: { logado: boolean }) {
         {!emDemo && post && <span className="custo mono muted">custo deste post: US$ {Number(post.custo_usd).toFixed(2)}</span>}
       </footer>
 
+      {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost
