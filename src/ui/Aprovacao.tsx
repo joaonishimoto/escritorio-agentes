@@ -9,16 +9,17 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
   const [comentario, setComentario] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
-  const [confirmarPublicar, setConfirmarPublicar] = useState(false)
+  const [confirmar, setConfirmar] = useState<'agora' | 'agendar' | null>(null)
+  const [quando, setQuando] = useState(sugestaoDeHorario)
   const slides = [...(post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
 
-  const decidir = async (acao: 'aprovar' | 'corrigir' | 'reprovar') => {
+  const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar') => {
     setEnviando(true)
     setErro(null)
     try {
-      await chamarApi('aprovar', { post_id: post.id, acao, comentario })
+      await chamarApi('aprovar', { post_id: post.id, acao, comentario, quando: acao === 'agendar' ? new Date(quando).toISOString() : undefined })
       setComentario('')
-      setConfirmarPublicar(false)
+      setConfirmar(null)
       aoMudar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu certo')
@@ -66,16 +67,29 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
       {erro && <p className="aviso">{erro}</p>}
 
       <div className="acoes acoes-coluna">
-        {confirmarPublicar ? (
+        {confirmar === 'agora' ? (
           <div className="confirmar">
             <p>Publicar agora no Instagram? Isso não dá para desfazer daqui.</p>
             <div className="acoes">
-              <button className="secundario" onClick={() => setConfirmarPublicar(false)}>Voltar</button>
+              <button className="secundario" onClick={() => setConfirmar(null)}>Voltar</button>
               <button className="primario" disabled={enviando} onClick={() => decidir('aprovar')}>Publicar agora</button>
             </div>
           </div>
+        ) : confirmar === 'agendar' ? (
+          <div className="confirmar">
+            <label htmlFor="quando"><p>Publicar no Instagram em:</p></label>
+            <input id="quando" type="datetime-local" value={quando} min={paraCampo(new Date(Date.now() + 5 * 60_000))} onChange={(e) => setQuando(e.target.value)} />
+            <p className="muted">Dá para cancelar pelo calendário até a hora marcada.</p>
+            <div className="acoes">
+              <button className="secundario" onClick={() => setConfirmar(null)}>Voltar</button>
+              <button className="primario" disabled={enviando || !quando} onClick={() => decidir('agendar')}>Agendar</button>
+            </div>
+          </div>
         ) : (
-          <button className="primario" disabled={enviando} onClick={() => setConfirmarPublicar(true)}>Aprovar e publicar</button>
+          <div className="acoes">
+            <button className="primario" disabled={enviando} onClick={() => setConfirmar('agendar')}>Aprovar e agendar</button>
+            <button className="secundario" disabled={enviando} onClick={() => setConfirmar('agora')}>Publicar agora</button>
+          </div>
         )}
         <button className="secundario" disabled={enviando || !comentario.trim()} onClick={() => decidir('corrigir')}>Pedir ajuste</button>
         <button className="perigo" disabled={enviando || !comentario.trim()} onClick={() => decidir('reprovar')}>Reprovar</button>
@@ -105,4 +119,18 @@ export function RegrasPropostas({ regras, aoMudar }: { regras: Regra[]; aoMudar:
       </ul>
     </section>
   )
+}
+
+/** Data no formato do campo datetime-local, no fuso do navegador. */
+function paraCampo(d: Date) {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** Próximo horário bom: hoje às 19h, ou amanhã se já passou. */
+function sugestaoDeHorario() {
+  const d = new Date()
+  if (d.getHours() >= 18) d.setDate(d.getDate() + 1)
+  d.setHours(19, 0, 0, 0)
+  return paraCampo(d)
 }

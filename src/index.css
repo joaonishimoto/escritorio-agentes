@@ -367,3 +367,7 @@ i.publicado { background: #3f7650 }
 .ver-slides img { cursor: zoom-in; transition: transform .18s ease-out }
 .ver-slides img.ampliado { cursor: zoom-out; transition: transform .18s ease-out, transform-origin .08s linear }
 .ver-pontos, .ver-contador { z-index: 2 }
+.cal-item { display: flex; gap: 6px }
+.cal-item > button:first-child { flex: 1 }
+.cal-lista .cal-cancelar { flex: none; color: var(--danger, #b42318); font-size: 13px }
+.confirmar input[type="datetime-local"] { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground) }

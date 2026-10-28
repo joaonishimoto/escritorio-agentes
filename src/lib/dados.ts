@@ -47,8 +47,9 @@ export interface Regra {
   status: 'proposta' | 'ativa' | 'arquivada'
 }
 
+/** Marcas da conta; `null` enquanto ainda não chegaram do banco. */
 export function useMarcas(ativo: boolean) {
-  const [marcas, setMarcas] = useState<Marca[]>([])
+  const [marcas, setMarcas] = useState<Marca[] | null>(null)
   useEffect(() => {
     if (!supabase || !ativo) return
     supabase

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { chamarApi } from '../lib/api'
 import { useEscritorio } from '../store/escritorio'
 
 export const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -16,7 +17,7 @@ export function diasDoMes(ano: number, mes: number): (Date | null)[] {
 }
 
 /** Calendário grande que abre ao clicar no da parede. */
-export function Calendario({ aoAbrirPost }: { aoAbrirPost: (id: string) => void }) {
+export function Calendario({ aoAbrirPost, aoMudar }: { aoAbrirPost: (id: string) => void; aoMudar?: () => void }) {
   const agenda = useEscritorio((s) => s.agenda)
   const focar = useEscritorio((s) => s.focar)
   const hoje = new Date()
@@ -33,6 +34,18 @@ export function Calendario({ aoAbrirPost }: { aoAbrirPost: (id: string) => void 
     setMes({ ano: d.getFullYear(), mes: d.getMonth() })
   }
   const doDia = dia ? porDia.get(dia) ?? [] : []
+  const [cancelando, setCancelando] = useState<string | null>(null)
+  const cancelar = async (id: string) => {
+    setCancelando(id)
+    try {
+      await chamarApi('aprovar', { post_id: id, acao: 'desagendar' })
+      aoMudar?.()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Não deu para cancelar')
+    } finally {
+      setCancelando(null)
+    }
+  }
 
   return (
     <div className="modal-fundo" onClick={() => focar(null)}>
@@ -79,11 +92,18 @@ export function Calendario({ aoAbrirPost }: { aoAbrirPost: (id: string) => void 
             <p className="muted">Nada agendado ou publicado neste dia.</p>
           ) : (
             doDia.map((it) => (
-              <button key={it.id} onClick={() => { focar(null); aoAbrirPost(it.id) }}>
-                <time className="mono">{new Date(it.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>
-                <span>{it.titulo}</span>
-                <span className={`chip status-${it.status}`}>{it.status}</span>
-              </button>
+              <div key={it.id} className="cal-item">
+                <button onClick={() => { focar(null); aoAbrirPost(it.id) }}>
+                  <time className="mono">{new Date(it.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>
+                  <span>{it.titulo}</span>
+                  <span className={`chip status-${it.status}`}>{it.status}</span>
+                </button>
+                {it.status === 'agendado' && !it.id.startsWith('demo') && (
+                  <button className="cal-cancelar" disabled={cancelando === it.id} onClick={() => cancelar(it.id)}>
+                    Cancelar
+                  </button>
+                )}
+              </div>
             ))
           )}
         </section>

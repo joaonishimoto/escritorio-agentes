@@ -61,7 +61,10 @@ function Painel({ logado }: { logado: boolean }) {
   const estados = useEscritorio((s) => s.estados)
   const eventos = useEscritorio((s) => s.eventos)
 
-  const marcas = useMarcas(logado)
+  const marcasDoBanco = useMarcas(logado)
+  const marcas = marcasDoBanco ?? []
+  // logado, o escritório só aparece depois que as marcas chegam (antes piscava a sala de exemplo)
+  const carregandoMarcas = logado && !!supabase && marcasDoBanco === null
   const [marcaId, setMarcaId] = useState<string | null>(null)
   const [postId, setPostId] = useState<string | null>(null)
   const [recarregar, setRecarregar] = useState(0)
@@ -217,7 +220,9 @@ function Painel({ logado }: { logado: boolean }) {
         {custos && <Gastos custos={custos} />}
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
-          {visual === 'pixel' ? (
+          {carregandoMarcas ? (
+            <p className="carregando">Montando o escritório…</p>
+          ) : visual === 'pixel' ? (
             <EscritorioPixel
               aoMudarCor={mudarCor}
               marcas={marcasNoAndar}
@@ -261,7 +266,7 @@ function Painel({ logado }: { logado: boolean }) {
         <LinhaDoTempo />
       </footer>
 
-      {foco === 'calendario' && <Calendario aoAbrirPost={verPost} />}
+      {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
