@@ -1,5 +1,6 @@
-import { useState, type ClipboardEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
-import { chamarApi } from '../lib/api'
+import { useEffect, useState, type ClipboardEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { chamarApi, lerApi } from '../lib/api'
+import { CHAVE_DO_SERVICO, FUNCIONARIOS_IA, nomeDaIA, opcoesDe, type Servicos } from '../lib/ias'
 import { supabase } from '../lib/supabase'
 import { ESTRUTURAS, LAYOUTS, VOZES, nomeDe } from '../lib/estilos'
 import type { Post } from '../lib/dados'
@@ -124,6 +125,13 @@ export function NovoPost({
   const [ideiasAbertas, setIdeiasAbertas] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [iasAbertas, setIasAbertas] = useState(false)
+  const [ias, setIas] = useState<Record<string, string>>({})
+  const [servicos, setServicos] = useState<Servicos | null>(null)
+
+  useEffect(() => {
+    lerApi<{ servicos?: Servicos }>('posts').then((r) => setServicos(r.servicos ?? null)).catch(() => setServicos(null))
+  }, [])
 
   const subir = async (arquivos: File[]) => {
     if (!supabase) return setErro('Entre na sua conta para mandar imagens')
@@ -207,6 +215,7 @@ export function NovoPost({
           layout: formato === 'reel' ? undefined : layout || undefined,
           voz: voz || undefined,
           agendar_para: agendar ? new Date(quando).toISOString() : undefined,
+          ias: Object.keys(iasDoPost).length ? iasDoPost : undefined,
         },
       })
       aoCriar(post)
@@ -215,6 +224,12 @@ export function NovoPost({
       setEnviando(false)
     }
   }
+
+  // o cinegrafista só trabalha em Reel; num carrossel ou foto a escolha dele não vale
+  const funcionarios = FUNCIONARIOS_IA.filter((f) => !f.video || formato === 'reel' || formato === '')
+  const iasDoPost = Object.fromEntries(Object.entries(ias).filter(([a]) => funcionarios.some((f) => f.agente === a)))
+  const resumoIas = Object.entries(iasDoPost).map(([a, id]) => `${FUNCIONARIOS_IA.find((f) => f.agente === a)?.nome}: ${nomeDaIA(id)}`)
+  const semChave = (servico: keyof typeof CHAVE_DO_SERVICO) => servicos?.[servico] === false
 
   const escolhasDeEstilo = [nomeDe(ESTRUTURAS, estrutura), formato !== 'reel' ? nomeDe(LAYOUTS, layout) : undefined, nomeDe(VOZES, voz)].filter(Boolean)
   const resumoFormato = formato ? `${FORMATOS.find((f) => f.id === formato)!.nome}${formato === 'carrossel' && slides ? ` · ${slides} slides` : ''}` : 'A equipe decide'
@@ -326,7 +341,13 @@ export function NovoPost({
                   </div>
                 </div>
               )}
-              {formato === 'reel' && <p className="np-nota">O vídeo é gerado por IA a partir de cenas, sem texto na tela. A capa é um slide.</p>}
+              {formato === 'reel' && (
+                <p className="np-nota">
+                  {ias.cinegrafista === 'claude'
+                    ? 'O Claude faz uma animação com texto na tela, gravada no próprio app. A capa é um slide.'
+                    : 'O vídeo é gerado por IA a partir de cenas, sem texto na tela. A capa é um slide.'}
+                </p>
+              )}
             </Secao>
 
             <Secao numero={3} titulo="Referências" extra={neutra ? 'obrigatório' : 'opcional'}>
@@ -420,7 +441,45 @@ export function NovoPost({
               )}
             </Secao>
 
-            <Secao numero={5} titulo="Quando publicar">
+            <Secao
+              numero={5}
+              titulo="IAs da equipe"
+              extra={
+                <button type="button" className="link" onClick={() => setIasAbertas(!iasAbertas)} aria-expanded={iasAbertas}>
+                  {iasAbertas ? 'Fechar' : resumoIas.length ? 'Editar' : 'Escolher'}
+                </button>
+              }
+            >
+              {!iasAbertas && <p className="np-dica">{resumoIas.length ? resumoIas.join(' · ') : 'Cada funcionário usa a IA de sempre. Troque só para este post, se quiser.'}</p>}
+              {iasAbertas && (
+                <div className="np-ias">
+                  {funcionarios.map((f) => {
+                    const opcoes = opcoesDe(f.agente)
+                    const escolhida = ias[f.agente] ?? ''
+                    const atual = opcoes.find((o) => o.id === (escolhida || f.padrao))
+                    return (
+                      <label key={f.agente} className="np-ia">
+                        <span>
+                          <strong>{f.nome}</strong>
+                          <small>{f.video && formato === '' ? 'Só se o post virar Reel · ' : ''}{atual?.desc}</small>
+                        </span>
+                        <select value={escolhida} onChange={(e) => setIas((x) => ({ ...x, [f.agente]: e.target.value }))}>
+                          <option value="">Padrão ({nomeDaIA(f.padrao)})</option>
+                          {opcoes.map((o) => (
+                            <option key={o.id} value={o.id} disabled={semChave(o.servico)}>
+                              {o.nome}{semChave(o.servico) ? ` · falta ${CHAVE_DO_SERVICO[o.servico]} na Vercel` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )
+                  })}
+                  <p className="np-nota">GPT, Gemini e DeepSeek usam a chave do OpenRouter; Kling 3.0, Hailuo e Seedance usam a do fal.ai.</p>
+                </div>
+              )}
+            </Secao>
+
+            <Secao numero={6} titulo="Quando publicar">
               <div className="np-quando" role="radiogroup" aria-label="Quando publicar">
                 <button type="button" role="radio" aria-checked={!agendar} className={!agendar ? 'ativo' : ''} onClick={() => setAgendar(false)}>
                   <strong>Decido na aprovação</strong>
@@ -445,6 +504,8 @@ export function NovoPost({
                 <dd>{resumoFormato}</dd>
                 <dt>Estilo</dt>
                 <dd>{escolhasDeEstilo.length ? escolhasDeEstilo.join(' · ') : 'Variado'}</dd>
+                <dt>IAs</dt>
+                <dd>{resumoIas.length ? resumoIas.join(' · ') : 'As de sempre'}</dd>
                 <dt>Referências</dt>
                 <dd>{refs.length ? `${refs.length} ${refs.length > 1 ? 'itens' : 'item'}` : 'Nenhuma'}</dd>
                 <dt>Publicação</dt>

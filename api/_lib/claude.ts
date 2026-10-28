@@ -1,10 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
+import type { ModeloTexto } from './ias.js'
+import { gerarJsonOR, gerarTextoOR } from './openrouter.js'
 
 export const claude = new Anthropic()
 
 export type Modelo = 'claude-opus-5-5' | 'claude-sonnet-5-5' | 'claude-haiku-5-5'
+const eClaude = (m: ModeloTexto): m is Modelo => m.startsWith('claude-')
 
 // US$ por milhão de tokens (entrada, saída)
 const PRECO: Record<Modelo, [number, number]> = {
@@ -44,7 +47,7 @@ function checarRecusa(m: Anthropic.Message) {
  * (é o que aparece no painel do agente). Suporta busca na web.
  */
 export async function gerarTexto(opts: {
-  modelo: Modelo
+  modelo: ModeloTexto
   sistema: string
   conteudo: Conteudo
   buscaWeb?: number
@@ -52,6 +55,8 @@ export async function gerarTexto(opts: {
   aoEscrever?: (trecho: string) => Promise<void> | void
   aoBuscar?: (consulta: string) => Promise<void> | void
 }): Promise<{ texto: string; uso: Uso }> {
+  const modelo = opts.modelo
+  if (!eClaude(modelo)) return gerarTextoOR({ ...opts, modelo })
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: opts.conteudo }]
   const tools = opts.buscaWeb ? [{ type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: opts.buscaWeb }] : undefined
   let uso: Uso | undefined
@@ -60,7 +65,7 @@ export async function gerarTexto(opts: {
   // pause_turn: o servidor pausou um turno longo de busca; reenviamos para continuar
   for (let rodada = 0; rodada < 4; rodada++) {
     const stream = claude.messages.stream({
-      model: opts.modelo,
+      model: modelo,
       max_tokens: 32000,
       system: opts.sistema,
       output_config: { effort: opts.effort ?? 'medium' },
@@ -77,7 +82,7 @@ export async function gerarTexto(opts: {
       }
     }
     const final = await stream.finalMessage()
-    uso = somarUso(opts.modelo, final.usage, uso)
+    uso = somarUso(modelo, final.usage, uso)
     checarRecusa(final)
     if (final.stop_reason !== 'pause_turn') break
     messages.push({ role: 'assistant', content: final.content })
@@ -87,14 +92,16 @@ export async function gerarTexto(opts: {
 
 /** Gera uma resposta estruturada validada pelo schema (zod). */
 export async function gerarJson<S extends z.ZodType>(opts: {
-  modelo: Modelo
+  modelo: ModeloTexto
   sistema: string
   conteudo: Conteudo
   schema: S
   effort?: 'low' | 'medium' | 'high'
 }): Promise<{ dados: z.infer<S>; uso: Uso }> {
+  const modelo = opts.modelo
+  if (!eClaude(modelo)) return gerarJsonOR({ ...opts, modelo })
   const stream = claude.messages.stream({
-    model: opts.modelo,
+    model: modelo,
     max_tokens: 32000,
     system: opts.sistema,
     output_config: { effort: opts.effort ?? 'medium', format: zodOutputFormat(opts.schema) },
@@ -105,5 +112,5 @@ export async function gerarJson<S extends z.ZodType>(opts: {
   const bloco = final.content.find((b): b is Anthropic.TextBlock => b.type === 'text')
   if (!bloco) throw new Error('Resposta sem texto')
   const dados = opts.schema.parse(JSON.parse(bloco.text))
-  return { dados, uso: somarUso(opts.modelo, final.usage) }
+  return { dados, uso: somarUso(modelo, final.usage) }
 }

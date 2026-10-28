@@ -3,6 +3,7 @@ import { chamarApi } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { VerSlides } from './VerSlides'
 import type { Post } from '../lib/dados'
+import { FUNCIONARIOS_IA, nomeDaIA, opcoesDe } from '../lib/ias'
 
 const NOMES: Record<string, string> = {
   chefe: 'chefe de pauta',
@@ -15,12 +16,34 @@ const NOMES: Record<string, string> = {
   curador: 'curador',
 }
 
+/** Escolha de outra IA para o agente que falhou tentar de novo (vazio mantém a de agora). */
+function TrocarIA({ post, agente, valor, aoMudar }: { post: Post; agente: string; valor: string; aoMudar: (v: string) => void }) {
+  const f = FUNCIONARIOS_IA.find((x) => x.agente === agente)
+  if (!f) return null
+  const atual = post.preferencias?.ias?.[agente] ?? f.padrao
+  return (
+    <label className="np-ia">
+      <span>
+        <strong>Tentar com outra IA</strong>
+        <small>Agora: {nomeDaIA(atual)}</small>
+      </span>
+      <select value={valor} onChange={(e) => aoMudar(e.target.value)}>
+        <option value="">Manter {nomeDaIA(atual)}</option>
+        {opcoesDe(agente).filter((o) => o.id !== atual).map((o) => (
+          <option key={o.id} value={o.id}>{o.nome}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 /** Post que parou com erro: mostra o motivo e deixa tentar de novo, ou voltar para aprovação se os slides já existem. */
 export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: () => void; aoFechar: () => void }) {
   const [falha, setFalha] = useState<{ agente: string; erro: string } | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [vendo, setVendo] = useState<number | null>(null)
+  const [ia, setIa] = useState('')
   const slides = [...(post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
 
   useEffect(() => {
@@ -39,7 +62,7 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
     setEnviando(true)
     setErro(null)
     try {
-      await chamarApi('aprovar', { post_id: post.id, acao })
+      await chamarApi('aprovar', { post_id: post.id, acao, ia: acao === 'tentar_de_novo' && ia ? ia : undefined })
       aoMudar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu certo')
@@ -77,8 +100,9 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
       {erro && <p className="aviso">{erro}</p>}
 
       <div className="acoes acoes-coluna">
+        {falha && <TrocarIA post={post} agente={falha.agente} valor={ia} aoMudar={setIa} />}
         <button className="primario" disabled={enviando} onClick={() => agir('tentar_de_novo')}>
-          {publicacao ? 'Publicar de novo agora' : `Tentar de novo${falha ? ` a partir do ${NOMES[falha.agente] ?? falha.agente}` : ''}`}
+          {ia ? `Tentar de novo com ${nomeDaIA(ia)}` : publicacao ? 'Publicar de novo agora' : `Tentar de novo${falha ? ` a partir do ${NOMES[falha.agente] ?? falha.agente}` : ''}`}
         </button>
         {slides.length > 0 && (
           <button className="secundario" disabled={enviando} onClick={() => agir('desagendar')}>
@@ -94,11 +118,12 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
 export function AcoesDeErro({ post, agente, aoMudar }: { post: Post; agente: string; aoMudar: () => void }) {
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [ia, setIa] = useState('')
   const agir = async (acao: 'tentar_de_novo' | 'desagendar') => {
     setEnviando(true)
     setErro(null)
     try {
-      await chamarApi('aprovar', { post_id: post.id, acao })
+      await chamarApi('aprovar', { post_id: post.id, acao, ia: acao === 'tentar_de_novo' && ia ? ia : undefined })
       aoMudar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu certo')
@@ -109,8 +134,9 @@ export function AcoesDeErro({ post, agente, aoMudar }: { post: Post; agente: str
   return (
     <div className="acoes acoes-coluna">
       {erro && <p className="aviso">{erro}</p>}
+      <TrocarIA post={post} agente={agente} valor={ia} aoMudar={setIa} />
       <button className="primario" disabled={enviando} onClick={() => agir('tentar_de_novo')}>
-        {agente === 'publicador' ? 'Publicar de novo agora' : 'Tentar de novo'}
+        {ia ? `Tentar de novo com ${nomeDaIA(ia)}` : agente === 'publicador' ? 'Publicar de novo agora' : 'Tentar de novo'}
       </button>
       {(post.slides ?? []).length > 0 && (
         <button className="secundario" disabled={enviando} onClick={() => agir('desagendar')}>

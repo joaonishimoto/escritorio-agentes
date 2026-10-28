@@ -39,7 +39,7 @@ export interface Post {
   custo_usd: number
   agendado_para: string | null
   /** escolhas do Novo post; agendar_para pré-preenche o horário na aprovação */
-  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string } | null
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string> } | null
   publicado_em: string | null
   criado_em: string
 }
