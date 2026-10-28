@@ -16,6 +16,7 @@ import { Calendario } from './ui/Calendario'
 import { Gastos } from './ui/Gastos'
 import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
+import { PostComErro } from './ui/PostComErro'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
@@ -178,6 +179,7 @@ function Painel({ logado }: { logado: boolean }) {
   const esperando = !emDemo && post?.status === 'aguardando_aprovacao'
   // o post pronto não abre o painel sozinho: você pula na sua mesa e toca um aviso; o painel abre clicando nela
   const mostrarAprovacao = esperando && !selecionado && foco === 'voce'
+  const mostrarErro = !emDemo && post?.status === 'erro' && !selecionado && foco === 'voce'
   const statusAnterior = useRef<{ id: string; status: string } | null>(null)
   useEffect(() => {
     if (!post) return
@@ -186,7 +188,7 @@ function Painel({ logado }: { logado: boolean }) {
     statusAnterior.current = { id: post.id, status: post.status }
   }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
-  const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
+  const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
   const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
   return (
@@ -307,7 +309,9 @@ function Painel({ logado }: { logado: boolean }) {
             />
           )}
         </Suspense>
-        {mostrarAprovacao && post ? (
+        {mostrarErro && post ? (
+          <PostComErro post={post} aoMudar={mudou} aoFechar={() => focar(null)} />
+        ) : mostrarAprovacao && post ? (
           <Aprovacao
             post={post}
             regras={regras}

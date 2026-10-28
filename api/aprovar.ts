@@ -3,8 +3,8 @@ import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 
-type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'corrigir' | 'reprovar'
-const ACOES: Acao[] = ['aprovar', 'agendar', 'desagendar', 'corrigir', 'reprovar']
+type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar'
+const ACOES: Acao[] = ['aprovar', 'agendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar']
 
 /** Sua decisão sobre um post: publicar agora, agendar, pedir ajuste (vira regra) ou reprovar. */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
@@ -16,12 +16,32 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (!post_id || !acao || !ACOES.includes(acao)) return res.status(400).json({ erro: 'Pedido inválido' })
   if ((acao === 'corrigir' || acao === 'reprovar') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
 
-  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para').eq('id', post_id).single()
+  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides').eq('id', post_id).single()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
+
+  // post que deu erro: o mesmo agente que falhou tenta de novo, do ponto em que parou
+  if (acao === 'tentar_de_novo') {
+    if (post.status !== 'erro') return res.status(409).json({ erro: 'Esse post não está com erro' })
+    const { data: falhou } = await db
+      .from('passos')
+      .select('agente, entrada')
+      .eq('post_id', post_id)
+      .eq('status', 'falhou')
+      .order('ordem', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const agente = falhou?.agente ?? 'chefe'
+    const publicar = agente === 'publicador'
+    await db.from('posts').update({ status: publicar ? 'aprovado' : 'em_producao' }).eq('id', post_id).eq('status', 'erro')
+    await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'entrega', mensagem: publicar ? 'Tentar publicar de novo' : 'Tentar de novo', para: agente })
+    await enfileirar(post_id, agente, (falhou?.entrada as Record<string, unknown>) ?? {})
+    acordarExecutor(origemDaRequisicao(req))
+    return res.status(200).json({ ok: true, agente })
+  }
 
   if (acao === 'desagendar') {
     // também serve para um agendado que não conseguiu publicar: volta para você decidir de novo
-    if (post.status !== 'agendado' && !(post.status === 'erro' && post.agendado_para)) return res.status(409).json({ erro: 'Esse post não está agendado' })
+    if (post.status !== 'agendado' && !(post.status === 'erro' && (post.agendado_para || (post.slides as unknown[] | null)?.length))) return res.status(409).json({ erro: 'Esse post não está agendado' })
     await db.from('posts').update({ status: 'aguardando_aprovacao', agendado_para: null }).eq('id', post_id).eq('status', post.status)
     return res.status(200).json({ ok: true })
   }

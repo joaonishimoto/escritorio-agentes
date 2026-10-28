@@ -16,14 +16,16 @@ export function SuaMesa({ pendentes, emDemo, aoAbrirPost }: { pendentes: Post[];
       {emDemo ? (
         <p className="muted">Na demonstração nada é publicado de verdade. Crie um post real em "Novo post" para aprovar aqui.</p>
       ) : pendentes.length === 0 ? (
-        <p className="muted">Nenhum post esperando sua aprovação agora.</p>
+        <p className="muted">Nenhum post esperando você agora.</p>
       ) : (
         <section>
           <h3>Esperando você</h3>
           <ul className="lista-pendentes">
             {pendentes.map((p) => (
               <li key={p.id}>
-                <button onClick={() => aoAbrirPost(p.id)}>{p.briefing}</button>
+                <button onClick={() => aoAbrirPost(p.id)}>
+                  {p.status === 'erro' && <span className="chip status-erro">com erro</span>} {p.briefing}
+                </button>
               </li>
             ))}
           </ul>

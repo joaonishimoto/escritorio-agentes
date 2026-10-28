@@ -463,3 +463,7 @@ i.falhou { background: var(--danger, #b42318) }
 .botao-arquivo input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
 .pop-lista small { margin-left: auto; font-size: 11px }
 @media (max-width: 520px) { .escolha-tipo { grid-template-columns: 1fr } }
+
+.erro-caixa { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent); border-radius: var(--radius-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px }
+.erro-caixa h3 { color: var(--danger-strong) }
+.erro-caixa p { font-size: 13px; overflow-wrap: anywhere }
