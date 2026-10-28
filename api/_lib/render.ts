@@ -54,13 +54,31 @@ function desenharSetas(html: string) {
  */
 export async function renderizarSlides(html: string, largura = 1080, altura = 1350): Promise<Buffer[]> {
   html = desenharSetas(html)
+  // o Chromium da Vercel às vezes cai no meio (memória, imagem pesada): tenta de novo com um navegador novo,
+  // e na segunda vez não espera a rede ficar parada, só o carregamento das imagens
+  try {
+    return await renderizarUmaVez(html, largura, altura, 'networkidle')
+  } catch (e) {
+    console.warn('render falhou, tentando de novo', e)
+    return renderizarUmaVez(html, largura, altura, 'load')
+  }
+}
+
+async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load'): Promise<Buffer[]> {
   const local = process.env.CHROMIUM_PATH
   const executavel = local ?? (await chromium.executablePath())
   if (!local) await instalarFontesReserva()
   const navegador = await playwright.launch(local ? { executablePath: local, args: ['--no-sandbox'] } : { executablePath: executavel, args: chromium.args })
   try {
     const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
-    await pagina.setContent(html, { waitUntil: 'networkidle', timeout: 45_000 })
+    await pagina.setContent(html, { waitUntil: espera, timeout: 45_000 })
+    // imagens que ainda não carregaram ganham até 15 s; a que falhar não trava o post
+    await pagina.evaluate(() =>
+      Promise.race([
+        Promise.all(Array.from(document.images).map((img) => (img.complete ? null : new Promise((ok) => { img.onload = img.onerror = ok })))),
+        new Promise((ok) => setTimeout(ok, 15_000)),
+      ]),
+    )
     await pagina.evaluate(() => document.fonts.ready)
     await pagina.waitForTimeout(300)
     const slides = await pagina.$$('section.slide')
@@ -69,6 +87,6 @@ export async function renderizarSlides(html: string, largura = 1080, altura = 13
     for (const s of slides) imagens.push(await s.screenshot({ type: 'jpeg', quality: 90 }))
     return imagens
   } finally {
-    await navegador.close()
+    await navegador.close().catch(() => {})
   }
 }
