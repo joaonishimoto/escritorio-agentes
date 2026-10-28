@@ -354,7 +354,7 @@ i.publicado { background: #3f7650 }
   color: #1f2330; box-shadow: 0 0 0 2px #1f2330, 4px 4px 0 2px rgba(0,0,0,.25); font-family: var(--font-sans) }
 .gastos-detalhe h3 { font-size: 13px; margin-bottom: 8px }
 .gastos-detalhe ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
-.gastos-detalhe li { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 8px; font-size: 13px }
+.gastos-detalhe li { display: grid; grid-template-columns: 110px 1fr auto auto; align-items: center; gap: 8px; font-size: 13px }
 .gastos-barra { height: 8px; background: #eeebe2 }
 .gastos-barra i { display: block; height: 100% }
 .gastos-rodape { font-size: 12px; margin-top: 10px; line-height: 1.4 }
@@ -534,3 +534,5 @@ i.falhou { background: var(--danger, #b42318) }
 .ideias-lista li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 14px }
 .ideias-lista li p { font-size: 13px }
 .ideias-lista li .primario { align-self: flex-start }
+
+.gastos-tempo { min-width: 64px; text-align: right; font-size: 12px }

@@ -156,11 +156,17 @@ export interface Custos {
   post: number
   mes: number
   postsNoMes: number
-  porAgente: { agente: string; custo: number }[]
+  porAgente: { agente: string; custo: number; segundos: number }[]
+  /** da criação do post até ele chegar na sua mesa; null se ainda não chegou */
+  ateVoceSeg: number | null
+  /** soma do tempo em que algum agente estava trabalhando */
+  trabalhandoSeg: number
+  /** quando o post foi criado (para contar o tempo ao vivo enquanto não chega) */
+  criadoEm: string | null
 }
 
 /** Quanto já foi gasto: no post aberto (por agente) e no mês, somando todos os posts da marca. */
-export function useCustos(marcaId: string | null, postId: string | null, custoDoPost: number | undefined) {
+export function useCustos(marcaId: string | null, postId: string | null, custoDoPost: number | undefined, status?: string) {
   const [custos, setCustos] = useState<Custos | null>(null)
   useEffect(() => {
     if (!supabase || !marcaId) return
@@ -168,20 +174,35 @@ export function useCustos(marcaId: string | null, postId: string | null, custoDo
     const inicioDoMes = new Date()
     inicioDoMes.setDate(1)
     inicioDoMes.setHours(0, 0, 0, 0)
+    const vazio = Promise.resolve({ data: [] as unknown[] })
     Promise.all([
       sb.from('posts').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', inicioDoMes.toISOString()),
-      postId ? sb.from('passos').select('agente, custo_usd').eq('post_id', postId) : Promise.resolve({ data: [] }),
-    ]).then(([mes, passos]) => {
-      const soma = new Map<string, number>()
-      for (const p of (passos.data ?? []) as { agente: string; custo_usd: number }[]) soma.set(p.agente, (soma.get(p.agente) ?? 0) + Number(p.custo_usd))
+      postId ? sb.from('passos').select('agente, custo_usd, iniciado_em, terminado_em').eq('post_id', postId) : vazio,
+      postId ? sb.from('posts').select('criado_em').eq('id', postId).maybeSingle() : Promise.resolve({ data: null }),
+      // primeira vez que o post chegou na sua mesa (pasta do revisor para você)
+      postId
+        ? sb.from('eventos').select('criado_em').eq('post_id', postId).eq('tipo', 'entrega').eq('para', 'voce').eq('agente', 'revisor').order('criado_em').limit(1)
+        : vazio,
+    ]).then(([mes, passos, post, chegou]) => {
+      const seg = (a?: string | null, b?: string | null) => (a && b ? Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 1000) : 0)
+      const soma = new Map<string, { custo: number; segundos: number }>()
+      for (const p of (passos.data ?? []) as { agente: string; custo_usd: number; iniciado_em: string | null; terminado_em: string | null }[]) {
+        const atual = soma.get(p.agente) ?? { custo: 0, segundos: 0 }
+        soma.set(p.agente, { custo: atual.custo + Number(p.custo_usd), segundos: atual.segundos + seg(p.iniciado_em, p.terminado_em) })
+      }
       const lista = (mes.data ?? []) as { custo_usd: number }[]
+      const criadoEm = (post.data as { criado_em: string } | null)?.criado_em ?? null
+      const chegada = ((chegou.data ?? []) as { criado_em: string }[])[0]?.criado_em
       setCustos({
         post: Number(custoDoPost ?? 0),
         mes: lista.reduce((s, p) => s + Number(p.custo_usd), 0),
         postsNoMes: lista.length,
-        porAgente: [...soma].map(([agente, custo]) => ({ agente, custo })).sort((a, b) => b.custo - a.custo),
+        porAgente: [...soma].map(([agente, v]) => ({ agente, ...v })).sort((a, b) => b.custo - a.custo),
+        ateVoceSeg: chegada && criadoEm ? seg(criadoEm, chegada) : null,
+        trabalhandoSeg: [...soma.values()].reduce((s, v) => s + v.segundos, 0),
+        criadoEm,
       })
     })
-  }, [marcaId, postId, custoDoPost])
+  }, [marcaId, postId, custoDoPost, status])
   return custos
 }

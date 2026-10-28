@@ -212,7 +212,7 @@ function Painel({ logado }: { logado: boolean }) {
     if (antes?.id === post.id && antes.status !== 'aguardando_aprovacao' && post.status === 'aguardando_aprovacao' && visual === '3d') tocarAviso() // no pixel, toca quando a pasta chega na sua mesa
     statusAnterior.current = { id: post.id, status: post.status }
   }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
-  const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
+  const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined, post?.status)
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
   const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
@@ -300,7 +300,7 @@ function Painel({ logado }: { logado: boolean }) {
         aoAbrir={() => alternarLista(true)}
       />
       <main className="palco">
-        {custos && <Gastos custos={custos} />}
+        {custos && <Gastos custos={custos} emProducao={post?.status === 'em_producao'} />}
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
           {carregandoMarcas ? (
