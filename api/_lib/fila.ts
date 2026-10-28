@@ -5,6 +5,7 @@ import type { Agente } from './agentes/tipos.js'
 import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
+import { eErroTransitorio, MAX_TENTATIVAS } from './transitorio.js'
 
 const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
 
@@ -15,12 +16,6 @@ export async function enfileirar(postId: string, agente: string, entrada: Record
   if (error) throw new Error(`Falha ao enfileirar ${agente}: ${error.message}`)
 }
 
-// Instabilidade passageira (IA sobrecarregada, limite de taxa, rede, navegador que caiu): o passo volta para a fila
-// em vez de parar o post. Erro de verdade (chave errada, sem crédito, conteúdo recusado) não entra aqui.
-const TRANSITORIO = /overloaded|sobrecarreg|rate.?limit|too many requests|\b(429|500|502|503|504|529)\b|timeout|timed out|demorou demais|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|fetch failed|network|browser has been closed|target page, context or browser|internal server error/i
-const MAX_TENTATIVAS = 3
-
-export const eErroTransitorio = (msg: string) => TRANSITORIO.test(msg) && !/sem cr[ée]ditos|sem saldo|saldo insuficiente|recusou a chave|falta configurar/i.test(msg)
 
 /** Dispara o executor sem esperar a resposta (a função continua viva até o fetch sair). */
 export function acordarExecutor(origem: string) {
@@ -74,7 +69,8 @@ export async function rodarUmPasso(): Promise<boolean> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error(`passo ${passo.id} (${passo.agente}) falhou (tentativa ${passo.tentativas})`, e)
-    if (eErroTransitorio(msg) && passo.tentativas < MAX_TENTATIVAS) {
+    // o publicador não repete sozinho: uma falha de rede depois de publicar faria o post sair duas vezes
+    if (passo.agente !== 'publicador' && eErroTransitorio(msg) && passo.tentativas < MAX_TENTATIVAS) {
       // espera um pouco (mais a cada tentativa) e devolve o mesmo passo para a fila; o escritório avisa
       const espera = 5_000 * passo.tentativas
       await em.acao(`Instabilidade no serviço, tentando de novo em ${Math.round(espera / 1000)} s (${passo.tentativas + 1}ª de ${MAX_TENTATIVAS})`)
