@@ -25,6 +25,7 @@ export function ListaDePosts({
   aoEscolher,
   aoNovo,
   aoFechar,
+  aoAbrir,
 }: {
   posts: Post[]
   postId: string | null
@@ -33,13 +34,38 @@ export function ListaDePosts({
   aoEscolher: (id: string) => void
   aoNovo?: () => void
   aoFechar: () => void
+  aoAbrir: () => void
 }) {
   return (
     <aside className={`lista-posts${aberta ? ' aberta' : ''}`} aria-label="Posts da marca">
+      {/* recolhida: só as capas, uma embaixo da outra; clicar abre o post */}
+      <div className="lista-trilho" aria-hidden={aberta}>
+        {aoNovo && (
+          <button className="trilho-novo" onClick={aoNovo} aria-label="Novo post" title="Novo post" tabIndex={aberta ? -1 : 0}>+</button>
+        )}
+        {posts.slice(0, 30).map((p) => {
+          const capa = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem)[0]?.url
+          return (
+            <button
+              key={p.id}
+              className={`trilho-post${p.id === postId && !emDemo ? ' ativo' : ''}`}
+              onClick={() => aoEscolher(p.id)}
+              title={p.briefing}
+              aria-label={p.briefing}
+              tabIndex={aberta ? -1 : 0}
+            >
+              {capa ? <img src={capa} alt="" loading="lazy" /> : <span />}
+              <i className={`ponto-status status-${p.status}`} />
+            </button>
+          )
+        })}
+        <button className="trilho-abrir" onClick={aoAbrir} aria-label="Abrir lista de posts" title="Abrir lista" tabIndex={aberta ? -1 : 0}>›</button>
+      </div>
+      <div className="lista-cheia" aria-hidden={!aberta}>
       <header className="lista-posts-topo">
         <h2>Posts</h2>
         {aoNovo && <button className="primario" onClick={aoNovo}>Novo post</button>}
-        <button className="icone lista-posts-fechar" onClick={aoFechar} aria-label="Esconder lista de posts">×</button>
+        <button className="icone lista-posts-fechar" onClick={aoFechar} aria-label="Recolher lista de posts" title="Recolher">‹</button>
       </header>
       <div className="lista-posts-corpo">
         {emDemo && <p className="muted lista-posts-vazio">Na demonstração, o escritório mostra um post de exemplo.</p>}
@@ -76,6 +102,7 @@ export function ListaDePosts({
             </section>
           )
         })}
+      </div>
       </div>
     </aside>
   )

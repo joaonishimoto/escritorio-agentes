@@ -220,6 +220,13 @@ function Painel({ logado }: { logado: boolean }) {
     <div className="app">
       <header className="topo">
         <div className="marca">
+          <button className="icone alternar-lista" onClick={() => alternarLista()} aria-expanded={listaAberta} aria-label={listaAberta ? 'Recolher lista de posts' : 'Abrir lista de posts'} title={listaAberta ? 'Recolher posts' : 'Abrir posts'}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <rect x="2" y="3" width="14" height="12" rx="2.5" />
+              <path d="M7 3v12" />
+              <path className="alternar-seta" d="M11.5 7 10 9l1.5 2" />
+            </svg>
+          </button>
           <Logo />
           <span className="nome-app">Escritório</span>
           <span className="barra" aria-hidden>/</span>
@@ -249,12 +256,6 @@ function Painel({ logado }: { logado: boolean }) {
           )}
         </div>
         <div className="topo-acoes">
-          <button className="botao-topo" onClick={() => alternarLista()} aria-pressed={listaAberta} aria-label="Lista de posts">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M6 2.5v11" />
-            </svg>
-            <span className="so-largo">Posts</span>
-          </button>
           <button className="botao-topo" onClick={() => focar('calendario')} aria-label="Calendário">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
@@ -270,7 +271,7 @@ function Painel({ logado }: { logado: boolean }) {
               <span className="so-largo">Fotos</span>
             </button>
           )}
-          {logado && marcaId && !listaAberta && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
+          {logado && marcaId && <button className="primario so-lista-fechada" data-lista={listaAberta ? 'aberta' : 'fechada'} onClick={() => setNovo(true)}>Novo post</button>}
           <Menu>
             {logado && marca && (
               <button onClick={() => setInstagram(true)}>{marca.instagram_conta_id ? 'Instagram conectado' : 'Conectar Instagram'}</button>
@@ -296,6 +297,7 @@ function Painel({ logado }: { logado: boolean }) {
         }}
         aoNovo={logado && marcaId ? () => setNovo(true) : undefined}
         aoFechar={() => alternarLista(false)}
+        aoAbrir={() => alternarLista(true)}
       />
       <main className="palco">
         {custos && <Gastos custos={custos} />}
