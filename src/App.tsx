@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Escritorio } from './office/Escritorio'
+import { EscritorioPixel } from './pixel/EscritorioPixel'
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
@@ -61,6 +62,24 @@ function Painel({ logado }: { logado: boolean }) {
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
+  const [visual, setVisual] = useState<'pixel' | '3d'>(() => {
+    const pedido = new URLSearchParams(location.search).get('visual')
+    if (pedido === 'pixel' || pedido === '3d') return pedido
+    try {
+      return localStorage.getItem('visual') === '3d' ? '3d' : 'pixel'
+    } catch {
+      return 'pixel'
+    }
+  })
+  const trocarVisual = () => {
+    const novo = visual === 'pixel' ? '3d' : 'pixel'
+    setVisual(novo)
+    try {
+      localStorage.setItem('visual', novo)
+    } catch {
+      // sem armazenamento local: vale até recarregar
+    }
+  }
 
   useEffect(() => {
     if (!marcaId && marcas[0]) setMarcaId(marcas[0].id)
@@ -71,6 +90,11 @@ function Painel({ logado }: { logado: boolean }) {
   const regras = useRegrasPropostas(marcaId, recarregar)
   const marca = marcas.find((m) => m.id === marcaId)
   const mudou = () => setRecarregar((n) => n + 1)
+  const escolherMarca = (id: string) => {
+    if (id === marcaId || !marcas.some((m) => m.id === id)) return
+    setMarcaId(id)
+    setPostId(null)
+  }
   // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
   const marcasNoAndar = marcas.length ? marcas : [{ id: 'demo', nome: 'Drinfy' }, { id: 'demo-2', nome: 'Outra marca' }]
 
@@ -143,6 +167,7 @@ function Painel({ logado }: { logado: boolean }) {
             {logado && marcaId && <button onClick={() => setBiblioteca(true)}>Fotos da marca</button>}
             <button onClick={() => focar('calendario')}>Calendário</button>
             <button onClick={demo}>Ver demonstração</button>
+            <button onClick={trocarVisual}>{visual === 'pixel' ? 'Ver em 3D' : 'Ver em pixel art'}</button>
             {logado && <hr />}
             {logado && <button onClick={() => setTrocarSenha(true)}>Trocar senha</button>}
             {logado && <button onClick={() => supabase?.auth.signOut()}>Sair</button>}
@@ -152,15 +177,19 @@ function Painel({ logado }: { logado: boolean }) {
 
       <main className="palco">
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
-          <Escritorio
-            marcas={marcasNoAndar}
-            marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
-            aoEscolherMarca={(id) => {
-              if (id === marcaId || !marcas.some((m) => m.id === id)) return
-              setMarcaId(id)
-              setPostId(null)
-            }}
-          />
+          {visual === 'pixel' ? (
+            <EscritorioPixel
+              marcas={marcasNoAndar}
+              marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
+              aoEscolherMarca={escolherMarca}
+            />
+          ) : (
+            <Escritorio
+              marcas={marcasNoAndar}
+              marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
+              aoEscolherMarca={escolherMarca}
+            />
+          )}
         </Suspense>
         {mostrarAprovacao && post ? (
           <Aprovacao post={post} regras={regras} aoMudar={mudou} />
