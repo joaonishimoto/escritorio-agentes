@@ -346,6 +346,7 @@ function Painel({ logado }: { logado: boolean }) {
         ) : (
           <PainelAgente
             post={emDemo ? null : post}
+            porAgente={custos?.porAgente}
             aoMudar={mudou}
             marcaId={logado ? marcaId : null}
             aoUsarIdeia={(b) => {

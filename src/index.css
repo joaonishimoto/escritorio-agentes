@@ -867,3 +867,86 @@ i.falhou { background: var(--danger, #b42318) }
   .np-rodape .primario, .np-rodape .secundario { flex: 1; height: 44px }
   .np-rodape .secundario { flex: 0 0 auto }
 }
+
+/* painel do agente (ficha) */
+.painel.ag { padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column }
+.ag-capa { position: relative; flex: none; display: flex; align-items: flex-end; gap: 12px; padding: 22px 16px 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cor-agente) 22%, var(--surface)), color-mix(in srgb, var(--cor-agente) 6%, var(--surface)) 70%) }
+.ag-fechar { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--muted-foreground); font-size: 20px; line-height: 1; cursor: pointer }
+.ag-fechar:hover { background: var(--surface); color: var(--foreground) }
+.ag-icone { position: relative; width: 52px; height: 52px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--cor-agente); color: #fff; box-shadow: 0 6px 16px -6px var(--cor-agente) }
+.ag-icone svg { width: 26px; height: 26px }
+.ag-icone::after { content: ''; position: absolute; right: -3px; bottom: -3px; width: 13px; height: 13px; border-radius: 50%; background: var(--cor-estado); box-shadow: 0 0 0 3px var(--surface) }
+.ag-icone.trabalhando::after { animation: ao-vivo 1.2s ease-in-out infinite }
+.ag-nome { min-width: 0; padding-right: 28px }
+.ag-nome h2 { font-size: 18px; line-height: 1.2 }
+.ag-nome p { font-size: 13px; line-height: 1.4; color: var(--muted-foreground); margin-top: 3px }
+.ag-fatos { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border) }
+.ag-fatos > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; min-width: 0 }
+.ag-fatos > div + div { border-left: 1px solid var(--border) }
+.ag-fatos span { font-size: 11px; color: var(--muted-foreground) }
+.ag-fatos strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.ag-estado { display: inline-flex; align-items: center; gap: 5px; color: var(--cor-estado) }
+.ag-estado i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none }
+.ag-fluxo { flex: none; list-style: none; margin: 0; padding: 12px 16px; display: flex; align-items: center; border-bottom: 1px solid var(--border) }
+.ag-fluxo li { flex: 1; display: flex; align-items: center }
+.ag-fluxo li:not(:last-child)::after { content: ''; flex: 1; height: 2px; margin: 0 3px; background: var(--border); border-radius: 1px }
+.ag-fluxo li.concluido:not(:last-child)::after { background: color-mix(in srgb, #3f7650 55%, var(--border)) }
+.ag-fluxo li:last-child { flex: none }
+.ag-fluxo button { width: 28px; height: 28px; flex: none; padding: 0; border-radius: 50%; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--muted-foreground); display: grid; place-items: center; cursor: pointer; transition: transform .12s }
+.ag-fluxo button:hover { transform: scale(1.1) }
+.ag-fluxo button svg { width: 14px; height: 14px }
+.ag-fluxo li.concluido button { background: #3f7650; border-color: #3f7650; color: #fff }
+.ag-fluxo li.trabalhando button, .ag-fluxo li.na_fila button { border-color: #3969a8; color: #3969a8; box-shadow: 0 0 0 3px color-mix(in srgb, #3969a8 18%, transparent) }
+.ag-fluxo li.erro button { background: #b74e45; border-color: #b74e45; color: #fff }
+.ag-fluxo li.eu button { outline: 2px solid var(--cor-agente); outline-offset: 2px }
+.ag-erro { flex: none; padding: 12px 16px 0 }
+.ag-abas { flex: none; display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--border) }
+.ag-abas button { position: relative; height: 40px; padding: 0 10px; border: 0; background: none; color: var(--muted-foreground); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px }
+.ag-abas button:hover { color: var(--foreground) }
+.ag-abas button.ativo { color: var(--foreground) }
+.ag-abas button.ativo::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--cor-agente) }
+.ag-abas button span { font-size: 11px; font-weight: 600; background: var(--surface-muted); border-radius: 9px; padding: 1px 6px }
+.ag-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px }
+.ag-ao-vivo { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-lg); background: color-mix(in srgb, #3969a8 7%, var(--surface)); border: 1px solid color-mix(in srgb, #3969a8 20%, transparent) }
+.ag-ao-vivo small { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #3969a8 }
+.ag-ao-vivo p { font-size: 14px; line-height: 1.45; margin-top: 2px }
+.ag-pulso { position: relative; width: 10px; height: 10px; margin-top: 4px; flex: none; border-radius: 50%; background: #3969a8 }
+.ag-pulso::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid #3969a8; opacity: 0; animation: pulso 1.6s ease-out infinite }
+@keyframes pulso { 0% { transform: scale(.4); opacity: .8 } 100% { transform: scale(1.4); opacity: 0 } }
+.ag-linha-fim { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground) }
+.ag-linha-fim span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #3f7650; color: #fff; font-size: 11px }
+.ag-entrega { display: flex; flex-direction: column; gap: 8px }
+.ag-entrega header { display: flex; align-items: center; justify-content: space-between }
+.ag-entrega h3 { font-size: 13px; font-weight: 600; color: var(--foreground) }
+.ag-entrega .link { font-size: 12px; padding: 2px 6px }
+.ag-texto { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface);
+  font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--shadow-sm) }
+.ag-campo { display: flex; flex-direction: column; gap: 3px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--cor-agente) 45%, transparent) }
+.ag-campo span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground) }
+.ag-vazio { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 28px 12px; color: var(--muted-foreground) }
+.ag-vazio strong { color: var(--foreground); font-size: 14px }
+.ag-vazio p { font-size: 13px }
+.ag-vazio-icone { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--cor-agente) 12%, var(--surface)); color: var(--cor-agente); margin-bottom: 4px }
+.ag-tempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column }
+.ag-tempo li { position: relative; display: flex; gap: 12px; padding-bottom: 14px }
+.ag-tempo li:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--border) }
+.ag-tempo-ponto { width: 12px; height: 12px; margin-top: 3px; flex: none; border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong) }
+.ag-tempo li.fim .ag-tempo-ponto, .ag-tempo li.entrega .ag-tempo-ponto { background: #3f7650; border-color: #3f7650 }
+.ag-tempo li.erro .ag-tempo-ponto { background: #b74e45; border-color: #b74e45 }
+.ag-tempo li.atual .ag-tempo-ponto { background: var(--cor-agente); border-color: var(--cor-agente); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cor-agente) 20%, transparent) }
+.ag-tempo p { font-size: 14px; line-height: 1.4 }
+.ag-tempo time { font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums }
+.ag-corpo .ideias { border-top: 0; padding-top: 0 }
+@media (min-width: 761px) { .painel.ag { width: min(400px, calc(100% - 24px)) } }
+@media (max-width: 760px) {
+  .painel.ag { max-height: 82% }
+  .painel.ag::before { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); margin: 0; z-index: 2 }
+  .ag-capa { padding-top: 24px }
+  .ag-corpo { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) }
+}
+@media (max-width: 760px) {
+  .ag-fatos { grid-template-columns: 1.4fr 1fr 1fr 1fr }
+  .ag-fatos > div { padding: 8px 10px }
+  .ag-fatos strong { font-size: 12px }
+}
