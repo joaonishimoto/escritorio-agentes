@@ -291,7 +291,10 @@ function Letreiro({ texto, cor }: { texto: string; cor: string }) {
     c.height = 192
     const g = c.getContext('2d')!
     g.fillStyle = cor
-    g.font = '700 130px Fredoka, Inter, sans-serif'
+    // diminui a fonte até o texto caber na placa
+    let tamanho = 130
+    do g.font = `700 ${tamanho}px Fredoka, Inter, sans-serif`
+    while (g.measureText(texto).width > 980 && (tamanho -= 6) > 40)
     g.textAlign = 'center'
     g.textBaseline = 'middle'
     g.fillText(texto, 512, 104)
