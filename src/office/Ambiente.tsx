@@ -1,7 +1,9 @@
 // Chão, paredes e alguns objetos de escritório em low-poly feitos com primitivas. Cores e piso vêm da sala escolhida.
 import { AGENTES, MESA_VOCE } from '../agents/catalogo'
 import { SALA } from './salas'
+import { useMemo } from 'react'
 import { GRADIENTE } from './toon'
+import { Moveis, texturaPiso } from './Moveis'
 
 const c = SALA.cores
 
@@ -59,13 +61,56 @@ function Luminaria({ x, z }: { x: number; z: number }) {
   )
 }
 
+/** Janela com caixilho e divisórias. */
+function Janela({ x, z, rot, largura }: { x: number; z: number; rot: number; largura: number }) {
+  const noturna = SALA.luz < 1
+  return (
+    <group position={[x, 1.85, z]} rotation={[0, rot, 0]}>
+      <mesh>
+        <boxGeometry args={[largura, 1.5, 0.04]} />
+        <meshToonMaterial gradientMap={GRADIENTE} color={c.janela} emissive={c.janela} emissiveIntensity={noturna ? 0.7 : 0.3} />
+      </mesh>
+      {[-largura / 2, 0, largura / 2].map((dx) => (
+        <mesh key={dx} position={[dx, 0, 0.03]}>
+          <boxGeometry args={[0.07, 1.56, 0.06]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color="#1f2330" />
+        </mesh>
+      ))}
+      {[-0.75, 0, 0.75].map((dy) => (
+        <mesh key={dy} position={[0, dy, 0.03]}>
+          <boxGeometry args={[largura, 0.06, 0.06]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color="#1f2330" />
+        </mesh>
+      ))}
+      <mesh position={[0, -0.8, 0.1]}>
+        <boxGeometry args={[largura + 0.2, 0.06, 0.2]} />
+        <meshToonMaterial gradientMap={GRADIENTE} color={SALA.rodape ?? '#1f2330'} />
+      </mesh>
+    </group>
+  )
+}
+
 export function Ambiente() {
+  const textura = useMemo(() => (SALA.textura ? texturaPiso(SALA.textura.tipo, c.chao, SALA.textura.linha) : null), [])
   return (
     <group>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[16, 10]} />
-        <meshToonMaterial gradientMap={GRADIENTE} color={c.chao} />
+        <meshToonMaterial gradientMap={GRADIENTE} color={textura ? '#ffffff' : c.chao} map={textura} />
       </mesh>
+      {SALA.rodape && (
+        <>
+          <mesh position={[0, 0.08, -4.88]}>
+            <boxGeometry args={[16, 0.16, 0.05]} />
+            <meshToonMaterial gradientMap={GRADIENTE} color={SALA.rodape} />
+          </mesh>
+          <mesh position={[-7.88, 0.08, 0]}>
+            <boxGeometry args={[0.05, 0.16, 10]} />
+            <meshToonMaterial gradientMap={GRADIENTE} color={SALA.rodape} />
+          </mesh>
+        </>
+      )}
+      {SALA.moveis && <Moveis itens={SALA.moveis} />}
       {SALA.piso === 'tapete' && (
         <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
           <planeGeometry args={[6.2, 2.4]} />
@@ -94,16 +139,24 @@ export function Ambiente() {
         <boxGeometry args={[0.2, 3, 10]} />
         <meshToonMaterial gradientMap={GRADIENTE} color={c.paredeLado} />
       </mesh>
-      <mesh position={[3.5, 1.9, -4.88]}>
-        <boxGeometry args={[3.2, 1.4, 0.05]} />
-        <meshToonMaterial gradientMap={GRADIENTE} color={c.janela} emissive={c.janela} emissiveIntensity={SALA.luz < 1 ? 0.6 : 0.25} />
-      </mesh>
+      {SALA.janelas ? (
+        SALA.janelas.map((j, i) => <Janela key={i} {...j} />)
+      ) : (
+        <mesh position={[3.5, 1.9, -4.88]}>
+          <boxGeometry args={[3.2, 1.4, 0.05]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color={c.janela} emissive={c.janela} emissiveIntensity={SALA.luz < 1 ? 0.6 : 0.25} />
+        </mesh>
+      )}
       {SALA.luminarias.map(([x, z], i) => (
         <Luminaria key={i} x={x} z={z} />
       ))}
-      <Planta posicao={[-7.2, 0, -4.2]} />
-      <Planta posicao={[7.2, 0, -4.2]} />
-      <Planta posicao={[-7.2, 0, 4.2]} />
+      {!SALA.semPlantas && (
+        <>
+          <Planta posicao={[-7.2, 0, -4.2]} />
+          <Planta posicao={[7.2, 0, -4.2]} />
+          <Planta posicao={[-7.2, 0, 4.2]} />
+        </>
+      )}
     </group>
   )
 }
