@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 /** Slides em tela cheia: setas do teclado ou botões passam, Esc fecha. Clique, roda do mouse ou +/− dão zoom. */
 export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial: number; aoFechar: () => void }) {
@@ -29,7 +30,8 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
     return () => window.removeEventListener('keydown', tecla)
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
+  // vai direto para o <body>: fica por cima de painéis, pílulas e etiquetas, seja de onde for aberto
+  return createPortal(
     <div className="ver-slides" role="dialog" aria-label={`Slide ${i + 1} de ${urls.length}`} onClick={aoFechar}>
       <button className="ver-fechar" onClick={aoFechar} aria-label="Fechar">×</button>
       {urls.length > 1 && (
@@ -63,6 +65,7 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
         {i + 1} / {urls.length}
         {zoom > 1 ? ` · ${Math.round(zoom * 100)}%` : ' · clique para ampliar'}
       </span>
-    </div>
+    </div>,
+    document.body,
   )
 }
