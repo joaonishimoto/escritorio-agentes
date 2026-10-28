@@ -4,6 +4,7 @@ import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarSlides } from '../render.js'
+import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
@@ -12,6 +13,9 @@ const Pauta = z.object({
   angulo: z.string(),
   publico: z.string(),
   promessa: z.string().describe('a promessa do post em uma frase'),
+  estrutura: z.enum(Object.keys(ESTRUTURAS) as [keyof typeof ESTRUTURAS]),
+  layout: z.enum(Object.keys(LAYOUTS) as [keyof typeof LAYOUTS]),
+  voz: z.enum(Object.keys(VOZES) as [keyof typeof VOZES]),
   quantidade_slides: z.number().int(),
   plano_slides: z.array(z.string()).describe('o que vai em cada slide, na ordem'),
   precisa_pesquisa: z
@@ -27,6 +31,9 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   await em.inicio(`Lendo o pedido: ${ctx.post.briefing.slice(0, 90)}`)
   if (refs.tem) await em.acao(`Olhando as ${ctx.post.referencias!.length} referências que você mandou`)
   await em.acao(`Carregando o roteiro e ${ctx.regras.length} regras aprendidas de ${ctx.marca.nome}`)
+  const recentes = await postsRecentes(ctx)
+  const caminhos = sugerirCaminhos(recentes)
+  const angulos = recentes.map((r) => r.angulo).filter(Boolean)
   const { dados, uso } = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
@@ -35,12 +42,12 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa.`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}`,
       },
     ],
     schema: Pauta,
   })
-  await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
+  await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nEstrutura: ${dados.estrutura} · Layout: ${dados.layout} · Voz: ${dados.voz}\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
   await db.from('posts').update({ formato: dados.formato }).eq('id', ctx.post.id)
   return { saida: dados, uso, entrega: 'Pauta pronta' }
 }
@@ -95,13 +102,18 @@ export const redator: Agente = async (ctx, passo, em) => {
   const anterior = ctx.saidas.redator as z.infer<typeof Texto> | undefined
   const ajuste = !!passo.entrada.feedback && !!anterior?.slides?.length
   await em.inicio(ajuste ? 'Ajustando só o que foi apontado no texto' : 'Escrevendo o gancho da capa')
+  const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
+  const jaUsado = ajuste ? '' : textoJaUsado(await postsRecentes(ctx))
   const { dados, uso } = await gerarJson({
     modelo: 'claude-opus-5-5',
     effort: 'medium',
-    sistema: sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda.'),
+    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
+      pauta?.voz && pauta.voz in VOZES ? `## Voz deste post: ${pauta.voz}\n${VOZES[pauta.voz]}` : '',
+      pauta?.estrutura && pauta.estrutura in ESTRUTURAS ? `## Estrutura deste post: ${pauta.estrutura}\n${ESTRUTURAS[pauta.estrutura]}` : '',
+      jaUsado,
       `Pesquisa:\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? '(sem pesquisa)'}`,
       ajuste
         ? `## Seu texto anterior\n${JSON.stringify(anterior)}\n\nDevolva o texto completo, igual ao anterior em tudo o que está certo, mudando só o que os ajustes abaixo pedem (e o que depender de uma pesquisa corrigida).`
@@ -219,7 +231,11 @@ export const designer: Agente = async (ctx, passo, em) => {
       {
         type: 'text' as const,
         text: [
-          ctx.marca.modelo_slides_html ? `## Modelo da marca (siga o visual e as classes)\n${ctx.marca.modelo_slides_html}` : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
+          ctx.marca.modelo_slides_html
+            ? `## Modelo da marca\nO modelo define a identidade: cores, fonte, ícone, assinatura e aviso legal. Não copie a composição dele (posições, tamanhos, pílula no topo, cartão de receita): a composição segue a direção de layout abaixo, e você cria as classes que precisar. A direção de layout tem prioridade sobre qualquer instrução de usar as classes do modelo.\n${ctx.marca.modelo_slides_html}`
+            : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
+          // com referências, o visual vem delas; sem, segue o layout sorteado na pauta
+          refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx)),
           `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : '(nenhuma: faça slides só com tipografia e cor)'}`,
           refsDesign.tem
             ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`
