@@ -467,3 +467,33 @@ i.falhou { background: var(--danger, #b42318) }
 .erro-caixa { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent); border-radius: var(--radius-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px }
 .erro-caixa h3 { color: var(--danger-strong) }
 .erro-caixa p { font-size: 13px; overflow-wrap: anywhere }
+
+/* lista de posts na lateral */
+.corpo { display: flex; min-height: 0; min-width: 0 }
+.corpo > .palco { flex: 1; min-width: 0 }
+.lista-posts { display: none; flex: none; width: 300px; flex-direction: column; min-height: 0; background: var(--background); border-right: 1px solid var(--border) }
+.lista-posts.aberta { display: flex }
+.lista-posts-topo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border) }
+.lista-posts-topo h2 { font-size: 14px; font-weight: 600; flex: 1 }
+.lista-posts-fechar { width: 28px; height: 28px; font-size: 20px }
+.lista-posts-corpo { flex: 1; overflow-y: auto; padding: 6px 6px 16px }
+.lista-posts-vazio { padding: 12px 8px; font-size: 13px }
+.lista-posts-grupo { display: flex; flex-direction: column; gap: 2px; padding-top: 8px }
+.lista-posts-grupo h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground); padding: 4px 8px; display: flex; gap: 6px }
+.lista-posts-grupo h3 span { font-weight: 500 }
+.lista-post { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-md); background: none; text-align: left; color: var(--foreground); cursor: pointer }
+.lista-post:hover { background: var(--surface-hover) }
+.lista-post.ativo { background: var(--surface-selected, var(--surface-hover)); box-shadow: inset 3px 0 0 var(--primary) }
+.lista-post img, .lista-post-capa { width: 36px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; flex: none; background: var(--surface-muted); border: 1px solid var(--border) }
+.lista-post-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.lista-post-titulo { font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.lista-post.ativo .lista-post-titulo { color: var(--primary); font-weight: 500 }
+.lista-post-texto small { font-size: 11px; display: inline-flex; align-items: center; gap: 5px }
+.ao-vivo { width: 7px; height: 7px; border-radius: 50%; background: var(--success, #2f8a4c); display: inline-block; animation: ao-vivo 1.4s ease-in-out infinite }
+@keyframes ao-vivo { 50% { opacity: .3 } }
+@media (prefers-reduced-motion: reduce) { .ao-vivo { animation: none } }
+.botao-topo[aria-pressed="true"] { color: var(--primary) }
+@media (max-width: 760px) {
+  .corpo { position: relative }
+  .lista-posts { position: absolute; inset: 0 auto 0 0; z-index: 60; width: min(320px, 88vw); box-shadow: var(--shadow-md) }
+}

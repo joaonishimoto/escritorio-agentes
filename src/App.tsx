@@ -17,12 +17,13 @@ import { Gastos } from './ui/Gastos'
 import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
 import { PostComErro } from './ui/PostComErro'
+import { ListaDePosts } from './ui/ListaDePosts'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarCorDaMarca, type Post, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -66,6 +67,26 @@ function Painel({ logado }: { logado: boolean }) {
 
   const [versaoMarcas, setVersaoMarcas] = useState(0)
   const [novaSala, setNovaSala] = useState(false)
+  // lista de posts na lateral: aberta por padrão no computador, lembrada entre visitas
+  const [listaAberta, setListaAberta] = useState(() => {
+    try {
+      const salvo = localStorage.getItem('lista-posts')
+      if (salvo) return salvo === '1'
+    } catch {
+      // sem armazenamento local
+    }
+    return !window.matchMedia('(max-width: 760px)').matches
+  })
+  const alternarLista = (v?: boolean) =>
+    setListaAberta((atual) => {
+      const novo = v ?? !atual
+      try {
+        localStorage.setItem('lista-posts', novo ? '1' : '0')
+      } catch {
+        // vale até recarregar
+      }
+      return novo
+    })
   const marcasDoBanco = useMarcas(logado, versaoMarcas)
   const marcas = marcasDoBanco ?? []
   // logado, o escritório só aparece depois que as marcas chegam (antes piscava a sala de exemplo)
@@ -222,45 +243,16 @@ function Painel({ logado }: { logado: boolean }) {
           {emDemo ? (
             <span className="chip chip-demo">demonstração</span>
           ) : (
-            logado &&
-            posts.length > 0 && (
-              <Popover
-                rotulo="Post"
-                largo
-                botao={
-                  <>
-                    {post && <i className={`ponto-status status-${post.status}`} />}
-                    <span className="seletor-texto">{post?.briefing ?? 'Escolha um post'}</span>
-                    {post && <span className={`chip status-${post.status}`}>{ROTULO_STATUS[post.status] ?? post.status}</span>}
-                  </>
-                }
-              >
-                {GRUPOS_STATUS.map(([titulo, status]) => {
-                  const doGrupo = posts.filter((p) => status.includes(p.status))
-                  if (!doGrupo.length) return null
-                  return (
-                    <div key={titulo} className="pop-grupo">
-                      <span className="pop-titulo">{titulo}</span>
-                      {doGrupo.map((p) => {
-                        const capa = [...(p.slides ?? [])].sort((x, y) => x.ordem - y.ordem)[0]?.url
-                        return (
-                          <button key={p.id} className={`pop-post${p.id === postId ? ' ativo' : ''}`} onClick={() => verPost(p.id)}>
-                            {capa ? <img src={capa} alt="" loading="lazy" /> : <span className="pop-capa" />}
-                            <span className="pop-post-texto">
-                              <span>{p.briefing}</span>
-                              <small className="muted">{quandoDoPost(p)}</small>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </Popover>
-            )
+            post && <span className={`chip status-${post.status}`}>{ROTULO_STATUS[post.status] ?? post.status}</span>
           )}
         </div>
         <div className="topo-acoes">
+          <button className="botao-topo" onClick={() => alternarLista()} aria-pressed={listaAberta} aria-label="Lista de posts">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M6 2.5v11" />
+            </svg>
+            <span className="so-largo">Posts</span>
+          </button>
           <button className="botao-topo" onClick={() => focar('calendario')} aria-label="Calendário">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
@@ -276,7 +268,7 @@ function Painel({ logado }: { logado: boolean }) {
               <span className="so-largo">Fotos</span>
             </button>
           )}
-          {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
+          {logado && marcaId && !listaAberta && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
           <Menu>
             {logado && marca && (
               <button onClick={() => setInstagram(true)}>{marca.instagram_conta_id ? 'Instagram conectado' : 'Conectar Instagram'}</button>
@@ -290,6 +282,19 @@ function Painel({ logado }: { logado: boolean }) {
         </div>
       </header>
 
+      <div className="corpo">
+      <ListaDePosts
+        posts={posts}
+        postId={postId}
+        emDemo={emDemo}
+        aberta={listaAberta}
+        aoEscolher={(id) => {
+          verPost(id)
+          if (window.matchMedia('(max-width: 760px)').matches) alternarLista(false)
+        }}
+        aoNovo={logado && marcaId ? () => setNovo(true) : undefined}
+        aoFechar={() => alternarLista(false)}
+      />
       <main className="palco">
         {custos && <Gastos custos={custos} />}
         <Etapa estados={estados} aguardando={!emDemo && post?.status === 'aguardando_aprovacao'} ativo={emDemo || post?.status === 'em_producao'} />
@@ -337,6 +342,7 @@ function Painel({ logado }: { logado: boolean }) {
           </aside>
         )}
       </main>
+      </div>
 
       <footer className="rodape">
         <LinhaDoTempo />
@@ -387,21 +393,6 @@ function agendaDemo() {
     { id: 'demo-3', data: d(2, 19), titulo: 'Gin tônica do jeito certo', status: 'agendado' as const },
     { id: 'demo-4', data: d(5, 20), titulo: 'Caipirinha: açúcar ou mel?', status: 'agendado' as const },
   ]
-}
-
-const GRUPOS_STATUS: [string, string[]][] = [
-  ['Esperando você', ['aguardando_aprovacao']],
-  ['Em produção', ['em_producao', 'rascunho', 'aprovado']],
-  ['Agendados', ['agendado']],
-  ['Publicados', ['publicado']],
-  ['Outros', ['reprovado', 'erro']],
-]
-
-function quandoDoPost(p: Post) {
-  const fmt = (iso: string) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-  if (p.status === 'agendado' && p.agendado_para) return `sai ${fmt(p.agendado_para)}`
-  if (p.status === 'publicado' && p.publicado_em) return `saiu ${fmt(p.publicado_em)}`
-  return `criado ${fmt(p.criado_em)}`
 }
 
 /** Botão do topo que abre uma lista; fecha ao clicar fora, no Esc ou ao escolher. */

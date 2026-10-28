@@ -226,6 +226,14 @@ export function EscritorioPixel({
   useEffect(
     () =>
       useEscritorio.subscribe((s, antes) => {
+        // trocou de post: quem estava levando pasta do post anterior volta para a mesa na hora
+        if (s.eventos.length === 0 && antes.eventos.length > 0) {
+          pendentes.current = []
+          andantes.current = andantes.current.filter((a) => !a.pasta)
+          pastasNaMesa.current.clear()
+          recebeuEm.current.clear()
+          return
+        }
         const novas = s.entregas.filter((e) => !antes.entregas.some((x) => x.id === e.id))
         // não sai andando na hora: entra na fila e só sai quando a pasta anterior chegar até quem entrega
         pendentes.current.push(...novas)
