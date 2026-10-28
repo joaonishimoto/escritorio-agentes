@@ -25,6 +25,7 @@ import {
 export interface MarcaNoAndar {
   id: string
   nome: string
+  ordem?: number
 }
 
 const ORDEM_ESTILOS = ['d', 'e', 'f', 'a', 'b', 'c']
@@ -50,7 +51,7 @@ export function Escritorio({
   const [olhando, setOlhando] = useState<'marca' | 'voce'>('marca')
 
   const salas = useMemo(
-    () => marcas.map((m, i) => ({ marca: m, x: centroDaSala(i), sala: SALAS[estilos[m.id] ?? estiloDaMarca(m.id, i)] })),
+    () => marcas.map((m, i) => ({ marca: m, x: centroDaSala(i), sala: SALAS[estilos[m.id] ?? estiloDaMarca(m.id, m.ordem ?? i)] })),
     [marcas, estilos],
   )
   const xVoce = centroSuaSala(Math.max(salas.length, 1))

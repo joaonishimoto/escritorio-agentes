@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useEscritorio, type Evento } from '../store/escritorio'
 
@@ -65,6 +65,8 @@ export function useMarcas(ativo: boolean, versao = 0) {
 export function usePosts(marcaId: string | null, recarregar: number) {
   const [posts, setPosts] = useState<Post[]>([])
   useEffect(() => {
+    // trocou de marca: some a lista da anterior na hora
+    setPosts((atual) => (atual.length && atual[0].marca_id !== marcaId ? [] : atual))
     if (!supabase || !marcaId) return
     supabase
       .from('posts')
@@ -82,9 +84,18 @@ export function usePostAoVivo(postId: string | null) {
   const [post, setPost] = useState<Post | null>(null)
   const aplicar = useEscritorio((s) => s.aplicar)
   const reiniciar = useEscritorio((s) => s.reiniciar)
+  const anterior = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!supabase || !postId) return
+    const tinha = anterior.current
+    anterior.current = postId
+    if (!supabase) return
+    if (!postId) {
+      // fechou o post (ex.: abriu uma marca nova): ninguém trabalhando e nada do post anterior na tela
+      setPost(null)
+      if (tinha) reiniciar()
+      return
+    }
     const sb = supabase
     let ativo = true
     reiniciar()

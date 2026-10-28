@@ -14,6 +14,8 @@ export interface MarcaNoAndar {
   nome: string
   /** cor que representa a marca na sala */
   cor?: string
+  /** ordem em que a sala foi criada: decide o estilo padrão, mesmo com a sala mudando de lugar no andar */
+  ordem?: number
 }
 
 // cada agente tem um cabelo e um tom de pele, para dar para reconhecer de longe
@@ -112,7 +114,7 @@ export function EscritorioPixel({
   })
   const corDe = (m: MarcaNoAndar) => cores[m.id] ?? m.cor ?? '#2a5288'
   const estiloBase = (id: string, i: number) => ESTILOS[estilos[id] ?? ORDEM_ESTILOS[i % ORDEM_ESTILOS.length]]
-  const estiloDe = (m: MarcaNoAndar, i: number) => comCorDaMarca(estiloBase(m.id, i), corDe(m))
+  const estiloDe = (m: MarcaNoAndar, i: number) => comCorDaMarca(estiloBase(m.id, m.ordem ?? i), corDe(m))
 
   // estado que o laço de desenho lê sem precisar renderizar o React de novo
   const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
@@ -136,7 +138,7 @@ export function EscritorioPixel({
     const g = c.getContext('2d')!
     desenharCorredor(g, largura)
     marcas.forEach((m, i) => {
-      const base = estiloBase(m.id, i)
+      const base = estiloBase(m.id, m.ordem ?? i)
       desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e)
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
@@ -550,7 +552,8 @@ export function EscritorioPixel({
   }
 
   const trocarEstilo = (id: string, i: number) => {
-    const atual = estilos[id] ?? ORDEM_ESTILOS[i % ORDEM_ESTILOS.length]
+    const ordem = marcas.find((m) => m.id === id)?.ordem ?? i
+    const atual = estilos[id] ?? ORDEM_ESTILOS[ordem % ORDEM_ESTILOS.length]
     const novo = { ...estilos, [id]: ORDEM_ESTILOS[(ORDEM_ESTILOS.indexOf(atual) + 1) % ORDEM_ESTILOS.length] }
     setEstilos(novo)
     try {
@@ -623,7 +626,7 @@ export function EscritorioPixel({
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
       {ativa && (
         <button className="pixel-estilo" onClick={() => trocarEstilo(ativa.id, indiceAtivo)} title="Trocar o estilo desta sala">
-          🎨 {estiloBase(ativa.id, indiceAtivo).nome}
+          🎨 {estiloBase(ativa.id, ativa.ordem ?? indiceAtivo).nome}
         </button>
       )}
       {ativa && (

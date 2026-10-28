@@ -112,7 +112,8 @@ function Painel({ logado }: { logado: boolean }) {
   }
   // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
   const marcasNoAndar = marcas.length
-    ? marcas.map((m) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m) }))
+    ? // a sala mais nova fica na ponta, longe da sua; a primeira marca fica do lado da sua sala
+      marcas.map((m, ordem) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem })).reverse()
     : [{ id: 'demo', nome: 'Drinfy', cor: '#EE382B' }, { id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73' }]
   const mudarCor = (id: string, cor: string) => {
     const m = marcas.find((x) => x.id === id)
@@ -120,8 +121,9 @@ function Painel({ logado }: { logado: boolean }) {
   }
 
   useEffect(() => {
-    if (!postId && posts[0] && !emDemo) setPostId(posts[0].id)
-  }, [posts, postId, emDemo])
+    // só escolhe um post da marca aberta (a lista pode ainda ser da marca anterior)
+    if (!postId && posts[0]?.marca_id === marcaId && !emDemo) setPostId(posts[0].id)
+  }, [posts, postId, emDemo, marcaId])
 
   // quando o status do post muda, atualiza a lista
   useEffect(() => {
@@ -163,7 +165,8 @@ function Painel({ logado }: { logado: boolean }) {
     setEmDemo(true)
     pararDemo()
     reiniciar()
-    rodarDemo(aplicar)
+    // depois do escritório limpar o post que estava aberto
+    window.setTimeout(() => rodarDemo(aplicar), 50)
   }
 
   const verPost = (id: string) => {
@@ -293,13 +296,13 @@ function Painel({ logado }: { logado: boolean }) {
             <EscritorioPixel
               aoMudarCor={mudarCor}
               marcas={marcasNoAndar}
-              marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
+              marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}
             />
           ) : (
             <Escritorio
               marcas={marcasNoAndar}
-              marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
+              marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}
             />
           )}
