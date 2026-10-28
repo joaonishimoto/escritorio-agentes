@@ -1,6 +1,8 @@
 import { agentePorId } from '../agents/catalogo'
 import { useEscritorio } from '../store/escritorio'
 import { COR_ESTADO } from '../office/EstacaoAgente'
+import { AcoesDeErro } from './PostComErro'
+import type { Post } from '../lib/dados'
 
 const ROTULO_ESTADO = {
   ocioso: 'Ocioso',
@@ -11,7 +13,7 @@ const ROTULO_ESTADO = {
   erro: 'Erro',
 } as const
 
-export function PainelAgente() {
+export function PainelAgente({ post, aoMudar }: { post?: Post | null; aoMudar?: () => void }) {
   const id = useEscritorio((s) => s.selecionado)
   const estado = useEscritorio((s) => (id ? s.estados[id] : 'ocioso'))
   const acao = useEscritorio((s) => (id ? s.acaoAtual[id] : undefined))
@@ -46,6 +48,7 @@ export function PainelAgente() {
           <p>{acao}</p>
         </section>
       )}
+      {estado === 'erro' && post?.status === 'erro' && aoMudar && <AcoesDeErro post={post} agente={id} aoMudar={aoMudar} />}
 
       <section>
         <h3>O que está produzindo</h3>

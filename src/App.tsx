@@ -321,7 +321,7 @@ function Painel({ logado }: { logado: boolean }) {
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
         ) : (
-          <PainelAgente />
+          <PainelAgente post={emDemo ? null : post} aoMudar={mudou} />
         )}
         {logado && marcas.length === 0 && (
           <div className="vazio">

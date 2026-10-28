@@ -88,3 +88,34 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
     </aside>
   )
 }
+
+/** Botões para destravar um post com erro; também aparecem no painel do agente que falhou. */
+export function AcoesDeErro({ post, agente, aoMudar }: { post: Post; agente: string; aoMudar: () => void }) {
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const agir = async (acao: 'tentar_de_novo' | 'desagendar') => {
+    setEnviando(true)
+    setErro(null)
+    try {
+      await chamarApi('aprovar', { post_id: post.id, acao })
+      aoMudar()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu certo')
+    } finally {
+      setEnviando(false)
+    }
+  }
+  return (
+    <div className="acoes acoes-coluna">
+      {erro && <p className="aviso">{erro}</p>}
+      <button className="primario" disabled={enviando} onClick={() => agir('tentar_de_novo')}>
+        {agente === 'publicador' ? 'Publicar de novo agora' : 'Tentar de novo'}
+      </button>
+      {(post.slides ?? []).length > 0 && (
+        <button className="secundario" disabled={enviando} onClick={() => agir('desagendar')}>
+          Voltar para aprovação
+        </button>
+      )}
+    </div>
+  )
+}
