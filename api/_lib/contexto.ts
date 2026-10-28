@@ -1,4 +1,5 @@
 import { db } from './db'
+import { completarMarca } from './marcas'
 
 export interface Etapa {
   agente: string
@@ -74,7 +75,7 @@ export async function carregarContexto(postId: string): Promise<Contexto> {
   if (!marca) throw new Error('Marca do post não encontrada')
   const saidas: Record<string, unknown> = {}
   for (const p of passos ?? []) saidas[p.agente] = p.saida
-  return { post: post as Post, marca: marca as Marca, etapas: (roteiro?.etapas as Etapa[]) ?? [], regras: regras ?? [], saidas }
+  return { post: post as Post, marca: completarMarca(marca as Marca), etapas: (roteiro?.etapas as Etapa[]) ?? [], regras: regras ?? [], saidas }
 }
 
 /** Monta o prompt de sistema de um agente a partir do roteiro, da marca e das regras aprendidas. */
