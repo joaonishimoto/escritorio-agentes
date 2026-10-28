@@ -44,11 +44,14 @@ interface EscritorioState {
   aguardandoVoce: boolean
   /** posts com data, para o calendário da parede */
   agenda: ItemAgenda[]
+  /** onde fica cada mesa da sala que está trabalhando, e a sua, em coordenadas do andar (para as pastas voarem) */
+  posicoes: Partial<Record<AgenteId | 'voce', [number, number]>>
   /** `animar: false` ao reconstruir um post antigo, para as pastas não voarem todas de uma vez */
   aplicar: (e: Evento, animar?: boolean) => void
   selecionar: (id: AgenteId | null) => void
   focar: (foco: 'voce' | 'calendario' | null) => void
   definirAgenda: (agenda: ItemAgenda[]) => void
+  definirPosicoes: (posicoes: Partial<Record<AgenteId | 'voce', [number, number]>>) => void
   reiniciar: () => void
 }
 
@@ -72,6 +75,7 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   foco: null,
   aguardandoVoce: false,
   agenda: [],
+  posicoes: {},
 
   aplicar: (e, animar = true) =>
     set((s) => {
@@ -132,6 +136,7 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   selecionar: (id) => set({ selecionado: id, foco: null }),
   focar: (foco) => set({ foco, selecionado: null }),
   definirAgenda: (agenda) => set({ agenda }),
+  definirPosicoes: (posicoes) => set({ posicoes }),
 
   reiniciar: () =>
     set({ estados: estadosIniciais(), acaoAtual: {}, rascunho: {}, eventos: [], entregas: [], aguardandoVoce: false }),

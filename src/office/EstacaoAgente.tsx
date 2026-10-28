@@ -4,7 +4,7 @@ import { Html, Outlines } from '@react-three/drei'
 import type { Group, Mesh, MeshToonMaterial } from 'three'
 import type { Agente } from '../agents/catalogo'
 import { useEscritorio, type Estado } from '../store/escritorio'
-import { SALA } from './salas'
+import type { Sala } from './salas'
 import { CONTORNO, GRADIENTE } from './toon'
 
 export const COR_ESTADO: Record<Estado, string> = {
@@ -22,10 +22,28 @@ const N_ESTRELAS = 8
 /** Contorno fino que dá o visual de desenho; só nas peças grandes, para não pesar. */
 const Contorno = () => <Outlines thickness={0.045} color={CONTORNO} />
 
-export function EstacaoAgente({ agente }: { agente: Agente }) {
-  const estado = useEscritorio((s) => s.estados[agente.id])
-  const acao = useEscritorio((s) => s.acaoAtual[agente.id])
-  const selecionado = useEscritorio((s) => s.selecionado === agente.id)
+/**
+ * Um agente na mesa dele. Só a sala da marca que está trabalhando fica `viva`; nas outras o boneco descansa
+ * e o clique leva para aquela sala.
+ */
+export function EstacaoAgente({
+  agente,
+  mesa,
+  cores,
+  vivo,
+  aoClicarParado,
+}: {
+  agente: Agente
+  mesa: [number, number, number]
+  cores: Sala['cores']
+  vivo: boolean
+  aoClicarParado?: () => void
+}) {
+  const estadoReal = useEscritorio((s) => s.estados[agente.id])
+  const acaoReal = useEscritorio((s) => s.acaoAtual[agente.id])
+  const estado: Estado = vivo ? estadoReal : 'ocioso'
+  const acao = vivo ? acaoReal : undefined
+  const selecionado = useEscritorio((s) => vivo && s.selecionado === agente.id)
   const selecionar = useEscritorio((s) => s.selecionar)
   const [hover, setHover] = useState(false)
 
@@ -134,7 +152,7 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
     })
   })
 
-  const [x, z] = agente.mesa
+  const [x, z, rotacao] = mesa
   const mostrarBalao = (estado === 'trabalhando' || estado === 'esperando_voce') && acao
   const toon = (cor: string) => <meshToonMaterial color={cor} gradientMap={GRADIENTE} />
 
@@ -142,10 +160,11 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
     <group
       ref={raiz}
       position={[x, 0, z]}
-      rotation={[0, agente.rotacao, 0]}
+      rotation={[0, rotacao, 0]}
       onClick={(e) => {
         e.stopPropagation()
-        selecionar(agente.id)
+        if (vivo) selecionar(agente.id)
+        else aoClicarParado?.()
       }}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -166,13 +185,13 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* mesa */}
       <mesh castShadow receiveShadow position={[0, 0.75, -0.35]}>
         <boxGeometry args={[1.8, 0.12, 0.9]} />
-        {toon(SALA.cores.mesa)}
+        {toon(cores.mesa)}
         <Contorno />
       </mesh>
       {[[-0.8, -0.7], [0.8, -0.7], [-0.8, 0], [0.8, 0]].map(([px, pz], i) => (
         <mesh key={i} castShadow position={[px, 0.37, pz]}>
           <cylinderGeometry args={[0.05, 0.05, 0.74, 6]} />
-          {toon(SALA.cores.perna)}
+          {toon(cores.perna)}
         </mesh>
       ))}
       {/* monitor */}
@@ -202,11 +221,11 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* cadeira */}
       <mesh castShadow position={[0, 0.45, 0.6]}>
         <boxGeometry args={[0.62, 0.1, 0.6]} />
-        {toon(SALA.cores.cadeira)}
+        {toon(cores.cadeira)}
       </mesh>
       <mesh castShadow position={[0, 0.82, 0.88]}>
         <boxGeometry args={[0.62, 0.66, 0.1]} />
-        {toon(SALA.cores.cadeira)}
+        {toon(cores.cadeira)}
       </mesh>
 
       {/* boneco: cabeça grande, corpo pequeno */}

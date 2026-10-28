@@ -71,6 +71,8 @@ function Painel({ logado }: { logado: boolean }) {
   const regras = useRegrasPropostas(marcaId, recarregar)
   const marca = marcas.find((m) => m.id === marcaId)
   const mudou = () => setRecarregar((n) => n + 1)
+  // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
+  const marcasNoAndar = marcas.length ? marcas : [{ id: 'demo', nome: 'Drinfy' }, { id: 'demo-2', nome: 'Outra marca' }]
 
   useEffect(() => {
     if (!postId && posts[0] && !emDemo) setPostId(posts[0].id)
@@ -150,7 +152,15 @@ function Painel({ logado }: { logado: boolean }) {
 
       <main className="palco">
         <Suspense fallback={<p className="carregando">Montando o escritório…</p>}>
-          <Escritorio />
+          <Escritorio
+            marcas={marcasNoAndar}
+            marcaAtiva={marcaId ?? marcasNoAndar[0]?.id ?? null}
+            aoEscolherMarca={(id) => {
+              if (id === marcaId || !marcas.some((m) => m.id === id)) return
+              setMarcaId(id)
+              setPostId(null)
+            }}
+          />
         </Suspense>
         {mostrarAprovacao && post ? (
           <Aprovacao post={post} regras={regras} aoMudar={mudou} />

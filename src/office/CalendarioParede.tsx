@@ -1,11 +1,10 @@
 import { Html } from '@react-three/drei'
 import { useEscritorio } from '../store/escritorio'
-import { SALA } from './salas'
 import { diasDoMes, MESES, chaveDia } from '../ui/Calendario'
 import { GRADIENTE } from './toon'
 
 /** Calendário pendurado na parede do fundo: mostra o mês atual com os posts agendados e publicados. */
-export function CalendarioParede() {
+export function CalendarioParede({ x, z, rot }: { x: number; z: number; rot: number }) {
   const agenda = useEscritorio((s) => s.agenda)
   const focar = useEscritorio((s) => s.focar)
   const hoje = new Date()
@@ -18,8 +17,8 @@ export function CalendarioParede() {
 
   return (
     <group
-      position={[SALA.calendario[0], 1.65, SALA.calendario[1]]}
-      rotation={[0, SALA.calendario[2], 0]}
+      position={[x, 1.65, z]}
+      rotation={[0, rot, 0]}
       onClick={(e) => {
         e.stopPropagation()
         focar('calendario')

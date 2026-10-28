@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import type { Group, MeshToonMaterial } from 'three'
 import { useEscritorio } from '../store/escritorio'
-import { GRADIENTE } from './toon'
+import { Outlines } from '@react-three/drei'
+import { CONTORNO, GRADIENTE } from './toon'
 
 /** Sua mesa de aprovação: pisca quando algum post espera por você. */
 export function MesaVoce({ posicao }: { posicao: [number, number] }) {
@@ -14,11 +15,18 @@ export function MesaVoce({ posicao }: { posicao: [number, number] }) {
   const tampo = useRef<MeshToonMaterial>(null)
 
   const marcador = useRef<Group>(null)
+  const voce = useRef<Group>(null)
 
   useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    if (voce.current) {
+      // você respira e, quando chega post, fica pulando de animação
+      voce.current.position.y = aguardando ? Math.abs(Math.sin(t * 5)) * 0.12 : 0
+      voce.current.scale.y = 1 + Math.sin(t * 2) * 0.02
+    }
     if (marcador.current) {
       marcador.current.visible = aguardando
-      marcador.current.position.y = 2.05 + Math.abs(Math.sin(clock.elapsedTime * 4)) * 0.25
+      marcador.current.position.y = 2.75 + Math.abs(Math.sin(clock.elapsedTime * 4)) * 0.25
       marcador.current.rotation.y = clock.elapsedTime * 2
     }
     if (!tampo.current) return
@@ -54,12 +62,43 @@ export function MesaVoce({ posicao }: { posicao: [number, number] }) {
         <cylinderGeometry args={[0.08, 0.2, 0.74, 8]} />
         <meshToonMaterial gradientMap={GRADIENTE} color="#8d8f99" />
       </mesh>
+      {/* você, sentado atrás da mesa, olhando para a sala */}
+      <mesh castShadow position={[0, 0.45, -0.85]}>
+        <boxGeometry args={[0.62, 0.1, 0.6]} />
+        <meshToonMaterial gradientMap={GRADIENTE} color="#976822" />
+      </mesh>
+      <mesh castShadow position={[0, 0.85, -1.15]}>
+        <boxGeometry args={[0.66, 0.8, 0.1]} />
+        <meshToonMaterial gradientMap={GRADIENTE} color="#976822" />
+      </mesh>
+      <group ref={voce} position={[0, 0, -0.8]}>
+        <mesh castShadow position={[0, 0.82, 0]}>
+          <capsuleGeometry args={[0.22, 0.26, 4, 10]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color="#1e3d66" />
+          <Outlines thickness={0.045} color={CONTORNO} />
+        </mesh>
+        <mesh castShadow position={[0, 1.38, 0]}>
+          <sphereGeometry args={[0.32, 18, 14]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color="#f3cfa8" />
+          <Outlines thickness={0.045} color={CONTORNO} />
+        </mesh>
+        <mesh position={[0, 1.5, -0.04]} rotation={[-0.35, 0, 0]}>
+          <sphereGeometry args={[0.33, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2.4]} />
+          <meshToonMaterial gradientMap={GRADIENTE} color="#262820" />
+        </mesh>
+        {[-0.11, 0.11].map((x) => (
+          <mesh key={x} position={[x, 1.4, 0.29]}>
+            <sphereGeometry args={[0.045, 8, 8]} />
+            <meshBasicMaterial color={CONTORNO} />
+          </mesh>
+        ))}
+      </group>
       {/* bandeja de entrada */}
       <mesh position={[0.35, 0.83, 0.1]}>
         <boxGeometry args={[0.5, 0.06, 0.4]} />
         <meshToonMaterial gradientMap={GRADIENTE} color="#1e3d66" />
       </mesh>
-      <group ref={marcador} visible={false}>
+      <group ref={marcador} visible={false} position={[0, 2.75, -0.8]}>
         <mesh position={[0, 0.14, 0]}>
           <boxGeometry args={[0.14, 0.36, 0.14]} />
           <meshBasicMaterial color="#f2b233" />
@@ -69,7 +108,7 @@ export function MesaVoce({ posicao }: { posicao: [number, number] }) {
           <meshBasicMaterial color="#f2b233" />
         </mesh>
       </group>
-      <Html position={[0, 1.5, 0]} center distanceFactor={12} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+      <Html position={[0, 2.3, -0.8]} center distanceFactor={12} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
         <div className="etiqueta">
           {aguardando && <div className="balao balao-esperando_voce">Post esperando sua aprovação</div>}
           <div className="nome" style={{ ['--cor' as string]: '#976822' }}>

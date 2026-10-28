@@ -2,7 +2,7 @@ import type { AgenteId } from '../agents/catalogo'
 import type { Movel } from './Moveis'
 
 // Opções de sala: posição de cada mesa, cores do ambiente e alguns detalhes de decoração.
-// A sala em uso vem de ?sala= na URL (a a f); sem parâmetro, usa a padrão.
+// Cada marca tem uma sala; o estilo de cada uma é escolhido na tela e ?sala= força um para testes.
 
 type Mesa = [x: number, z: number, rotacao: number]
 
@@ -270,5 +270,64 @@ SALAS.f = {
   ],
 }
 
+// ───────── sua sala, no fim do corredor ─────────
+
+export const LARGURA_VOCE = 11
+
+export const SALA_VOCE: Sala = {
+  nome: 'Sua sala',
+  mesas: SALAS.atual.mesas,
+  voce: [0, -0.6],
+  cores: {
+    fundo: '#faf9f5', chao: '#efe6d6', paredeFundo: '#1e3d66', paredeLado: '#f7f5f0', tapete: '#dce6f5',
+    mesa: '#ffffff', perna: '#1f2330', cadeira: '#976822', planta: '#3f7650', vaso: '#ffffff', janela: '#c0d3ec',
+    ceu: '#ffffff', solo: '#e6dfcf',
+  },
+  luz: 1.5,
+  piso: 'nenhum',
+  luminarias: [],
+  calendario: [-2.4, PAREDE_FUNDO, FUNDO],
+  textura: { tipo: 'madeira', linha: '#cdb796' },
+  rodape: '#976822',
+  janelas: [{ x: 2.6, z: PAREDE_FUNDO, rot: FUNDO, largura: 2.6 }],
+  semPlantas: true,
+  moveis: [
+    { tipo: 'tapete', x: 0, z: -0.4, largura: 3.6, fundo: 3, cor: '#dce6f5' },
+    { tipo: 'estante', x: -LARGURA_VOCE / 2 + 0.3, z: 1.6, rot: Math.PI / 2, largura: 2.4 },
+    { tipo: 'sofa', x: 2.6, z: 3.1, rot: Math.PI, cor: '#2a5288' },
+    { tipo: 'plantaAlta', x: 4.8, z: -4.3 },
+    { tipo: 'plantaAlta', x: -4.8, z: 4.3 },
+  ],
+}
+
+// ───────── o andar: salas das marcas lado a lado, corredor na frente, sua sala no fim ─────────
+
+/** distância entre o centro de uma sala de marca e o da seguinte */
+export const PASSO_SALA = 16.4
+export const CORREDOR = { z0: 5, z1: 8.4 }
+export const ESTILOS_MARCA = ['d', 'e', 'f'] as const
+
+export const centroDaSala = (i: number) => i * PASSO_SALA
+export const centroSuaSala = (salas: number) => (salas - 1) * PASSO_SALA + 8 + 0.4 + LARGURA_VOCE / 2
+
 const pedida = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('sala') : null
-export const SALA: Sala = SALAS[pedida ?? ''] ?? SALAS.atual
+
+/** Estilo da sala de uma marca: ?sala= força um para todas; senão o que você escolheu; senão alterna D, E e F. */
+export function estiloDaMarca(marcaId: string, indice: number): string {
+  if (pedida && SALAS[pedida]) return pedida
+  try {
+    const salvo = localStorage.getItem(`estilo-sala:${marcaId}`)
+    if (salvo && SALAS[salvo]) return salvo
+  } catch {
+    // sem armazenamento local: usa o padrão
+  }
+  return ESTILOS_MARCA[indice % ESTILOS_MARCA.length]
+}
+
+export function salvarEstilo(marcaId: string, estilo: string) {
+  try {
+    localStorage.setItem(`estilo-sala:${marcaId}`, estilo)
+  } catch {
+    // sem armazenamento local: vale só até recarregar
+  }
+}
