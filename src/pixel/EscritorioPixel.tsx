@@ -341,6 +341,7 @@ export function EscritorioPixel({
       // bonecos sentados (de costas, olhando o monitor)
       const posicoesEtiqueta: Record<string, [number, number] | null> = {}
       const posicoesNome: Record<string, [number, number] | null> = {}
+      const emPe = new Set<string>()
       marcas.forEach((_, i) => {
         for (const a of AGENTES) {
           if (andando(a.id, i)) continue
@@ -395,6 +396,7 @@ export function EscritorioPixel({
         if (a.sala === v.indiceAtivo || a.quem === 'voce') {
           posicoesEtiqueta[a.quem] = [x + 7, y - 2]
           posicoesNome[a.quem] = [x + 7, y + BONECO.h + 1]
+          emPe.add(a.quem)
         }
       }
 
@@ -408,6 +410,8 @@ export function EscritorioPixel({
           continue
         }
         el.style.opacity = '1'
+        // ordem fixa: balões por cima de tudo, depois quem está andando (mais embaixo na tela na frente), depois os sentados
+        el.style.zIndex = String(nome ? (emPe.has(id) ? 200 + Math.round(pos[1]) : 100) : 1000)
         const sx = (pos[0] - camX) * escala / dpr
         const sy = (pos[1] + offY) * escala / dpr
         el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, ${nome ? '0' : '-100%'})`
