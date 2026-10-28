@@ -4,9 +4,9 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
-  ANDAR_H, CALENDARIO, PLACA, comCorDaMarca, COLUNA_X, CORREDOR_PES, ESTILOS, LINHA_FRENTE, MESAS, MESA_VOCE, ORDEM_ESTILOS, PASSO_SALA,
-  PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, desenharCalendario, desenharCorredor, desenharMesaVoce,
-  desenharParedeEntre, desenharSala, desenharSuaSala, linhaDaMesa,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, comCorDaMarca, CORREDOR_PES, ESTILOS, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
+  PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
+  desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, type Quadro,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -75,11 +75,17 @@ export function EscritorioPixel({
   marcaAtiva,
   aoEscolherMarca,
   aoMudarCor,
+  quadros,
+  aoAbrirQuadro,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
   aoEscolherMarca: (id: string) => void
   aoMudarCor?: (id: string, cor: string) => void
+  /** o que aparece nos quadros da parede de cada sala: dias com post neste mês e quantas regras estão ativas */
+  quadros?: Record<string, { dias: number[]; regras: number }>
+  /** clique no calendário, no branding ou no mural de regras de uma sala */
+  aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -138,14 +144,16 @@ export function EscritorioPixel({
     c.height = ANDAR_H
     const g = c.getContext('2d')!
     desenharCorredor(g, largura)
+    const hoje = new Date().getDate()
     marcas.forEach((m, i) => {
       const base = estiloBase(m.id, m.ordem ?? i)
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e)
+      const q = quadros?.[m.id]
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e, { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0 })
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
     return c
-  }, [marcas, estilos, cores, largura, xVoce]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas, estilos, cores, largura, xVoce, quadros]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -174,46 +182,22 @@ export function EscritorioPixel({
     const a = assento(MESAS[quem])
     return [sala * PASSO_SALA + a.x, a.y]
   }
-  const ateOHub = (sala: number, quem: AgenteId): Ponto[] => {
-    const x0 = sala * PASSO_SALA
-    const [sx, sy] = pes(sala, quem)
-    const ly = linhaDaMesa(MESAS[quem])
-    return ly === LINHA_FRENTE ? [[sx, sy], [sx, ly]] : [[sx, sy], [sx, ly], [x0 + COLUNA_X, ly], [x0 + COLUNA_X, LINHA_FRENTE]]
-  }
+  const naSala = (sala: number, pontos: Ponto[]): Ponto[] => pontos.map(([x, y]) => [sala * PASSO_SALA + x, y])
   const daSuaMesaAtePorta = (): Ponto[] => {
     const [x, y] = pes(-1, 'voce')
     return [[x, y], [xVoce + 50, y], [xVoce + 50, 124], [xVoce + PORTA_VOCE_X, 124], [xVoce + PORTA_VOCE_X, CORREDOR_PES]]
   }
-  // em pé ao lado da cadeira de quem recebe
-  const aoLado = (sala: number, quem: AgenteId): Ponto => {
-    const [sx, sy] = pes(sala, quem)
-    return [sx + 13, sy]
-  }
   const caminho = (de: { sala: number; quem: AgenteId | 'voce' }, para: { sala: number; quem: AgenteId | 'voce' }): Ponto[] => {
-    // mesma sala: desce para o corredorzinho da própria fileira, anda até a outra mesa e para ao lado da cadeira
-    if (de.quem !== 'voce' && para.quem !== 'voce' && de.sala === para.sala) {
-      const x0 = de.sala * PASSO_SALA
-      const [sx, sy] = pes(de.sala, de.quem)
-      const [ax, ay] = aoLado(para.sala, para.quem)
-      const l1 = linhaDaMesa(MESAS[de.quem])
-      const l2 = linhaDaMesa(MESAS[para.quem])
-      const meio: Ponto[] = l1 === l2 ? [] : [[x0 + COLUNA_X, l1], [x0 + COLUNA_X, l2]]
-      return [[sx, sy], [sx, l1], ...meio, [ax, l2], [ax, ay]]
-    }
+    // mesma sala: sai pela porta do departamento se precisar e para ao lado da cadeira de quem recebe
+    if (de.quem !== 'voce' && para.quem !== 'voce' && de.sala === para.sala) return naSala(de.sala, dentroDaSala(MESAS[de.quem], MESAS[para.quem]))
     const saida: Ponto[] =
       de.quem === 'voce'
         ? daSuaMesaAtePorta()
-        : [...ateOHub(de.sala, de.quem), [de.sala * PASSO_SALA + PORTA_X, LINHA_FRENTE], [de.sala * PASSO_SALA + PORTA_X, CORREDOR_PES]]
+        : naSala(de.sala, [...ateOHall(MESAS[de.quem]), [PORTA_X, LINHA_HALL], [PORTA_X, CORREDOR_PES]])
     const chegada: Ponto[] =
       para.quem === 'voce'
         ? [...daSuaMesaAtePorta()].reverse().slice(0, -1).concat([[pes(-1, 'voce')[0], MESA_VOCE.y + 24]])
-        : [
-            [para.sala * PASSO_SALA + PORTA_X, CORREDOR_PES],
-            [para.sala * PASSO_SALA + PORTA_X, LINHA_FRENTE],
-            ...(linhaDaMesa(MESAS[para.quem]) === LINHA_FRENTE ? [] : ([[para.sala * PASSO_SALA + COLUNA_X, LINHA_FRENTE], [para.sala * PASSO_SALA + COLUNA_X, linhaDaMesa(MESAS[para.quem])]] as Ponto[])),
-            [aoLado(para.sala, para.quem)[0], linhaDaMesa(MESAS[para.quem])],
-            aoLado(para.sala, para.quem),
-          ]
+        : naSala(para.sala, [[PORTA_X, CORREDOR_PES], [PORTA_X, LINHA_HALL], ...doHallAte(MESAS[para.quem])])
     return [...saida, ...chegada]
   }
 
@@ -300,10 +284,7 @@ export function EscritorioPixel({
         const livres = sala === v.indiceAtivo && salaOcupada ? [] : AGENTES.filter((a) => !andando(a.id, sala))
         const a = livres[Math.floor(Math.random() * livres.length)]
         if (a) {
-          const x0 = sala * PASSO_SALA
-          const ly = linhaDaMesa(MESAS[a.id])
-          const [sx, sy] = pes(sala, a.id)
-          const ida: Ponto[] = [[sx, sy], [sx, ly], [x0 + COLUNA_X, ly], [x0 + COLUNA_X, 96], [x0 + 196, 96]]
+          const ida = naSala(sala, [...ateOHall(MESAS[a.id]), [CAFE.x + 16, LINHA_HALL]])
           andantes.current.push({ id: `cafe-${agora}`, quem: a.id, sala, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: false })
         }
       }
@@ -407,7 +388,7 @@ export function EscritorioPixel({
       g.fillRect(0, 0, c.width, c.height)
       g.setTransform(escala, 0, 0, escala, -Math.round(camX * escala), offY * escala)
       g.drawImage(cenario, 0, 0)
-      desenharCalendario(g, xVoce, diasRef.current, new Date().getDate())
+      desenharCalendario(g, xVoce, diasRef.current, new Date().getDate(), CALENDARIO)
 
       // telas dos monitores
       marcas.forEach((_, i) => {
@@ -530,8 +511,14 @@ export function EscritorioPixel({
           const i = Number(chave.slice(6))
           const sx = ((i * PASSO_SALA + PLACA.x - camX) * escala) / dpr
           const sy = ((PLACA.y + offY) * escala) / dpr
-          el.style.transform = `translate(${sx}px, ${sy}px)`
+          el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -50%)`
           el.style.fontSize = `${(escala / dpr) * 9}px`
+          continue
+        }
+        if (chave.startsWith('depto:')) {
+          const d = DEPTOS[Number(chave.slice(6))]
+          // placa de porta: no hall, logo abaixo da porta de cada departamento
+          el.style.transform = `translate(${((v.indiceAtivo * PASSO_SALA + d.porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
         const nome = chave.startsWith('nome:')
@@ -580,11 +567,20 @@ export function EscritorioPixel({
       return focar(null) // clicou fora: fecha o painel aberto
     }
     const sala = Math.floor(x / PASSO_SALA)
-    if (sala !== indiceAtivo && marcas[sala]) {
+    const lxQ = x - sala * PASSO_SALA
+    const noQuadro = Object.values(QUADROS).some((r) => lxQ >= r.x - 2 && lxQ <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2)
+    if (sala !== indiceAtivo && marcas[sala] && !noQuadro) {
       focar(null)
       return aoEscolherMarca(marcas[sala].id)
     }
     const lx = x - sala * PASSO_SALA
+    // quadros da parede: calendário, branding e regras desta sala
+    for (const [q, r] of Object.entries(QUADROS) as [Quadro, (typeof QUADROS)[Quadro]][]) {
+      if (lx >= r.x - 2 && lx <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2) {
+        selecionar(null)
+        return aoAbrirQuadro?.(marcas[sala].id, q)
+      }
+    }
     for (const a of AGENTES) {
       const m = MESAS[a.id]
       if (lx >= m.x && lx <= m.x + MESA_W2 * 2 && y >= m.y - 10 && y <= m.y + 28) return selecionar(a.id)
@@ -639,7 +635,7 @@ export function EscritorioPixel({
       {nomes.map((id) => {
         const est = id === 'voce' ? null : estados[id]
         const acao = id !== 'voce' && (est === 'trabalhando' || est === 'esperando_voce' || est === 'na_fila') ? acoes[id] : null
-        const nome = id === 'voce' ? 'Você' : agentePorId(id).nome
+        const nome = id === 'voce' ? 'Você' : id === 'chefe' ? <>Chefe<span className="so-largo"> de pauta</span></> : agentePorId(id).nome
         return (
           <Fragment key={id}>
             <div
@@ -690,6 +686,18 @@ export function EscritorioPixel({
           />
         </label>
       )}
+      {DEPTOS.map((d, i) => (
+        <div
+          key={d.id}
+          className="pixel-depto"
+          ref={(el) => {
+            if (el) etiquetas.current.set(`depto:${i}`, el)
+            else etiquetas.current.delete(`depto:${i}`)
+          }}
+        >
+          {d.nome}
+        </div>
+      ))}
       {marcas.map((m, i) => (
         <div
           key={m.id}

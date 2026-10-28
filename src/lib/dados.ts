@@ -152,6 +152,51 @@ export function useRegrasPropostas(marcaId: string | null, recarregar: number) {
   return regras
 }
 
+/** Para os quadros da parede de cada sala: dias deste mês com post agendado ou publicado e quantas regras estão ativas. */
+export function useQuadrosDoAndar(marcaIds: string[], recarregar: number) {
+  const [quadros, setQuadros] = useState<Record<string, { dias: number[]; regras: number }>>({})
+  const chave = marcaIds.join(',')
+  useEffect(() => {
+    if (!supabase || !marcaIds.length) return
+    const hoje = new Date()
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
+    const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1).toISOString()
+    Promise.all([
+      supabase
+        .from('posts')
+        .select('marca_id, status, agendado_para, publicado_em')
+        .in('marca_id', marcaIds)
+        .or(`and(agendado_para.gte.${inicio},agendado_para.lt.${fim}),and(publicado_em.gte.${inicio},publicado_em.lt.${fim})`),
+      supabase.from('regras').select('marca_id').in('marca_id', marcaIds).eq('status', 'ativa'),
+    ]).then(([posts, regras]) => {
+      const novo: Record<string, { dias: number[]; regras: number }> = Object.fromEntries(marcaIds.map((id) => [id, { dias: [], regras: 0 }]))
+      for (const p of posts.data ?? []) {
+        const data = p.status === 'publicado' ? p.publicado_em : p.agendado_para
+        if (data && novo[p.marca_id]) novo[p.marca_id].dias.push(new Date(data).getDate())
+      }
+      for (const r of regras.data ?? []) if (novo[r.marca_id]) novo[r.marca_id].regras++
+      setQuadros(novo)
+    })
+  }, [chave, recarregar]) // eslint-disable-line react-hooks/exhaustive-deps
+  return quadros
+}
+
+/** Todas as regras da marca que não foram arquivadas: as ativas e as que o curador propôs. */
+export function useRegrasDaMarca(marcaId: string | null, recarregar: number) {
+  const [regras, setRegras] = useState<Regra[] | null>(null)
+  useEffect(() => {
+    if (!supabase || !marcaId) return
+    supabase
+      .from('regras')
+      .select('id, agente, regra, motivo, status')
+      .eq('marca_id', marcaId)
+      .neq('status', 'arquivada')
+      .order('criado_em')
+      .then(({ data }) => setRegras((data as Regra[]) ?? []))
+  }, [marcaId, recarregar])
+  return regras
+}
+
 export async function decidirRegra(id: string, status: 'ativa' | 'arquivada') {
   await supabase?.from('regras').update({ status }).eq('id', id)
 }

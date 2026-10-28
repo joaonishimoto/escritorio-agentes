@@ -340,6 +340,7 @@ i.publicado { background: #3f7650 }
 
 .pixel-placa { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; color: #fff; font-family: 'Pixelify Sans', monospace; font-weight: 700;
   line-height: 1; padding: .3em .6em .35em; box-shadow: 0 0 0 .12em #1f2330, .25em .25em 0 .12em rgba(0,0,0,.2); white-space: nowrap; text-shadow: 0 .08em 0 rgba(0,0,0,.25) }
+.pixel-depto { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; font-family: 'Pixelify Sans', monospace; font-size: 11px; color: #fff; background: rgba(31,35,48,.72); padding: 1px 5px 2px; white-space: nowrap }
 .pixel-cor { left: auto; right: 12px; display: inline-flex; align-items: center; gap: 8px }
 .pixel-cor .amostra { width: 14px; height: 14px; box-shadow: 0 0 0 2px #1f2330 }
 .pixel-cor input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
@@ -575,7 +576,8 @@ i.falhou { background: var(--danger, #b42318) }
   .cal-post-slides { grid-template-columns: repeat(3, 1fr) }
 
   /* escritório */
-  .pixel-nome { font-size: 9px; padding: 1px 4px 2px }
+  .pixel-nome { font-size: 8px; padding: 1px 3px 2px }
+  .pixel-depto { font-size: 8px; padding: 0 3px 1px }
   .pixel-balao { max-width: 170px; font-size: 12px; padding: 5px 7px }
   .pixel-estilo { left: 8px; bottom: 8px; font-size: 12px; padding: 5px 8px }
   .pixel-estilo.pixel-cor { left: auto; right: 8px; gap: 6px }
