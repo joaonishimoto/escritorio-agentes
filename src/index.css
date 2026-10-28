@@ -240,7 +240,8 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .confirmar { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; color: var(--warning-strong) }
 .regras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
 .regras li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px }
-.painel-regras { top: auto; max-height: 45% }
+.painel-regras { top: auto; max-height: 45%; z-index: 1 }
+.painel:not(.painel-regras) { z-index: 2 }
 .vazio { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 18px 22px; width: min(420px, calc(100% - 32px)); text-align: center; box-shadow: var(--shadow-md) }
 .vazio p { margin-top: 6px }
 

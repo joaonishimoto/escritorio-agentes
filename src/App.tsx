@@ -336,7 +336,7 @@ function Painel({ logado }: { logado: boolean }) {
             <p className="muted">Peça no chat para cadastrar uma marca.</p>
           </div>
         )}
-        {!mostrarAprovacao && !selecionado && !foco && regras.length > 0 && !emDemo && (
+        {!mostrarAprovacao && !mostrarErro && !selecionado && !foco && !novo && !biblioteca && !instagram && !novaSala && !trocarSenha && regras.length > 0 && !emDemo && (
           <aside className="painel painel-regras" aria-label="Regras propostas">
             <RegrasPropostas regras={regras} aoMudar={mudou} />
           </aside>
