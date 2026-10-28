@@ -29,6 +29,9 @@ export interface ItemAgenda {
   data: string
   titulo: string
   status: 'agendado' | 'publicado'
+  /** urls dos slides, na ordem (vazio na demonstração) */
+  slides?: string[]
+  legenda?: string | null
 }
 
 interface EscritorioState {

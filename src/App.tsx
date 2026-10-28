@@ -19,7 +19,7 @@ import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarCorDaMarca, type Post, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -129,7 +129,8 @@ function Painel({ logado }: { logado: boolean }) {
     definirAgenda(
       posts.flatMap((p) => {
         const data = p.status === 'agendado' ? p.agendado_para : p.status === 'publicado' ? p.publicado_em : null
-        return data ? [{ id: p.id, data, titulo: p.briefing, status: p.status as 'agendado' | 'publicado' }] : []
+        const slides = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem).map((x) => x.url)
+        return data ? [{ id: p.id, data, titulo: p.briefing, status: p.status as 'agendado' | 'publicado', slides, legenda: p.legenda }] : []
       }),
     )
   }, [posts, emDemo, definirAgenda])
@@ -175,38 +176,90 @@ function Painel({ logado }: { logado: boolean }) {
   }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
+  const agendados = emDemo ? 0 : posts.filter((p) => p.status === 'agendado').length
 
   return (
     <div className="app">
       <header className="topo">
         <div className="marca">
           <Logo />
-          {logado && marcas.length > 1 ? (
-            <select className="seletor" aria-label="Marca" value={marcaId ?? ''} onChange={(e) => { setMarcaId(e.target.value); setPostId(null) }}>
-              {marcas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
-            </select>
+          <span className="nome-app">Escritório</span>
+          <span className="barra" aria-hidden>/</span>
+          <Popover
+            rotulo="Marca"
+            botao={
+              <>
+                <i className="ponto-marca" style={{ background: marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id))?.cor }} />
+                <strong>{marca?.nome ?? 'Drinfy'}</strong>
+              </>
+            }
+            desativado={!(logado && marcas.length > 1)}
+          >
+            {marcas.map((m) => (
+              <button key={m.id} className={m.id === marcaId ? 'ativo' : ''} onClick={() => escolherMarca(m.id)}>
+                <i className="ponto-marca" style={{ background: corDaMarca(m) }} /> {m.nome}
+              </button>
+            ))}
+          </Popover>
+          {emDemo ? (
+            <span className="chip chip-demo">demonstração</span>
           ) : (
-            <strong className="nome-marca">{marca?.nome ?? 'Drinfy'}</strong>
+            logado &&
+            posts.length > 0 && (
+              <Popover
+                rotulo="Post"
+                largo
+                botao={
+                  <>
+                    {post && <i className={`ponto-status status-${post.status}`} />}
+                    <span className="seletor-texto">{post?.briefing ?? 'Escolha um post'}</span>
+                    {post && <span className={`chip status-${post.status}`}>{ROTULO_STATUS[post.status] ?? post.status}</span>}
+                  </>
+                }
+              >
+                {GRUPOS_STATUS.map(([titulo, status]) => {
+                  const doGrupo = posts.filter((p) => status.includes(p.status))
+                  if (!doGrupo.length) return null
+                  return (
+                    <div key={titulo} className="pop-grupo">
+                      <span className="pop-titulo">{titulo}</span>
+                      {doGrupo.map((p) => {
+                        const capa = [...(p.slides ?? [])].sort((x, y) => x.ordem - y.ordem)[0]?.url
+                        return (
+                          <button key={p.id} className={`pop-post${p.id === postId ? ' ativo' : ''}`} onClick={() => verPost(p.id)}>
+                            {capa ? <img src={capa} alt="" loading="lazy" /> : <span className="pop-capa" />}
+                            <span className="pop-post-texto">
+                              <span>{p.briefing}</span>
+                              <small className="muted">{quandoDoPost(p)}</small>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </Popover>
+            )
           )}
-          {logado && posts.length > 0 && (
-            <>
-              <span className="barra" aria-hidden>/</span>
-              <select className="seletor" aria-label="Post" value={emDemo ? '' : (postId ?? '')} onChange={(e) => verPost(e.target.value)}>
-                {emDemo && <option value="">Demonstração</option>}
-                {posts.map((p) => (
-                  <option key={p.id} value={p.id}>{p.briefing.slice(0, 48)}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {emDemo && <span className="chip chip-demo">demonstração</span>}
-          {!emDemo && post && <span className={`chip status-${post.status}`}>{ROTULO_STATUS[post.status] ?? post.status}</span>}
         </div>
         <div className="topo-acoes">
+          <button className="botao-topo" onClick={() => focar('calendario')} aria-label="Calendário">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
+            </svg>
+            <span className="so-largo">Calendário</span>
+            {agendados > 0 && <span className="contador">{agendados}</span>}
+          </button>
+          {logado && marcaId && (
+            <button className="botao-topo" onClick={() => setBiblioteca(true)} aria-label="Fotos da marca">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                <rect x="2" y="2.5" width="12" height="11" rx="2" /><circle cx="6" cy="6.5" r="1.3" /><path d="m2.5 12 3.5-3.5 3 3 2-2 2.5 2.5" />
+              </svg>
+              <span className="so-largo">Fotos</span>
+            </button>
+          )}
           {logado && marcaId && <button className="primario" onClick={() => setNovo(true)}>Novo post</button>}
           <Menu>
-            {logado && marcaId && <button onClick={() => setBiblioteca(true)}>Fotos da marca</button>}
-            <button onClick={() => focar('calendario')}>Calendário</button>
             <button onClick={demo}>Ver demonstração</button>
             <button onClick={trocarVisual}>{visual === 'pixel' ? 'Ver em 3D' : 'Ver em pixel art'}</button>
             {logado && <hr />}
@@ -298,6 +351,52 @@ function agendaDemo() {
     { id: 'demo-3', data: d(2, 19), titulo: 'Gin tônica do jeito certo', status: 'agendado' as const },
     { id: 'demo-4', data: d(5, 20), titulo: 'Caipirinha: açúcar ou mel?', status: 'agendado' as const },
   ]
+}
+
+const GRUPOS_STATUS: [string, string[]][] = [
+  ['Esperando você', ['aguardando_aprovacao']],
+  ['Em produção', ['em_producao', 'rascunho', 'aprovado']],
+  ['Agendados', ['agendado']],
+  ['Publicados', ['publicado']],
+  ['Outros', ['reprovado', 'erro']],
+]
+
+function quandoDoPost(p: Post) {
+  const fmt = (iso: string) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  if (p.status === 'agendado' && p.agendado_para) return `sai ${fmt(p.agendado_para)}`
+  if (p.status === 'publicado' && p.publicado_em) return `saiu ${fmt(p.publicado_em)}`
+  return `criado ${fmt(p.criado_em)}`
+}
+
+/** Botão do topo que abre uma lista; fecha ao clicar fora, no Esc ou ao escolher. */
+function Popover({ rotulo, botao, children, largo, desativado }: { rotulo: string; botao: ReactNode; children: ReactNode; largo?: boolean; desativado?: boolean }) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setAberto(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false)
+    document.addEventListener('pointerdown', fora)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', fora)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [aberto])
+  if (desativado) return <span className="seletor-topo estatico">{botao}</span>
+  return (
+    <div className="menu" ref={ref}>
+      <button className="seletor-topo" aria-label={rotulo} aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
+        {botao}
+        <svg className="seta-baixo" width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+      </button>
+      {aberto && (
+        <div className={`menu-lista pop-lista${largo ? ' largo' : ''}`} role="menu" onClick={() => setAberto(false)}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Menu de três pontinhos: fecha ao clicar fora, ao apertar Esc ou ao escolher uma opção. */

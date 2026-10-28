@@ -279,11 +279,6 @@ i.publicado { background: #3f7650 }
 .cal-pontos i, .cal-legenda i { display: inline-block; width: 6px; height: 6px; border-radius: 50% }
 .cal-legenda { display: flex; gap: 16px; font-size: 12px }
 .cal-legenda span { display: inline-flex; align-items: center; gap: 6px }
-.cal-lista { display: flex; flex-direction: column; gap: 4px }
-.cal-lista p { font-size: 13px }
-.cal-lista button { display: flex; align-items: center; gap: 12px; text-align: left; background: none; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; font-size: 14px; color: var(--foreground); cursor: pointer }
-.cal-lista button:hover { background: var(--surface-hover) }
-.cal-lista button span:nth-child(2) { flex: 1 }
 .lista-pendentes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px }
 .lista-pendentes button { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; font-size: 14px; color: var(--foreground); cursor: pointer }
 .lista-pendentes button:hover { background: var(--surface-hover); color: var(--primary) }
@@ -367,7 +362,76 @@ i.publicado { background: #3f7650 }
 .ver-slides img { cursor: zoom-in; transition: transform .18s ease-out }
 .ver-slides img.ampliado { cursor: zoom-out; transition: transform .18s ease-out, transform-origin .08s linear }
 .ver-pontos, .ver-contador { z-index: 2 }
-.cal-item { display: flex; gap: 6px }
-.cal-item > button:first-child { flex: 1 }
-.cal-lista .cal-cancelar { flex: none; color: var(--danger, #b42318); font-size: 13px }
 .confirmar input[type="datetime-local"] { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground) }
+
+/* calendário grande: mês à esquerda, dia escolhido à direita */
+.modal.calendario { width: min(980px, 100%); max-height: calc(100% - 32px); overflow-y: auto; gap: 14px }
+.cal-hoje { height: 28px; padding: 0 10px; font-size: 13px; margin-left: 6px }
+.cal-topo-dir { display: flex; align-items: center; gap: 12px; font-size: 13px }
+.cal-corpo { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start }
+.cal-grade .cal-dia { height: 76px; align-items: stretch; justify-content: flex-start; padding: 5px; gap: 3px }
+.cal-grade .cal-dia.passou .cal-num { color: var(--muted-foreground) }
+.cal-num { font-size: 13px; text-align: left }
+.cal-capas { display: flex; gap: 3px; align-items: flex-end; flex: 1; min-height: 0 }
+.cal-capas img { height: 40px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 3px; border: 2px solid transparent }
+.cal-capas img.agendado { border-color: #976822 }
+.cal-capas img.publicado { border-color: var(--success) }
+.cal-capas i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin: 0 1px 2px }
+.cal-capas small { font-size: 11px; color: var(--muted-foreground) }
+.cal-dia-painel { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.cal-dia-titulo { font-size: 14px; font-weight: 600; color: var(--foreground) }
+.cal-dia-titulo::first-letter { text-transform: uppercase }
+.cal-post { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden }
+.cal-post.aberto { border-color: var(--border-strong) }
+.cal-post-linha { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px; background: none; border: 0; text-align: left; cursor: pointer; color: var(--foreground) }
+.cal-post-linha:hover { background: var(--surface-hover) }
+.cal-post-linha img, .cal-post-sem { width: 40px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-sm); flex: none; background: var(--surface-muted) }
+.cal-post-sem.agendado { background: color-mix(in srgb, #976822 25%, var(--surface)) }
+.cal-post-sem.publicado { background: color-mix(in srgb, var(--success) 25%, var(--surface)) }
+.cal-post-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px }
+.cal-post-texto strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.cal-post-texto span { font-size: 12px }
+.cal-post-detalhe { display: flex; flex-direction: column; gap: 10px; padding: 0 10px 10px }
+.cal-post-slides { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px }
+.cal-post-slides img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-md); display: block; border: 1px solid var(--border) }
+.cal-post-legenda { max-height: 160px; overflow-y: auto }
+@media (max-width: 760px) {
+  .cal-corpo { grid-template-columns: 1fr }
+  .cal-grade .cal-dia { height: 58px }
+  .cal-capas img { height: 26px }
+  .cal-topo-dir .muted { display: none }
+}
+
+/* topo */
+.nome-app { font-size: 14px; font-weight: 600; white-space: nowrap }
+.seletor-topo { display: inline-flex; align-items: center; gap: 8px; height: 32px; min-width: 0; max-width: 460px; padding: 0 8px;
+  border: 0; border-radius: var(--radius-md); background: none; color: var(--foreground); font: inherit; font-size: 14px; cursor: pointer }
+.seletor-topo:hover, .seletor-topo[aria-expanded="true"] { background: var(--surface-hover) }
+.seletor-topo.estatico { cursor: default }
+.seletor-topo.estatico:hover { background: none }
+.seletor-topo strong { font-weight: 600; white-space: nowrap }
+.seletor-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-weight: 500 }
+.seta-baixo { flex: none; color: var(--muted-foreground) }
+.ponto-marca { width: 10px; height: 10px; border-radius: 3px; flex: none; display: inline-block }
+.ponto-status { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; background: currentColor }
+.marca .menu { min-width: 0 }
+.pop-lista { left: 0; right: auto; max-height: min(70vh, 520px); overflow-y: auto }
+.pop-lista.largo { width: min(420px, calc(100vw - 32px)) }
+.pop-lista button { display: flex; align-items: center; gap: 8px }
+.pop-lista button.ativo { background: var(--surface-hover); color: var(--primary) }
+.pop-grupo { display: flex; flex-direction: column }
+.pop-grupo + .pop-grupo { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px }
+.pop-titulo { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground); padding: 6px 10px 2px }
+.pop-post img, .pop-capa { width: 30px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; flex: none; background: var(--surface-muted) }
+.pop-post-texto { display: flex; flex-direction: column; min-width: 0 }
+.pop-post-texto span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pop-post-texto small { font-size: 12px }
+.botao-topo { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius-md);
+  background: none; color: var(--muted-foreground); font: inherit; font-size: 14px; cursor: pointer }
+.botao-topo:hover { background: var(--surface-hover); color: var(--foreground) }
+.contador { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #976822; color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center }
+@media (max-width: 900px) {
+  .so-largo, .nome-app, .nome-app + .barra { display: none }
+  .seletor-topo { max-width: 46vw }
+  .seletor-topo .chip { display: none }
+}
