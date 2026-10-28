@@ -18,6 +18,7 @@ import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
+import { tocarAviso } from './lib/som'
 import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
 
 const ROTULO_STATUS: Record<string, string> = {
@@ -160,9 +161,15 @@ function Painel({ logado }: { logado: boolean }) {
   }
 
   const esperando = !emDemo && post?.status === 'aguardando_aprovacao'
-  // o painel abre sozinho quando um post chega; fechou, só volta clicando na sua mesa
-  const [fechouAprovacao, setFechouAprovacao] = useState<string | null>(null)
-  const mostrarAprovacao = esperando && !selecionado && (foco === 'voce' || (foco === null && fechouAprovacao !== post?.id))
+  // o post pronto não abre o painel sozinho: você pula na sua mesa e toca um aviso; o painel abre clicando nela
+  const mostrarAprovacao = esperando && !selecionado && foco === 'voce'
+  const statusAnterior = useRef<{ id: string; status: string } | null>(null)
+  useEffect(() => {
+    if (!post) return
+    const antes = statusAnterior.current
+    if (antes?.id === post.id && antes.status !== 'aguardando_aprovacao' && post.status === 'aguardando_aprovacao') tocarAviso()
+    statusAnterior.current = { id: post.id, status: post.status }
+  }, [post?.id, post?.status])
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined)
   const pendentes = posts.filter((p) => p.status === 'aguardando_aprovacao')
 
@@ -230,10 +237,7 @@ function Painel({ logado }: { logado: boolean }) {
             post={post}
             regras={regras}
             aoMudar={mudou}
-            aoFechar={() => {
-              setFechouAprovacao(post.id)
-              focar(null)
-            }}
+            aoFechar={() => focar(null)}
           />
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={pendentes} emDemo={emDemo} aoAbrirPost={(id) => { verPost(id); focar('voce') }} />
