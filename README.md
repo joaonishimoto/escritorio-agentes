@@ -1,3 +1,5 @@
+<p align="center"><img src="public/favicon.svg" width="96" height="96" alt="Logo do Escritório de Agentes"></p>
+
 # Escritório de Agentes
 
 App web onde uma equipe de agentes de IA cria posts de Instagram para qualquer marca, segue um roteiro editável, aprende com as correções e trabalha à vista num escritório 3D.
@@ -34,4 +36,5 @@ Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app a
 - `src/lib/dados.ts`: marcas, posts, regras e a assinatura Realtime dos eventos.
 - `api/`: rotas da Vercel; `api/_lib/agentes/` tem os 7 agentes.
 - `supabase/migrations/`: tabelas (marcas, roteiros, regras, posts, passos, eventos, midias) com RLS.
+- `public/`: logo (`favicon.svg`, mesma arte de `src/ui/Logo.tsx`), ícones do app, manifest e imagem de compartilhamento.
 - `supabase/seed/drinfy.sql`: cadastra a Drinfy com roteiro, checklist e regras aprendidas.
