@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/executar.ts": { "maxDuration": 300, "memory": 2048 },
+    "api/posts.ts": { "maxDuration": 30 },
+    "api/aprovar.ts": { "maxDuration": 30 }
+  },
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+}

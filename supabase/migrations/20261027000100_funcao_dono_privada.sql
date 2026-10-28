@@ -16,4 +16,5 @@ alter policy "dono gerencia midias" on public.midias using (privado.e_dono_da_ma
 alter policy "dono le passos" on public.passos using (exists (select 1 from public.posts p where p.id = post_id and privado.e_dono_da_marca(p.marca_id)));
 alter policy "dono le eventos" on public.eventos using (exists (select 1 from public.posts p where p.id = post_id and privado.e_dono_da_marca(p.marca_id)));
 
-drop function public.e_dono_da_marca(uuid);
+-- a versão antiga em public fica sem uso e sem permissão de execução
+revoke execute on function public.e_dono_da_marca(uuid) from public, anon, authenticated;

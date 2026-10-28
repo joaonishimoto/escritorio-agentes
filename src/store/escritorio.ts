@@ -32,7 +32,8 @@ interface EscritorioState {
   entregas: Entrega[]
   selecionado: AgenteId | null
   aguardandoVoce: boolean
-  aplicar: (e: Evento) => void
+  /** `animar: false` ao reconstruir um post antigo, para as pastas não voarem todas de uma vez */
+  aplicar: (e: Evento, animar?: boolean) => void
   selecionar: (id: AgenteId | null) => void
   reiniciar: () => void
 }
@@ -56,11 +57,16 @@ export const useEscritorio = create<EscritorioState>((set) => ({
   selecionado: null,
   aguardandoVoce: false,
 
-  aplicar: (e) =>
+  aplicar: (e, animar = true) =>
     set((s) => {
-      const eventos = [...s.eventos, e].slice(-200)
+      if (s.eventos.some((x) => x.id === e.id)) return {}
+      const eventos = [...s.eventos, e].slice(-300)
       if (e.agente === 'voce') {
-        return { eventos, aguardandoVoce: false }
+        const entregas =
+          animar && e.tipo === 'entrega' && e.para && e.para !== 'voce'
+            ? [...s.entregas, { id: e.id, de: 'voce' as const, para: e.para, inicio: performance.now() }].slice(-6)
+            : s.entregas
+        return { eventos, entregas, aguardandoVoce: false }
       }
       const id = e.agente
       const estados = { ...s.estados }
@@ -71,6 +77,7 @@ export const useEscritorio = create<EscritorioState>((set) => ({
 
       switch (e.tipo) {
         case 'inicio':
+          aguardandoVoce = false
           estados[id] = 'trabalhando'
           acaoAtual[id] = e.mensagem
           rascunho[id] = ''
@@ -89,8 +96,8 @@ export const useEscritorio = create<EscritorioState>((set) => ({
         case 'entrega':
           estados[id] = 'concluido'
           if (e.para) {
-            entregas = [...entregas, { id: e.id, de: id, para: e.para, inicio: performance.now() }].slice(-6)
-            if (e.para === 'voce') aguardandoVoce = true
+            if (animar) entregas = [...entregas, { id: e.id, de: id, para: e.para, inicio: performance.now() }].slice(-6)
+            aguardandoVoce = e.para === 'voce'
           }
           break
         case 'espera':
