@@ -1,23 +1,17 @@
 /**
- * Marca do Escritório de Agentes: o "N" do Nishistack (Azul Nishi + Creme Stack)
- * virou o rosto de um agente, com antena. Mesma arte de public/favicon.svg.
+ * Marca do Escritório de Agentes: um agente (robozinho com antena) nas cores do
+ * Nishistack (Azul Nishi + Creme Stack). Mesma arte de public/favicon.svg.
  */
 export function Logo({ className = 'logo' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 512 512" aria-hidden="true">
       <rect width="512" height="512" rx="112" fill="#1E3D66" />
-      <g transform="translate(96 96) scale(3.2)">
-        <g fill="#FAF5EB">
-          <rect x="42" y="0" width="16" height="16" rx="3.5" />
-          <rect x="47.5" y="12" width="5" height="12" />
-          <rect x="0" y="22" width="100" height="78" rx="16" />
-        </g>
+      <g transform="translate(96 104) scale(3.2)">
+        <rect x="39" y="0" width="22" height="22" rx="6" fill="#FAF5EB" />
+        <rect x="5" y="28" width="90" height="72" rx="18" fill="#FAF5EB" />
         <g fill="#1E3D66">
-          <rect x="16" y="36" width="13" height="50" rx="3" />
-          <rect x="71" y="36" width="13" height="50" rx="3" />
-          <rect x="33" y="42" width="11" height="11" rx="2.5" />
-          <rect x="44.5" y="55.5" width="11" height="11" rx="2.5" />
-          <rect x="56" y="69" width="11" height="11" rx="2.5" />
+          <rect x="25" y="52" width="17" height="20" rx="5" />
+          <rect x="58" y="52" width="17" height="20" rx="5" />
         </g>
       </g>
     </svg>
