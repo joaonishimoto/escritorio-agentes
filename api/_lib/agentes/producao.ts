@@ -3,6 +3,8 @@ import { gerarJson, gerarTexto } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
+import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
+import { juntarNarracao } from '../ffmpeg.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
 import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
@@ -485,12 +487,72 @@ async function gravarAnimacaoDoPost(ctx: Parameters<Agente>[0], entrada: Entrada
   return { saida: { video }, uso: USO_ZERO, entrega: `Vídeo de ${segundos}s pronto` }
 }
 
+// ───────── Narrador (só em Reels) ─────────
+// Escreve a narração no tempo do vídeo, gera a voz da marca na ElevenLabs e junta o áudio ao vídeo.
+const Narracao = z.object({
+  refazer: z.boolean().describe('false só se já existe narração e os ajustes pedidos não mudam nada nela'),
+  texto: z.string().describe('o que o narrador fala, em português do Brasil, para ser ouvido (sem hashtag, emoji, link ou sigla difícil de ler)'),
+})
+
+/** Palavras que cabem na fala, contando uma pausa curta no começo e no fim. */
+const palavrasPara = (segundos: number, velocidade: number) => Math.max(6, Math.floor((segundos - 0.8) * 2.4 * velocidade))
+
+export const narrador: Agente = async (ctx, passo, em) => {
+  const video = ctx.post.video
+  if (!video?.url) throw new Error('O Reel ainda não tem vídeo para narrar')
+  const cfg = configDaMarca(ctx.marca.identidade)
+  if (ctx.post.preferencias?.ias?.narrador === 'nenhum' || !cfg.ativa) {
+    await em.inicio('Este Reel vai sem narração')
+    return { saida: { pulou: true }, uso: USO_ZERO, entrega: 'Sem narração neste Reel' }
+  }
+  const entrada = passo.entrada as { feedback?: string; correcao?: Correcao }
+  const ajustes = [entrada.correcao ? `Pedido do dono da marca: ${entrada.correcao.comentario}\n${entrada.correcao.instrucao}` : '', entrada.feedback ?? ''].filter(Boolean).join('\n\n')
+  const base = video.original ?? { url: video.url, caminho: video.caminho, segundos: video.segundos }
+  const limite = palavrasPara(base.segundos, cfg.velocidade)
+  await em.inicio(video.narracao ? 'Vendo se a narração precisa mudar' : 'Escrevendo a narração')
+  const { dados, uso } = await gerarJson({
+    modelo: modeloDe(ctx, 'narrador'),
+    effort: 'low',
+    sistema: sistemaDoAgente(ctx, 'narrador', 'Você é o locutor dos Reels: escreve a fala que vai por cima do vídeo, no tom de voz da marca. Fala natural, de quem conversa, que completa o vídeo em vez de descrever o que aparece.'),
+    conteudo: [
+      `Pedido: ${ctx.post.briefing}`,
+      `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
+      `Texto da capa e legenda:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined) ?? {})}`,
+      `## O vídeo (${base.segundos}s)\n${video.prompt}`,
+      `A fala tem no máximo ${limite} palavras, para caber em ${base.segundos}s. Comece pelo gancho, termine com uma frase que fecha a ideia.`,
+      video.narracao ? `## Narração atual\n${video.narracao.texto}` : '',
+      ajustes ? `## Ajustes pedidos nesta rodada\n${ajustes}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    schema: Narracao,
+  })
+  if (video.narracao && !dados.refazer) {
+    await em.texto('O ajuste não mexe na narração: mantive a que já estava pronta.')
+    return { saida: { narracao: video.narracao }, uso, entrega: 'Narração mantida' }
+  }
+  await em.texto(`${dados.texto}\n`)
+  await em.acao('Gravando a voz na ElevenLabs')
+  const voz = await gerarVoz(dados.texto, cfg)
+  await em.acao('Juntando a voz ao vídeo')
+  const original = await fetch(base.url)
+  if (!original.ok) throw new Error(`Não consegui baixar o vídeo para narrar (HTTP ${original.status})`)
+  const { mp4, segundos } = await juntarNarracao(Buffer.from(await original.arrayBuffer()), voz)
+  const caminho = `${ctx.post.id}/video-narrado-${Date.now()}.mp4`
+  const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, mp4, { contentType: 'video/mp4', upsert: true })
+  if (error) throw new Error(`Falha ao subir o vídeo narrado: ${error.message}`)
+  const narracao = { texto: dados.texto, voz: cfg.voz, modelo: MODELO_VOZ }
+  const novo = { ...video, url: urlPublica(caminho), caminho, segundos, original: base, narracao }
+  await db.from('posts').update({ video: novo }).eq('id', ctx.post.id)
+  return { saida: { narracao }, uso, entrega: `Narração de ${dados.texto.split(/\s+/).length} palavras no vídeo` }
+}
+
 // ───────── Revisor ─────────
 const Revisao = z.object({
   aprovado: z.boolean(),
   problemas: z.array(
     z.object({
-      agente: z.enum(['pesquisador', 'redator', 'designer']),
+      agente: z.enum(['pesquisador', 'redator', 'designer', 'narrador']),
       problema: z.string().describe('o que falhou e como corrigir, citando o item do checklist ou a regra'),
     }),
   ),
@@ -523,6 +585,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
         text: [
           `Acima estão os ${slides.length} slides, na ordem.`,
           ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
+          ctx.post.video?.narracao ? `## Narração do Reel (narrador)\n${ctx.post.video.narracao.texto}\n\nConfira a fala como texto: fato, tom e português. Problema nela é do narrador.` : '',
           `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
           precisaPesquisa ? `## Pesquisa usada\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? ''}` : '',
           reconferindo
@@ -550,7 +613,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   }
 
   // devolve para o primeiro agente com problema; os seguintes refazem na sequência
-  const ordem = ['pesquisador', 'redator', 'designer']
+  const ordem = ['pesquisador', 'redator', 'designer', 'narrador']
   const primeiro = ordem.find((a) => dados.problemas.some((p) => p.agente === a)) ?? 'designer'
   const texto = dados.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)

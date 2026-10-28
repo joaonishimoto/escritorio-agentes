@@ -23,6 +23,7 @@ Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app a
    - `EXECUTOR_SECRET` (qualquer texto longo e aleatório; protege a rota que roda os agentes)
    - `KLING_API_KEY` (opcional; console da Kling AI em kling.ai, área de API). Sem ela, escolha outra IA de vídeo no post (por exemplo o Claude, que faz uma animação gravada no próprio app).
    - `FAL_KEY` (opcional; fal.ai → API Keys). Libera Kling 3.0, Hailuo e Seedance como IA de vídeo, com os créditos do fal.ai.
+   - `ELEVENLABS_API_KEY` (opcional; elevenlabs.io → API Keys). O narrador usa para gravar a voz dos Reels; a voz de cada marca fica na aba Narração do perfil.
    - `OPENROUTER_API_KEY` (opcional; openrouter.ai → Keys). Libera GPT, Gemini e DeepSeek para os funcionários de texto.
 3. No Supabase, em Authentication → URL Configuration, ponha a URL da Vercel em Site URL.
 

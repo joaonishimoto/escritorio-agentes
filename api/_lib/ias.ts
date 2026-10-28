@@ -24,6 +24,7 @@ export const PADRAO_TEXTO = {
   redator: 'claude-opus-5-5',
   designer: 'claude-sonnet-5-5',
   revisor: 'claude-sonnet-5-5',
+  narrador: 'claude-sonnet-5-5',
 } as const satisfies Record<string, ModeloTexto>
 export type AgenteDeTexto = keyof typeof PADRAO_TEXTO
 export const PADRAO_VIDEO: MotorVideo = 'kling'
@@ -31,12 +32,13 @@ export const PADRAO_VIDEO: MotorVideo = 'kling'
 export const eModeloTexto = (v: unknown): v is ModeloTexto => MODELOS_TEXTO.includes(v as ModeloTexto)
 export const eMotorVideo = (v: unknown): v is MotorVideo => MOTORES_VIDEO.includes(v as MotorVideo)
 
-/** Só fica o que é conhecido: funcionário de texto com modelo de texto, cinegrafista com motor de vídeo. */
+/** Só fica o que é conhecido: funcionário de texto com modelo de texto, cinegrafista com motor de vídeo, narrador também pode ir sem narração. */
 export function limparIas(bruto: unknown): Record<string, string> {
   const ias: Record<string, string> = {}
   if (!bruto || typeof bruto !== 'object') return ias
   for (const [agente, valor] of Object.entries(bruto)) {
-    if (agente === 'cinegrafista' ? eMotorVideo(valor) : agente in PADRAO_TEXTO && eModeloTexto(valor)) ias[agente] = valor as string
+    const valido = agente === 'cinegrafista' ? eMotorVideo(valor) : agente in PADRAO_TEXTO && (eModeloTexto(valor) || (agente === 'narrador' && valor === 'nenhum'))
+    if (valido) ias[agente] = valor as string
   }
   return ias
 }
@@ -59,6 +61,7 @@ export function servicosDisponiveis() {
     claude: !!process.env.ANTHROPIC_API_KEY,
     openrouter: !!process.env.OPENROUTER_API_KEY,
     kling: !!process.env.KLING_API_KEY,
+    elevenlabs: !!process.env.ELEVENLABS_API_KEY,
     fal: !!process.env.FAL_KEY,
   }
 }

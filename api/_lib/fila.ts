@@ -1,12 +1,12 @@
 import { waitUntil } from '@vercel/functions'
-import { chefe, cinegrafista, designer, pesquisador, redator, revisor } from './agentes/producao.js'
+import { chefe, cinegrafista, designer, narrador, pesquisador, redator, revisor } from './agentes/producao.js'
 import { curador, publicador } from './agentes/pos.js'
 import type { Agente } from './agentes/tipos.js'
 import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
 
-const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, revisor, publicador, curador }
+const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
 
 export async function enfileirar(postId: string, agente: string, entrada: Record<string, unknown> = {}) {
   const { count } = await db.from('passos').select('id', { count: 'exact', head: true }).eq('post_id', postId)

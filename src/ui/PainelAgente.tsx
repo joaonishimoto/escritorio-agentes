@@ -17,7 +17,7 @@ const ROTULO_ESTADO = {
 const MODELO: Record<string, string> = { 'claude-opus-5-5': 'Opus', 'claude-sonnet-5-5': 'Sonnet', 'claude-haiku-5-5': 'Haiku' }
 const ATIVOS = ['trabalhando', 'na_fila', 'esperando_voce']
 // ordem do fluxo de um post, para mostrar onde o agente entra
-const FLUXO: AgenteId[] = ['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'revisor', 'publicador']
+const FLUXO: AgenteId[] = ['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'revisor', 'publicador']
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 function duracao(seg: number) {
@@ -37,6 +37,7 @@ function Icone({ id }: { id: string }) {
     redator: (<><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></>),
     designer: (<><path d="M12 3a9 9 0 1 0 0 18c1.3 0 2-.7 2-1.6 0-1.2-1-1.5-1-2.6 0-1 .8-1.6 1.8-1.6H17c2.3 0 4-1.6 4-4.2C21 6.7 17 3 12 3Z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10.5" cy="7.2" r="1" /><circle cx="15" cy="8" r="1" /></>),
     cinegrafista: (<><rect x="3" y="7" width="13" height="11" rx="2" /><path d="m16 11 5-3v9l-5-3" /></>),
+    narrador: (<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></>),
     revisor: (<><circle cx="12" cy="12" r="9" /><path d="m8 12.5 2.7 2.7L16.5 9.5" /></>),
     publicador: (<><path d="M21 3 3 10.5l7 2.5 2.5 7z" /><path d="m10 13 4-4" /></>),
     curador: (<><path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h10" /></>),
@@ -96,7 +97,7 @@ export function PainelAgente({
   const fim = meus[meus.length - 1]?.criado_em
   const uso = porAgente?.find((u) => u.agente === id)
   const levou = uso?.segundos ?? (inicio && fim ? (new Date(fim).getTime() - new Date(inicio).getTime()) / 1000 : 0)
-  const fluxo = FLUXO.filter((f) => AGENTES.some((x) => x.id === f) && (f !== 'cinegrafista' || estados.cinegrafista !== 'ocioso' || id === 'cinegrafista'))
+  const fluxo = FLUXO.filter((f) => AGENTES.some((x) => x.id === f) && (!['cinegrafista', 'narrador'].includes(f) || estados[f] !== 'ocioso' || id === f))
   const noFluxo = fluxo.includes(id)
   const anterior = noFluxo ? fluxo[fluxo.indexOf(id) - 1] : undefined
 

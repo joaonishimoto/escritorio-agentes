@@ -46,7 +46,8 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   curador: { x: 36, y: 104 },
   redator: { x: 118, y: 54 },
   designer: { x: 170, y: 54 },
-  cinegrafista: { x: 140, y: 104 },
+  cinegrafista: { x: 118, y: 104 },
+  narrador: { x: 170, y: 104 },
   revisor: { x: 226, y: 54 },
   publicador: { x: 278, y: 54 },
 }
@@ -303,6 +304,15 @@ function tripe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x + 4, y + 6, 2, 12)
   r(g, '#1f2330', x, y + 16, 2, 4)
   r(g, '#1f2330', x + 8, y + 16, 2, 4)
+}
+
+/** Microfone de estúdio com espuma, num pedestal em cima da mesa do narrador. */
+function microfone(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y - 1, 6, 9)
+  r(g, '#3a3f4b', x, y, 4, 7)
+  r(g, '#5b6272', x + 1, y + 1, 1, 5)
+  r(g, '#1f2330', x + 1, y + 8, 2, 5)
+  r(g, '#1f2330', x - 2, y + 12, 8, 2)
 }
 
 /** Cômoda de madeira; com posts guardados, a gaveta de cima fica aberta mostrando as pastas. */
@@ -580,6 +590,7 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
     cadeira(g, estilo, x0 + m.x + 9, m.y + 17)
   }
   tripe(g, x0 + MESAS.cinegrafista.x + 33, MESAS.cinegrafista.y - 4)
+  microfone(g, x0 + MESAS.narrador.x + 2, MESAS.narrador.y - 6)
   mesinha(g, estilo, x0 + 254, 102)
 
   // hall: tapete da marca no meio (o nome vai por cima), cofrinho e plantas
