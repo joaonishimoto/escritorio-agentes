@@ -622,3 +622,114 @@ i.falhou { background: var(--danger, #b42318) }
   .perfil-regras li textarea { grid-column: 1 / -1; grid-row: 2 }
   .perfil-cores input[type="color"] { height: 40px }
 }
+
+/* perfil da marca (modal com abas) */
+.modal.pm { width: min(720px, 100%); height: min(760px, calc(100% - 32px)); padding: 0; gap: 0; overflow: hidden }
+.pm-topo { display: flex; align-items: center; gap: 12px; padding: 18px 20px 12px }
+.pm-avatar { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 18px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08) }
+.pm-titulo { flex: 1; min-width: 0 }
+.pm-titulo h2 { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pm-titulo p { font-size: 13px; margin-top: 1px }
+.pm-abas { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none }
+.pm-abas::-webkit-scrollbar { display: none }
+.pm-abas button { position: relative; flex: none; height: 38px; padding: 0 12px; border: 0; background: none; color: var(--muted-foreground); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; border-radius: var(--radius-md) var(--radius-md) 0 0 }
+.pm-abas button:hover { color: var(--foreground); background: var(--surface-hover) }
+.pm-abas button.ativo { color: var(--foreground) }
+.pm-abas button.ativo::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--primary) }
+.pm-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 18px }
+.pm-carregando { padding: 24px 0 }
+.pm-quem { font-size: 12px; color: var(--muted-foreground); margin-bottom: -6px }
+.pm-quem span { font-weight: 600 }
+.pm-secao { display: flex; flex-direction: column; gap: 6px }
+.pm-secao > label, .pm-secao h3 { font-size: 13px; font-weight: 600; color: var(--foreground) }
+.pm-secao > label:not(:first-child) { margin-top: 10px }
+.pm-secao input:not([type="color"]) { width: 100% }
+.pm-dica { font-size: 12px; color: var(--muted-foreground); line-height: 1.45 }
+.pm-nota { font-size: 13px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface-muted); color: var(--muted-foreground) }
+.pm-tom { min-height: 280px; line-height: 1.6 }
+.pm-contador { font-size: 12px; text-align: right }
+.pm-cabeca { display: flex; align-items: center; justify-content: space-between }
+.pm-cabeca .link { font-size: 13px; padding: 4px 6px }
+.pm-previa { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius-lg); background: var(--surface-muted); border: 1px solid var(--border) }
+.pm-previa-cartao { aspect-ratio: 16 / 6; max-height: 190px; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; box-shadow: var(--shadow-sm) }
+.pm-previa-cartao small { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: auto }
+.pm-previa-cartao strong { font-size: 22px; line-height: 1.15; font-weight: 700 }
+.pm-previa-cartao > span { font-size: 13px; opacity: .8 }
+.pm-previa-paleta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px }
+.pm-previa-paleta i { width: 28px; height: 28px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12) }
+.pm-cores { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px }
+.pm-cores li { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface) }
+.pm-amostra { position: relative; width: 40px; height: 40px; flex: none; border-radius: 9px; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12) }
+.pm-amostra input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer }
+.pm-cor-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.pm-cor-texto input { height: 24px; padding: 0 4px; border-color: transparent; background: none; font-size: 13px }
+.pm-cor-texto input:first-child { font-weight: 500 }
+.pm-cor-texto input.mono { font-size: 12px; color: var(--muted-foreground) }
+.pm-cor-texto input:hover, .pm-cor-texto input:focus-visible { border-color: var(--input-border) }
+.pm-regras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.pm-regras li { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border: 1px solid var(--border); border-radius: var(--radius-lg) }
+.pm-regra-topo { display: flex; align-items: center; gap: 6px }
+.pm-regra-topo input { height: 28px; padding: 0 4px; border-color: transparent; background: none; font-weight: 600; font-size: 13px }
+.pm-regra-topo input:hover, .pm-regra-topo input:focus-visible { border-color: var(--input-border) }
+.pm-regras textarea { font-size: 13px }
+.pm-tags { display: flex; flex-wrap: wrap; gap: 4px }
+.pm-linha { display: flex; align-items: center; gap: 10px }
+.pm-rodape { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface) }
+.pm-estado { flex: 1; min-width: 0; font-size: 13px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pm-estado.ok { color: var(--success-strong, #2f8a4c) }
+.pm-estado.erro { color: var(--danger-strong) }
+@media (max-width: 760px) {
+  .modal.pm { height: 94%; max-height: 94%; padding: 0 }
+  .pm-topo { padding: 16px 16px 10px }
+  .pm-abas { padding: 0 8px }
+  .pm-corpo { padding: 14px 16px 18px }
+  .pm-tom { min-height: 220px }
+  .pm-rodape { padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) }
+  .pm-estado { display: none }
+  .pm-rodape .primario, .pm-rodape .secundario { flex: 1; height: 42px }
+  .pm-previa-cartao strong { font-size: 18px }
+}
+
+/* painel do agente */
+.painel.pa { gap: 14px; padding: 0 0 16px }
+.pa-topo { position: sticky; top: 0; z-index: 1; display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border) }
+.pa-avatar { width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--cor-agente); color: #fff; font-weight: 700; font-size: 16px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18) }
+.pa-titulo { flex: 1; min-width: 0 }
+.pa-titulo h2 { font-size: 16px; line-height: 1.25 }
+.pa-titulo p { font-size: 13px; color: var(--muted-foreground); line-height: 1.4; margin-top: 2px }
+.pa-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0 16px }
+.pa-pilula { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+  color: var(--cor-estado); background: color-mix(in srgb, var(--cor-estado) 12%, var(--surface)) }
+.pa-pilula i { width: 7px; height: 7px; border-radius: 50%; background: currentColor }
+.pa-pilula.trabalhando i { animation: ao-vivo 1.2s ease-in-out infinite }
+.pa-modelo { height: 24px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 12px; font-size: 12px; color: var(--muted-foreground); background: var(--surface-muted) }
+.pa-resumo { font-size: 12px; color: var(--muted-foreground); flex-basis: 100% }
+.pa-rotulo { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted-foreground) }
+.pa-agora { margin: 0 16px; padding: 10px 12px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--cor-agente) 8%, var(--surface)); border-left: 3px solid var(--cor-agente); display: flex; flex-direction: column; gap: 4px }
+.pa-agora p { font-size: 14px; line-height: 1.45 }
+.painel.pa > .erro-caixa, .painel.pa > .ideias { margin: 0 16px }
+.pa-bloco { display: flex; flex-direction: column; gap: 8px; padding: 0 16px }
+.pa-cabeca { display: flex; align-items: center; justify-content: space-between; min-height: 24px }
+.pa-cabeca .link { font-size: 12px; padding: 2px 6px }
+.pa-conta { font-size: 11px; font-weight: 600; color: var(--muted-foreground); background: var(--surface-muted); border-radius: 9px; padding: 1px 7px }
+.pa-vazio { font-size: 13px; color: var(--muted-foreground) }
+.pa-entrega { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-muted); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap }
+.pa-campo { display: flex; flex-direction: column; gap: 2px }
+.pa-campo span { font-size: 12px; font-weight: 600; color: var(--foreground) }
+.pa-campo p { color: var(--foreground) }
+.pa-linha { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column }
+.pa-linha li { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 0 0 12px 18px; font-size: 13px; line-height: 1.4 }
+.pa-linha li::before { content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong) }
+.pa-linha li::after { content: ''; position: absolute; left: 6px; top: 16px; bottom: 0; width: 1px; background: var(--border) }
+.pa-linha li:last-child { padding-bottom: 0 }
+.pa-linha li:last-child::after { display: none }
+.pa-linha li.fim::before, .pa-linha li.entrega::before { background: var(--success, #3f7650) }
+.pa-linha li.erro::before { background: var(--danger, #b42318) }
+.pa-linha li.atual::before { background: var(--cor-agente); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-agente) 25%, transparent) }
+.pa-linha time { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums }
+.pa-mais { align-self: flex-start; font-size: 13px; padding: 2px 0 }
+@media (max-width: 760px) {
+  .painel.pa { padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px)) }
+  .painel.pa::before { position: sticky; top: 0; z-index: 2; margin: 8px auto -10px }
+  .pa-topo { padding-top: 14px }
+}

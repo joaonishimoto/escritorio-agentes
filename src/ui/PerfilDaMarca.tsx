@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { chamarApi } from '../lib/api'
 
 interface Perfil {
@@ -13,17 +13,27 @@ interface Perfil {
 }
 
 type Item = { chave: string; valor: string }
+type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'sala'
 
 const HEX = /^#[0-9a-f]{6}$/i
 // chaves que têm campo próprio ou que o app cuida sozinho
 const FORA_DAS_REGRAS = ['cores', 'fonte', 'cor_sala', 'instagram', 'instagram_conectado_em', 'neutra', 'tom_editado']
+const ABAS: { id: Aba; nome: string; quem: string }[] = [
+  { id: 'voz', nome: 'Tom de voz', quem: 'Chefe de pauta, redator e revisor' },
+  { id: 'visual', nome: 'Visual', quem: 'Designer e revisor' },
+  { id: 'legenda', nome: 'Legenda', quem: 'Redator' },
+  { id: 'revisao', nome: 'Revisão', quem: 'Revisor' },
+  { id: 'sala', nome: 'Sala', quem: 'Escritório' },
+]
 
 const rotulo = (k: string) => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ')
 const chave = (r: string) => r.trim().toLowerCase().replace(/\s+/g, '_')
+const primeiraFonte = (f: string) => f.split(/[(,]/)[0].trim()
 
-/** Perfil da marca que os agentes seguem: tom de voz, cores, fontes, regras visuais, legenda e checklist do revisor. */
+/** Perfil da marca que os agentes seguem: tom de voz, cores, fonte, regras visuais, legenda e checklist do revisor. */
 export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string; aoFechar: () => void; aoSalvar: () => void }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null)
+  const [aba, setAba] = useState<Aba>('voz')
   const [nome, setNome] = useState('')
   const [instagram, setInstagram] = useState('')
   const [corSala, setCorSala] = useState('#1e3d66')
@@ -34,6 +44,7 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [hashtags, setHashtags] = useState('')
   const [aviso, setAviso] = useState('')
   const [checklist, setChecklist] = useState('')
+  const [base, setBase] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -46,7 +57,7 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     setCorSala(typeof id.cor_sala === 'string' && HEX.test(id.cor_sala) ? id.cor_sala : '#1e3d66')
     setTom(p.tom_de_voz ?? '')
     const c = id.cores && typeof id.cores === 'object' && !Array.isArray(id.cores) ? (id.cores as Record<string, unknown>) : {}
-    setCores(Object.entries(c).filter(([, v]) => typeof v === 'string' && HEX.test(v)).map(([k, v]) => ({ chave: k, valor: v as string })))
+    setCores(Object.entries(c).filter(([, v]) => typeof v === 'string' && HEX.test(v)).map(([k, v]) => ({ chave: rotulo(k), valor: v as string })))
     setFonte(typeof id.fonte === 'string' ? id.fonte : '')
     setRegras(Object.entries(id).filter(([k, v]) => !FORA_DAS_REGRAS.includes(k) && typeof v === 'string').map(([k, v]) => ({ chave: rotulo(k), valor: v as string })))
     setHashtags((p.hashtags_fixas ?? []).join(' '))
@@ -54,23 +65,64 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     setChecklist(p.checklist_revisor ?? '')
   }
 
+  const retrato = JSON.stringify([nome, instagram, corSala, tom, cores, fonte, regras, hashtags, aviso, checklist])
+  const mudou = perfil !== null && retrato !== base
+
   useEffect(() => {
     chamarApi<{ marca: Perfil }>('marcas', { acao: 'ler', id: marcaId })
       .then(({ marca }) => preencher(marca))
       .catch((e) => setErro(e instanceof Error ? e.message : 'Não deu para abrir a marca'))
   }, [marcaId])
+  // depois de preencher, guarda o retrato para saber se algo mudou
+  useEffect(() => {
+    if (perfil) setBase(retrato)
+  }, [perfil]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // carrega a fonte da marca do Google Fonts só para a prévia
+  const nomeFonte = primeiraFonte(fonte)
+  useEffect(() => {
+    if (!nomeFonte || /system|sans-serif|serif/i.test(nomeFonte)) return
+    const id = `fonte-${chave(nomeFonte)}`
+    if (document.getElementById(id)) return
+    const l = document.createElement('link')
+    l.id = id
+    l.rel = 'stylesheet'
+    l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(nomeFonte)}:wght@400;700&display=swap`
+    document.head.appendChild(l)
+  }, [nomeFonte])
+
+  const fechar = () => {
+    if (mudou && !confirm('Sair sem salvar as mudanças?')) return
+    aoFechar()
+  }
 
   const neutra = Boolean(perfil?.identidade?.neutra)
+  const paleta = useMemo(() => cores.filter((c) => HEX.test(c.valor)), [cores])
+  // prévia: fundo = cor mais escura, texto = mais clara, destaque = mais saturada
+  const previa = useMemo(() => {
+    const info = paleta.map((c) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.valor.slice(i, i + 2), 16) / 255)
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      return { cor: c.valor, luz: 0.2126 * r + 0.7152 * g + 0.0722 * b, sat: max === 0 ? 0 : (max - min) / max }
+    })
+    if (!info.length) return { fundo: '#14181f', texto: '#ffffff', destaque: corSala }
+    const porLuz = [...info].sort((a, b) => a.luz - b.luz)
+    const destaque = [...info].sort((a, b) => b.sat - a.sat)[0]
+    const fundo = porLuz[0].luz < 0.35 ? porLuz[0].cor : '#14181f'
+    const texto = porLuz[porLuz.length - 1].luz > 0.6 ? porLuz[porLuz.length - 1].cor : '#ffffff'
+    return { fundo, texto, destaque: destaque.sat > 0.25 ? destaque.cor : corSala }
+  }, [paleta, corSala])
 
-  const salvar = async (e: FormEvent) => {
-    e.preventDefault()
+  const salvar = async (e?: FormEvent) => {
+    e?.preventDefault()
     if (!perfil) return
     setSalvando(true)
     setErro(null)
     // começa da identidade atual para não perder o que não aparece no formulário (formatos, listas…)
     const antiga = perfil.identidade ?? {}
     const identidade: Record<string, unknown> = Object.fromEntries(Object.entries(antiga).filter(([, v]) => typeof v !== 'string'))
-    for (const k of ['cor_sala', 'instagram', 'instagram_conectado_em']) if (k in antiga) identidade[k] = antiga[k]
+    for (const k of ['instagram', 'instagram_conectado_em']) if (k in antiga) identidade[k] = antiga[k]
     identidade.cor_sala = corSala
     const coresAntigas = antiga.cores && typeof antiga.cores === 'object' && !Array.isArray(antiga.cores) ? (antiga.cores as Record<string, unknown>) : {}
     const outrasCores = Object.fromEntries(Object.entries(coresAntigas).filter(([, v]) => !(typeof v === 'string' && HEX.test(v))))
@@ -106,98 +158,172 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const mudarItem = (lista: Item[], set: (l: Item[]) => void, i: number, campo: keyof Item, valor: string) =>
     set(lista.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)))
 
+  const listaHashtags = hashtags.split(/[\s,]+/).filter(Boolean).map((h) => (h.startsWith('#') ? h : `#${h}`))
+  const itensChecklist = checklist.split('\n').filter((l) => l.trim()).length
+  const atual = ABAS.find((a) => a.id === aba)!
+
   return (
-    <div className="modal-fundo" onClick={aoFechar}>
-      <form className="modal modal-largo perfil-marca" onSubmit={salvar} onClick={(e) => e.stopPropagation()}>
-        <header className="painel-topo">
-          <div>
-            <h2>Marca{perfil ? `: ${perfil.nome}` : ''}</h2>
-            <p className="muted">Tudo aqui vai para os agentes em cada post. Mudou, salvou, o próximo post já usa.</p>
+    <div className="modal-fundo" onClick={fechar}>
+      <form className="modal pm" onSubmit={salvar} onClick={(e) => e.stopPropagation()} aria-label="Perfil da marca">
+        <header className="pm-topo">
+          <span className="pm-avatar" style={{ background: corSala }}>{(nome || perfil?.nome || '?').charAt(0).toUpperCase()}</span>
+          <div className="pm-titulo">
+            <h2>{nome || perfil?.nome || 'Marca'}</h2>
+            <p className="muted">
+              {instagram || 'sem Instagram'}
+              {neutra && ' · sala neutra'}
+            </p>
           </div>
-          <button type="button" className="fechar" onClick={aoFechar} aria-label="Fechar">×</button>
+          <button type="button" className="fechar" onClick={fechar} aria-label="Fechar">×</button>
         </header>
 
-        {!perfil && !erro && <p className="muted">Carregando…</p>}
-        {perfil && (
-          <>
-            <section className="perfil-secao">
-              <h3>Básico</h3>
-              <div className="perfil-linha">
-                <div className="perfil-campo">
+        <nav className="pm-abas" role="tablist">
+          {ABAS.map((a) => (
+            <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} className={aba === a.id ? 'ativo' : ''} onClick={() => setAba(a.id)}>
+              {a.nome}
+            </button>
+          ))}
+        </nav>
+
+        <div className="pm-corpo">
+          {!perfil && !erro && <p className="muted pm-carregando">Carregando o perfil…</p>}
+          {perfil && (
+            <>
+              <p className="pm-quem">
+                <span>Quem usa:</span> {atual.quem}
+              </p>
+
+              {aba === 'voz' && (
+                <section className="pm-secao">
+                  {neutra && <p className="pm-nota">Sala neutra: cada post segue as referências do pedido. O que estiver aqui vale como base.</p>}
+                  <label htmlFor="pm-tom">Como a marca fala</label>
+                  <p className="pm-dica">Para quem, com que jeito, o que evitar, como abrir e fechar a legenda.</p>
+                  <textarea id="pm-tom" className="pm-tom" value={tom} onChange={(e) => setTom(e.target.value)} placeholder="Frases curtas, português do dia a dia, sem jargão…" />
+                  <p className="pm-contador muted">{tom.trim() ? `${tom.trim().split(/\s+/).length} palavras` : 'vazio'}</p>
+                </section>
+              )}
+
+              {aba === 'visual' && (
+                <>
+                  <section className="pm-previa">
+                    <div className="pm-previa-cartao" style={{ background: previa.fundo, color: previa.texto, fontFamily: nomeFonte ? `'${nomeFonte}', var(--font-sans)` : undefined }}>
+                      <small style={{ color: previa.destaque }}>{nome || 'Marca'}</small>
+                      <strong>
+                        Um título de slide com <span style={{ color: previa.destaque }}>destaque</span>
+                      </strong>
+                      <span>Texto do corpo na fonte {nomeFonte || 'padrão'}.</span>
+                    </div>
+                    <div className="pm-previa-paleta">
+                      {paleta.length ? paleta.map((c, i) => <i key={i} style={{ background: c.valor }} title={c.chave} />) : <span className="muted">Sem cores</span>}
+                    </div>
+                  </section>
+
+                  <section className="pm-secao">
+                    <div className="pm-cabeca">
+                      <h3>Cores</h3>
+                      <button type="button" className="link" onClick={() => setCores([...cores, { chave: '', valor: '#000000' }])}>+ Adicionar cor</button>
+                    </div>
+                    {cores.length === 0 && <p className="pm-dica">Nenhuma cor ainda. O designer escolhe livremente até você definir.</p>}
+                    <ul className="pm-cores">
+                      {cores.map((c, i) => (
+                        <li key={i}>
+                          <label className="pm-amostra" style={{ background: c.valor }} title="Trocar cor">
+                            <input type="color" value={c.valor} onChange={(e) => mudarItem(cores, setCores, i, 'valor', e.target.value)} aria-label={`Cor ${c.chave}`} />
+                          </label>
+                          <div className="pm-cor-texto">
+                            <input value={c.chave} onChange={(e) => mudarItem(cores, setCores, i, 'chave', e.target.value)} placeholder="Nome (ex.: Fundo)" aria-label="Nome da cor" />
+                            <input
+                              className="mono"
+                              value={c.valor.toUpperCase()}
+                              onChange={(e) => {
+                                const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`
+                                mudarItem(cores, setCores, i, 'valor', v.slice(0, 7))
+                              }}
+                              aria-label="Código da cor"
+                            />
+                          </div>
+                          <button type="button" className="fechar" onClick={() => setCores(cores.filter((_, j) => j !== i))} aria-label="Remover cor">×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className="pm-secao">
+                    <label htmlFor="pm-fonte">Fonte</label>
+                    <input id="pm-fonte" value={fonte} onChange={(e) => setFonte(e.target.value)} placeholder="Ex.: Inter (títulos em bold)" />
+                    <p className="pm-dica">Use o nome da fonte do Google Fonts. Detalhes como peso podem ir entre parênteses.</p>
+                  </section>
+
+                  <section className="pm-secao">
+                    <div className="pm-cabeca">
+                      <h3>Regras visuais</h3>
+                      <button type="button" className="link" onClick={() => setRegras([...regras, { chave: '', valor: '' }])}>+ Adicionar regra</button>
+                    </div>
+                    {regras.length === 0 && <p className="pm-dica">Ex.: Fotos: só fotos oficiais, sem pessoas. Destaque: uma cor de destaque por slide.</p>}
+                    <ul className="pm-regras">
+                      {regras.map((r, i) => (
+                        <li key={i}>
+                          <div className="pm-regra-topo">
+                            <input value={r.chave} onChange={(e) => mudarItem(regras, setRegras, i, 'chave', e.target.value)} placeholder="Assunto" aria-label="Assunto da regra" />
+                            <button type="button" className="fechar" onClick={() => setRegras(regras.filter((_, j) => j !== i))} aria-label="Remover regra">×</button>
+                          </div>
+                          <textarea rows={2} value={r.valor} onChange={(e) => mudarItem(regras, setRegras, i, 'valor', e.target.value)} placeholder="O que seguir" aria-label="Regra" />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </>
+              )}
+
+              {aba === 'legenda' && (
+                <section className="pm-secao">
+                  <label htmlFor="pm-hash">Hashtags fixas</label>
+                  <input id="pm-hash" value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#marca #assunto" />
+                  {listaHashtags.length > 0 && (
+                    <div className="pm-tags">
+                      {listaHashtags.map((h, i) => <span key={i} className="chip">{h}</span>)}
+                    </div>
+                  )}
+                  <p className="pm-dica">Entram no fim de toda legenda. Separe por espaço.</p>
+                  <label htmlFor="pm-aviso">Aviso obrigatório no fim</label>
+                  <input id="pm-aviso" value={aviso} onChange={(e) => setAviso(e.target.value)} placeholder="Ex.: Aprecie com moderação." />
+                </section>
+              )}
+
+              {aba === 'revisao' && (
+                <section className="pm-secao">
+                  <label htmlFor="pm-check">Checklist do revisor</label>
+                  <p className="pm-dica">Um item por linha. O revisor confere cada um antes de mandar o post para você. {itensChecklist} itens.</p>
+                  <textarea id="pm-check" className="pm-tom" value={checklist} onChange={(e) => setChecklist(e.target.value)} />
+                </section>
+              )}
+
+              {aba === 'sala' && (
+                <section className="pm-secao">
                   <label htmlFor="pm-nome">Nome</label>
                   <input id="pm-nome" required maxLength={40} value={nome} onChange={(e) => setNome(e.target.value)} />
-                </div>
-                <div className="perfil-campo">
                   <label htmlFor="pm-ig">Instagram</label>
                   <input id="pm-ig" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@conta" />
-                </div>
-                <div className="perfil-campo estreito">
-                  <label htmlFor="pm-sala">Cor da sala</label>
-                  <input id="pm-sala" type="color" value={corSala} onChange={(e) => setCorSala(e.target.value)} />
-                </div>
-              </div>
-            </section>
-
-            {neutra && <p className="muted">Sala neutra: os agentes seguem as referências de cada pedido. O que você preencher aqui vale como base.</p>}
-
-            <section className="perfil-secao">
-              <h3>Tom de voz</h3>
-              <p className="dica muted">Como a marca fala, para quem, o que evitar. Redator, chefe de pauta e revisor seguem isto.</p>
-              <textarea rows={8} value={tom} onChange={(e) => setTom(e.target.value)} placeholder="Frases curtas, português do dia a dia…" />
-            </section>
-
-            <section className="perfil-secao">
-              <h3>Identidade visual</h3>
-              <p className="dica muted">O designer usa estas cores, a fonte e as regras visuais em todos os slides.</p>
-              <label>Cores</label>
-              <ul className="perfil-cores">
-                {cores.map((c, i) => (
-                  <li key={i}>
-                    <input type="color" value={c.valor} onChange={(e) => mudarItem(cores, setCores, i, 'valor', e.target.value)} aria-label={`Cor ${c.chave}`} />
-                    <input value={c.chave} onChange={(e) => mudarItem(cores, setCores, i, 'chave', e.target.value)} placeholder="Nome (ex.: fundo)" />
-                    <code className="muted">{c.valor.toUpperCase()}</code>
-                    <button type="button" className="fechar" onClick={() => setCores(cores.filter((_, j) => j !== i))} aria-label="Remover cor">×</button>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" className="secundario perfil-mais" onClick={() => setCores([...cores, { chave: '', valor: '#000000' }])}>+ Cor</button>
-              <label htmlFor="pm-fonte">Fonte</label>
-              <input id="pm-fonte" value={fonte} onChange={(e) => setFonte(e.target.value)} placeholder="Ex.: Inter (títulos em bold)" />
-              <label>Regras visuais</label>
-              <ul className="perfil-regras">
-                {regras.map((r, i) => (
-                  <li key={i}>
-                    <input value={r.chave} onChange={(e) => mudarItem(regras, setRegras, i, 'chave', e.target.value)} placeholder="Assunto (ex.: Fotos)" />
-                    <textarea rows={2} value={r.valor} onChange={(e) => mudarItem(regras, setRegras, i, 'valor', e.target.value)} placeholder="O que seguir" />
-                    <button type="button" className="fechar" onClick={() => setRegras(regras.filter((_, j) => j !== i))} aria-label="Remover regra">×</button>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" className="secundario perfil-mais" onClick={() => setRegras([...regras, { chave: '', valor: '' }])}>+ Regra visual</button>
-            </section>
-
-            <section className="perfil-secao">
-              <h3>Legenda</h3>
-              <label htmlFor="pm-hash">Hashtags fixas</label>
-              <input id="pm-hash" value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#marca #assunto" />
-              <label htmlFor="pm-aviso">Aviso no fim da legenda</label>
-              <input id="pm-aviso" value={aviso} onChange={(e) => setAviso(e.target.value)} placeholder="Ex.: Aprecie com moderação." />
-            </section>
-
-            <section className="perfil-secao">
-              <h3>Checklist do revisor</h3>
-              <p className="dica muted">O revisor confere cada item antes de mandar o post para você.</p>
-              <textarea rows={7} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
-            </section>
-          </>
-        )}
-
-        {erro && <p className="aviso">{erro}</p>}
-        <div className="acoes">
-          {salvo && <span className="muted perfil-salvo">Salvo</span>}
-          <button type="button" className="secundario" onClick={aoFechar}>Fechar</button>
-          <button type="submit" className="primario" disabled={!perfil || salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button>
+                  <label htmlFor="pm-sala">Cor da sala no escritório</label>
+                  <div className="pm-linha">
+                    <label className="pm-amostra" style={{ background: corSala }}>
+                      <input id="pm-sala" type="color" value={corSala} onChange={(e) => setCorSala(e.target.value)} />
+                    </label>
+                    <span className="mono muted">{corSala.toUpperCase()}</span>
+                  </div>
+                </section>
+              )}
+            </>
+          )}
         </div>
+
+        <footer className="pm-rodape">
+          <span className={`pm-estado ${erro ? 'erro' : salvo ? 'ok' : ''}`} role="status">
+            {erro ?? (salvo ? 'Salvo. O próximo post já usa.' : mudou ? 'Alterações não salvas' : 'Tudo aqui vai para os agentes em cada post.')}
+          </span>
+          <button type="button" className="secundario" onClick={fechar}>Fechar</button>
+          <button type="submit" className="primario" disabled={!perfil || salvando || !mudou}>{salvando ? 'Salvando…' : 'Salvar'}</button>
+        </footer>
       </form>
     </div>
   )
