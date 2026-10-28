@@ -29,11 +29,31 @@ async function instalarFontesReserva() {
   )
 }
 
+// setas viram desenho: não dependem de a fonte ter o caractere (antes saía um quadradinho)
+const SETA = (d: string) =>
+  `<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:inline-block;vertical-align:-0.12em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`
+const SETAS: Record<string, string> = {
+  '→': SETA('M4 12h15M13 6l6 6-6 6'),
+  '←': SETA('M20 12H5M11 6l-6 6 6 6'),
+  '➜': SETA('M4 12h15M13 6l6 6-6 6'),
+  '➔': SETA('M4 12h15M13 6l6 6-6 6'),
+  '⟶': SETA('M4 12h15M13 6l6 6-6 6'),
+}
+
+/** Troca as setas só no texto (fora das tags), para não quebrar atributos nem CSS. */
+function desenharSetas(html: string) {
+  const corpo = html.search(/<body[\s>]/i)
+  const inicio = corpo >= 0 ? corpo : 0
+  const resto = html.slice(inicio).replace(/>([^<]*)</g, (_, texto: string) => `>${texto.replace(/[→←➜➔⟶]/g, (c) => SETAS[c])}<`)
+  return html.slice(0, inicio) + resto
+}
+
 /**
  * Renderiza cada `<section class="slide">` do HTML como JPEG.
  * Na Vercel usa o Chromium do @sparticuz/chromium; localmente, CHROMIUM_PATH.
  */
 export async function renderizarSlides(html: string, largura = 1080, altura = 1350): Promise<Buffer[]> {
+  html = desenharSetas(html)
   const local = process.env.CHROMIUM_PATH
   const executavel = local ?? (await chromium.executablePath())
   if (!local) await instalarFontesReserva()

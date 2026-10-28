@@ -119,7 +119,7 @@ async function ajustePontual(ctx: Parameters<Agente>[0], passo: Parameters<Agent
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      'Você aplica um ajuste pequeno em slides prontos. Mude só o que foi pedido, com substituições exatas e mínimas. Não reescreva nada além disso.',
+      'Você aplica um ajuste pequeno em slides prontos. Mude só o que foi pedido, com substituições exatas e mínimas. Não reescreva nada além disso. Nunca apague texto que o dono não pediu para tirar. Se o problema é um caractere que saiu como quadradinho (seta, símbolo), mantenha o texto e o caractere: o renderizador já desenha setas →; troque só símbolos que não sejam setas.',
     ),
     conteudo: `## Pedido do dono da marca\n${correcao.comentario}\n${correcao.instrucao}\n\n## Legenda atual\n${ctx.post.legenda ?? ''}\n\n## HTML atual dos slides\n${anterior}${feedback(passo)}`,
     schema: Trocas,
@@ -158,7 +158,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere → ou desenhe com CSS.',
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha.',
     ),
     conteudo: [
       ctx.marca.modelo_slides_html ? `## Modelo da marca (siga o visual e as classes)\n${ctx.marca.modelo_slides_html}` : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.',
