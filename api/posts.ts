@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db'
-import { acordarExecutor, enfileirar } from './_lib/fila'
-import { origemDaRequisicao } from './_lib/http'
+import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
+import { acordarExecutor, enfileirar } from './_lib/fila.js'
+import { origemDaRequisicao, rota } from './_lib/http.js'
 
 /** Cria um post e põe o chefe de pauta para trabalhar. */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
@@ -24,4 +24,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await enfileirar(post.id, 'chefe')
   acordarExecutor(origemDaRequisicao(req))
   return res.status(201).json({ post })
-}
+})

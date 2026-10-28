@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db'
-import { acordarExecutor, enfileirar } from './_lib/fila'
-import { origemDaRequisicao } from './_lib/http'
+import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
+import { acordarExecutor, enfileirar } from './_lib/fila.js'
+import { origemDaRequisicao, rota } from './_lib/http.js'
 
 type Acao = 'aprovar' | 'corrigir' | 'reprovar'
 
 /** Sua decisão sobre um post: publicar, pedir ajuste (vira regra) ou reprovar. */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
@@ -36,4 +36,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   acordarExecutor(origemDaRequisicao(req))
   return res.status(200).json({ ok: true })
-}
+})

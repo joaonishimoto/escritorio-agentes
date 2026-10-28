@@ -1,10 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-function exigir(nome: string): string {
-  const v = process.env[nome]
-  if (!v) throw new Error(`Variável de ambiente ${nome} não configurada`)
-  return v
-}
+// sem as variáveis o cliente nasce vazio; as rotas checam antes (ver rota() em http.ts) e explicam o que falta
+const exigir = (nome: string) => process.env[nome] || 'http://faltando.invalid'
 
 /** Cliente com service role: só no servidor. Ignora RLS, então toda rota confere o dono antes. */
 export const db = createClient(exigir('SUPABASE_URL'), exigir('SUPABASE_SERVICE_ROLE_KEY'), {

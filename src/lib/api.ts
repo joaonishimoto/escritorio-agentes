@@ -8,7 +8,13 @@ export async function chamarApi<T>(rota: string, corpo: unknown): Promise<T> {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${data.session?.access_token ?? ''}` },
     body: JSON.stringify(corpo),
   })
-  const json = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(json.erro ?? `Erro ${r.status}`)
+  const texto = await r.text()
+  let json: { erro?: string } = {}
+  try {
+    json = JSON.parse(texto)
+  } catch {
+    // a Vercel às vezes responde com texto puro quando a função nem sobe
+  }
+  if (!r.ok) throw new Error(json.erro ?? `Erro ${r.status}: ${texto.slice(0, 160) || 'sem detalhes'}`)
   return json as T
 }

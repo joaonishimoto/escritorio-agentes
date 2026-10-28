@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { gerarJson, gerarTexto } from '../claude'
-import { sistemaDoAgente } from '../contexto'
-import { BUCKET_POSTS, db, urlPublica } from '../db'
-import { renderizarSlides } from '../render'
-import { feedback, type Agente } from './tipos'
+import { gerarJson, gerarTexto } from '../claude.js'
+import { sistemaDoAgente } from '../contexto.js'
+import { BUCKET_POSTS, db, urlPublica } from '../db.js'
+import { renderizarSlides } from '../render.js'
+import { feedback, type Agente } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
 const Pauta = z.object({

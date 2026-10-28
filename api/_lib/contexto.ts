@@ -1,5 +1,5 @@
-import { db } from './db'
-import { completarMarca } from './marcas'
+import { db } from './db.js'
+import { completarMarca } from './marcas/index.js'
 
 export interface Etapa {
   agente: string

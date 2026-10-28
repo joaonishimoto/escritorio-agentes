@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { gerarJson } from '../claude'
-import { sistemaDoAgente } from '../contexto'
-import { db } from '../db'
-import { publicarCarrossel } from '../instagram'
-import { USO_ZERO, type Agente } from './tipos'
+import { gerarJson } from '../claude.js'
+import { sistemaDoAgente } from '../contexto.js'
+import { db } from '../db.js'
+import { publicarCarrossel } from '../instagram.js'
+import { USO_ZERO, type Agente } from './tipos.js'
 
 // ───────── Publicador (sem IA) ─────────
 export const publicador: Agente = async (ctx, _passo, em) => {

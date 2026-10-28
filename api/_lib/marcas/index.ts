@@ -1,4 +1,4 @@
-import * as drinfy from './drinfy'
+import * as drinfy from './drinfy.js'
 
 /** Perfis de marca guardados no código, pelo nome da marca em minúsculas. */
 const PERFIS: Record<string, { TOM_DE_VOZ: string; MODELO_SLIDES_HTML: string }> = { drinfy }

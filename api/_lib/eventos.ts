@@ -1,4 +1,4 @@
-import { db } from './db'
+import { db } from './db.js'
 
 type Tipo = 'inicio' | 'acao' | 'texto' | 'fim' | 'entrega' | 'espera' | 'erro'
 

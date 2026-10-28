@@ -1,10 +1,10 @@
 import { waitUntil } from '@vercel/functions'
-import { chefe, designer, pesquisador, redator, revisor } from './agentes/producao'
-import { curador, publicador } from './agentes/pos'
-import type { Agente } from './agentes/tipos'
-import { carregarContexto, fluxoDeProducao, type Passo } from './contexto'
-import { db } from './db'
-import { Emissor } from './eventos'
+import { chefe, designer, pesquisador, redator, revisor } from './agentes/producao.js'
+import { curador, publicador } from './agentes/pos.js'
+import type { Agente } from './agentes/tipos.js'
+import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
+import { db } from './db.js'
+import { Emissor } from './eventos.js'
 
 const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, revisor, publicador, curador }
 

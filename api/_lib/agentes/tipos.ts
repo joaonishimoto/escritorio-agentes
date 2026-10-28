@@ -1,6 +1,6 @@
-import type { Uso } from '../claude'
-import type { Contexto, Passo } from '../contexto'
-import type { Emissor } from '../eventos'
+import type { Uso } from '../claude.js'
+import type { Contexto, Passo } from '../contexto.js'
+import type { Emissor } from '../eventos.js'
 
 export interface Resultado {
   saida: Record<string, unknown>
