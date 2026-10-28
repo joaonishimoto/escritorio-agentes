@@ -32,6 +32,23 @@ export interface Post {
   slides: { ordem: number; url: string; caminho: string }[]
   voltas_revisao: number
   custo_usd: number
+  referencias?: Referencia[]
+}
+
+export type Referencia = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
+
+/** Referências que você mandou com o pedido: imagens viram blocos que o modelo enxerga, links viram texto. */
+export function referenciasDoPost(ctx: Contexto) {
+  const refs = ctx.post.referencias ?? []
+  const imagens = refs.filter((r) => r.tipo === 'imagem').map((r) => r.url)
+  const links = refs.filter((r) => r.tipo === 'link').map((r) => r.url)
+  const partes = [
+    imagens.length ? `Imagens de referência:\n${imagens.map((u) => `- ${u}`).join('\n')}` : '',
+    links.length ? `Links de referência:\n${links.map((u) => `- ${u}`).join('\n')}` : '',
+  ].filter(Boolean)
+  const texto = partes.length ? `## Referências enviadas pelo dono neste pedido\n${partes.join('\n\n')}` : ''
+  const blocos = imagens.map((url) => ({ type: 'image' as const, source: { type: 'url' as const, url } }))
+  return { texto, blocos, tem: refs.length > 0 }
 }
 
 export interface Passo {
@@ -86,7 +103,9 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
   const m = ctx.marca
 
   return [
-    `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram para a marca ${m.nome}${m.instagram_usuario ? ` (@${m.instagram_usuario})` : ''}. ${papel}`,
+    m.identidade?.neutra
+      ? `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram. ${papel}\nEsta é uma sala neutra: não existe marca fixa. O assunto, o tom e a identidade visual saem do pedido e das referências que o dono enviou com ele. Siga as referências de perto.`
+      : `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram para a marca ${m.nome}${m.instagram_usuario ? ` (@${m.instagram_usuario})` : ''}. ${papel}`,
     'Escreva sempre em português do Brasil.',
     etapa?.instrucoes ? `## Instruções do roteiro (definidas pelo dono da marca)\n${etapa.instrucoes}` : '',
     regras.length

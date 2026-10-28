@@ -49,7 +49,7 @@ export interface Regra {
 }
 
 /** Marcas da conta; `null` enquanto ainda não chegaram do banco. */
-export function useMarcas(ativo: boolean) {
+export function useMarcas(ativo: boolean, versao = 0) {
   const [marcas, setMarcas] = useState<Marca[] | null>(null)
   useEffect(() => {
     if (!supabase || !ativo) return
@@ -58,7 +58,7 @@ export function useMarcas(ativo: boolean) {
       .select('id, nome, identidade, instagram_conta_id')
       .order('criado_em')
       .then(({ data }) => setMarcas(data ?? []))
-  }, [ativo])
+  }, [ativo, versao])
   return marcas
 }
 

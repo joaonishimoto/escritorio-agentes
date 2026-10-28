@@ -15,6 +15,7 @@ import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
 import { Gastos } from './ui/Gastos'
 import { ConectarInstagram } from './ui/ConectarInstagram'
+import { NovaSala } from './ui/NovaSala'
 import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
@@ -62,7 +63,9 @@ function Painel({ logado }: { logado: boolean }) {
   const estados = useEscritorio((s) => s.estados)
   const eventos = useEscritorio((s) => s.eventos)
 
-  const marcasDoBanco = useMarcas(logado)
+  const [versaoMarcas, setVersaoMarcas] = useState(0)
+  const [novaSala, setNovaSala] = useState(false)
+  const marcasDoBanco = useMarcas(logado, versaoMarcas)
   const marcas = marcasDoBanco ?? []
   // logado, o escritório só aparece depois que as marcas chegam (antes piscava a sala de exemplo)
   const carregandoMarcas = logado && !!supabase && marcasDoBanco === null
@@ -198,13 +201,16 @@ function Painel({ logado }: { logado: boolean }) {
                 <strong>{marca?.nome ?? 'Drinfy'}</strong>
               </>
             }
-            desativado={!(logado && marcas.length > 1)}
+            desativado={!logado}
           >
             {marcas.map((m) => (
               <button key={m.id} className={m.id === marcaId ? 'ativo' : ''} onClick={() => escolherMarca(m.id)}>
                 <i className="ponto-marca" style={{ background: corDaMarca(m) }} /> {m.nome}
+                {m.identidade?.neutra ? <small className="muted">neutra</small> : null}
               </button>
             ))}
+            <hr />
+            <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
           </Popover>
           {emDemo ? (
             <span className="chip chip-demo">demonstração</span>
@@ -329,11 +335,23 @@ function Painel({ logado }: { logado: boolean }) {
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
+      {novaSala && (
+        <NovaSala
+          aoFechar={() => setNovaSala(false)}
+          aoCriar={(m) => {
+            setNovaSala(false)
+            setVersaoMarcas((v) => v + 1)
+            setMarcaId(m.id)
+            setPostId(null)
+          }}
+        />
+      )}
       {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => location.reload()} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost
           marcaId={marcaId}
+          neutra={!!marca?.identidade?.neutra}
           aoFechar={() => setNovo(false)}
           aoCriar={(p) => {
             setNovo(false)

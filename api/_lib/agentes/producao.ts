@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { gerarJson, gerarTexto } from '../claude.js'
-import { sistemaDoAgente } from '../contexto.js'
+import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { renderizarSlides } from '../render.js'
 import { feedback, type Agente, type Resultado } from './tipos.js'
@@ -14,15 +14,26 @@ const Pauta = z.object({
   quantidade_slides: z.number().int(),
   plano_slides: z.array(z.string()).describe('o que vai em cada slide, na ordem'),
   precisa_pesquisa: z.array(z.string()).describe('fatos ou dados que o pesquisador precisa confirmar'),
+  referencias: z
+    .string()
+    .describe('se o dono mandou referências: o que cada uma mostra (estilo, cores, tipografia, composição, assunto) e como a equipe deve usar; vazio se não mandou'),
 })
 
 export const chefe: Agente = async (ctx, _passo, em) => {
+  const refs = referenciasDoPost(ctx)
   await em.inicio(`Lendo o pedido: ${ctx.post.briefing.slice(0, 90)}`)
+  if (refs.tem) await em.acao(`Olhando as ${ctx.post.referencias!.length} referências que você mandou`)
   await em.acao(`Carregando o roteiro e ${ctx.regras.length} regras aprendidas de ${ctx.marca.nome}`)
   const { dados, uso } = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     sistema: sistemaDoAgente(ctx, 'chefe', 'Você transforma o pedido em uma pauta clara para a equipe.'),
-    conteudo: `Pedido do dono da marca:\n${ctx.post.briefing}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final.`,
+    conteudo: [
+      ...refs.blocos,
+      {
+        type: 'text' as const,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final.`,
+      },
+    ],
     schema: Pauta,
   })
   await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
@@ -41,7 +52,7 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
       'pesquisador',
       'Você levanta fatos confiáveis para o post. Fato histórico precisa de duas fontes; o que divergir, marque como "dizem" ou deixe de fora. Cite as fontes.',
     ),
-    conteudo: `Pedido: ${ctx.post.briefing}\n\nPauta:\n${JSON.stringify(pauta, null, 2)}\n\nPesquise e entregue notas curtas e verificadas, em tópicos, com as fontes no fim.${feedback(passo)}`,
+    conteudo: `Pedido: ${ctx.post.briefing}\n\nPauta:\n${JSON.stringify(pauta, null, 2)}\n\n${referenciasDoPost(ctx).texto}\n\nPesquise e entregue notas curtas e verificadas, em tópicos, com as fontes no fim.${feedback(passo)}`,
     buscaWeb: 5,
     aoEscrever: (t) => em.texto(t),
     aoBuscar: (q) => em.acao(`Buscando: ${q}`),
@@ -152,20 +163,30 @@ export const designer: Agente = async (ctx, passo, em) => {
   const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
   const fotos = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags }))
 
-  await em.acao(`Montando os slides no modelo de ${ctx.marca.nome}`)
+  const refsDesign = referenciasDoPost(ctx)
+  await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: 'claude-sonnet-5-5',
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha.',
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha.',
     ),
     conteudo: [
-      ctx.marca.modelo_slides_html ? `## Modelo da marca (siga o visual e as classes)\n${ctx.marca.modelo_slides_html}` : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.',
-      `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos, null, 2) : '(nenhuma: faça slides só com tipografia e cor)'}`,
-      `## Texto dos slides (não mude o texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto>)?.slides, null, 2)}`,
-      feedback(passo),
-    ].join('\n\n'),
+      ...refsDesign.blocos,
+      {
+        type: 'text' as const,
+        text: [
+          ctx.marca.modelo_slides_html ? `## Modelo da marca (siga o visual e as classes)\n${ctx.marca.modelo_slides_html}` : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
+          `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos, null, 2) : '(nenhuma: faça slides só com tipografia e cor)'}`,
+          refsDesign.tem
+            ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`
+            : '',
+          `## Texto dos slides (não mude o texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto>)?.slides, null, 2)}`,
+          feedback(passo),
+        ].join('\n\n'),
+      },
+    ],
   })
   const html = gerado.texto.replace(/^[\s\S]*?(<!doctype|<html)/i, '$1').replace(/```\s*$/, '').trim()
 
