@@ -101,6 +101,29 @@ export interface Estilo {
   cadeira: string
   tapete: string
   tijolo?: boolean
+  /** pisos escolhidos pelo dono, por área da sala */
+  pisos?: SalaCustom['pisos']
+}
+
+export type Piso = 'tabua' | 'xadrez' | 'concreto' | 'carpete' | 'ladrilho'
+export const PISOS: { id: Piso; nome: string }[] = [
+  { id: 'tabua', nome: 'Tábua' },
+  { id: 'xadrez', nome: 'Xadrez' },
+  { id: 'concreto', nome: 'Concreto' },
+  { id: 'carpete', nome: 'Carpete' },
+  { id: 'ladrilho', nome: 'Ladrilho' },
+]
+export type AreaSala = 'pauta' | 'criacao' | 'publicacao' | 'hall'
+
+/** O que o dono personalizou na sala (fica em marcas.identidade.sala). Vazio = estilo padrão. */
+export interface SalaCustom {
+  base?: string
+  parede?: string
+  tijolo?: boolean
+  mesa?: string
+  cadeira?: string
+  tapete?: string
+  pisos?: Partial<Record<AreaSala, { cor?: string; padrao?: Piso }>>
 }
 
 export const ESTILOS: Record<string, Estilo> = {
@@ -126,6 +149,22 @@ export function comCorDaMarca(e: Estilo, cor: string): Estilo {
   return { ...e, rodape: cor, cadeira: misturar(cor, '#1f2330', 0.25), tapete: misturar(cor, e.piso, 0.72) }
 }
 
+const escurecer = (cor: string, t: number) => misturar(cor, '#1f2330', t)
+const corValida = (c: unknown): c is string => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)
+
+/** Estilo final da sala: o estilo base, a cor da marca e o que o dono trocou por cima. */
+export function estiloDaSala(padrao: string, cor: string, c?: SalaCustom | null): Estilo {
+  let e = comCorDaMarca(ESTILOS[c?.base ?? ''] ?? ESTILOS[padrao] ?? ESTILOS.d, cor)
+  if (!c) return e
+  e = { ...e, pisos: c.pisos }
+  if (corValida(c.parede)) e = { ...e, parede: c.parede, paredeDetalhe: escurecer(c.parede, 0.12) }
+  if (typeof c.tijolo === 'boolean') e = { ...e, tijolo: c.tijolo }
+  if (corValida(c.mesa)) e = { ...e, mesa: c.mesa, mesaSombra: escurecer(c.mesa, 0.22) }
+  if (corValida(c.cadeira)) e = { ...e, cadeira: c.cadeira }
+  if (corValida(c.tapete)) e = { ...e, tapete: c.tapete }
+  return e
+}
+
 const VOCE: Estilo = { nome: 'Sua sala', piso: '#ece1cc', pisoLinha: '#ddcfb5', parede: '#1e3d66', paredeDetalhe: '#1a3559', rodape: '#976822', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#976822', tapete: '#dce6f5' }
 
 /** Sua mesa, na sua sala (coordenadas locais). Você senta atrás dela, de frente para nós. */
@@ -138,7 +177,6 @@ const r = (g: Ctx, cor: string, x: number, y: number, w: number, h: number) => {
   g.fillRect(Math.round(x), Math.round(y), w, h)
 }
 
-type Piso = 'tabua' | 'xadrez' | 'concreto' | 'carpete' | 'ladrilho'
 function piso(g: Ctx, e: Estilo, x0: number, w: number, y0: number, h: number, tipo: Piso) {
   r(g, e.piso, x0, y0, w, h)
   if (tipo === 'carpete') {
@@ -211,14 +249,6 @@ export function planta(g: Ctx, x: number, y: number) {
   r(g, '#2f5e3e', x + 8, y + 5, 4, 3)
 }
 
-function sofa(g: Ctx, x: number, y: number, cor: string) {
-  r(g, '#1f2330', x - 1, y - 1, 42, 20)
-  r(g, cor, x, y, 40, 18)
-  r(g, 'rgba(0,0,0,.18)', x, y, 40, 6)
-  r(g, 'rgba(255,255,255,.35)', x + 4, y + 8, 15, 7)
-  r(g, 'rgba(255,255,255,.35)', x + 21, y + 8, 15, 7)
-}
-
 /** Câmera no tripé, ao lado da mesa do cinegrafista. */
 function tripe(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x - 1, y - 1, 12, 8)
@@ -265,16 +295,6 @@ function cofrinho(g: Ctx, x: number, y: number) {
   r(g, '#fff3b0', x + 9, y, 1, 2)
 }
 
-function cafe(g: Ctx, x: number, y: number) {
-  r(g, '#1f2330', x - 1, y - 1, 34, 18)
-  r(g, '#f4efe4', x, y, 32, 16)
-  r(g, '#3d2c1e', x, y, 32, 3)
-  r(g, '#2a2d36', x + 3, y - 10, 10, 13)
-  r(g, '#f2b233', x + 5, y - 7, 6, 2)
-  r(g, '#b74e45', x + 18, y - 3, 3, 4)
-  r(g, '#2a5288', x + 23, y - 3, 3, 4)
-}
-
 /** Mesa com monitor (a tela é redesenhada a cada quadro por cima). */
 export function mesa(g: Ctx, e: Estilo, x: number, y: number) {
   r(g, 'rgba(0,0,0,.15)', x + 2, y + 14, MESA_W, 3)
@@ -296,14 +316,22 @@ export function cadeira(g: Ctx, e: Estilo, x: number, y: number) {
 }
 
 /** Pisos de cada parte da sala, tirados das cores do estilo e da marca. */
-function pisos(e: Estilo) {
+/** Cor e desenho do piso de cada área: o padrão do estilo, ou o que o dono escolheu. */
+export function pisos(e: Estilo): Record<AreaSala, { estilo: Estilo; padrao: Piso }> {
   const v = (piso: string, pisoLinha: string) => ({ ...e, piso, pisoLinha })
-  return {
-    pauta: e,
-    criacao: v(misturar(e.piso, e.tapete, 0.55), misturar(e.piso, e.rodape, 0.35)),
-    publicacao: v(misturar(e.tapete, e.piso, 0.35), misturar(e.tapete, '#1f2330', 0.25)),
-    hall: v(misturar(e.piso, '#ffffff', 0.25), misturar(e.pisoLinha, '#1f2330', 0.1)),
+  const padrao: Record<AreaSala, { estilo: Estilo; padrao: Piso }> = {
+    pauta: { estilo: e, padrao: e.tijolo ? 'concreto' : 'tabua' },
+    criacao: { estilo: v(misturar(e.piso, e.tapete, 0.55), misturar(e.piso, e.rodape, 0.35)), padrao: 'xadrez' },
+    publicacao: { estilo: v(misturar(e.tapete, e.piso, 0.35), misturar(e.tapete, '#1f2330', 0.25)), padrao: 'carpete' },
+    hall: { estilo: v(misturar(e.piso, '#ffffff', 0.25), misturar(e.pisoLinha, '#1f2330', 0.1)), padrao: 'ladrilho' },
   }
+  for (const area of Object.keys(padrao) as AreaSala[]) {
+    const c = e.pisos?.[area]
+    if (!c) continue
+    if (corValida(c.cor)) padrao[area].estilo = v(c.cor, escurecer(c.cor, 0.14))
+    if (c.padrao && PISOS.some((p) => p.id === c.padrao)) padrao[area].padrao = c.padrao
+  }
+  return padrao
 }
 
 function divisoria(g: Ctx, e: Estilo, x: number, y: number, w: number, h: number) {
@@ -395,10 +423,10 @@ function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
 export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number }) {
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
-  piso(g, p.hall, x0, SALA_W, topoHall, SALA_H - topoHall, 'ladrilho')
-  piso(g, p.pauta, x0, 104, PAREDE_H, topoHall - PAREDE_H, estilo.tijolo ? 'concreto' : 'tabua')
-  piso(g, p.criacao, x0 + 108, 104, PAREDE_H, topoHall - PAREDE_H, 'xadrez')
-  piso(g, p.publicacao, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, 'carpete')
+  piso(g, p.hall.estilo, x0, SALA_W, topoHall, SALA_H - topoHall, p.hall.padrao)
+  piso(g, p.pauta.estilo, x0, 104, PAREDE_H, topoHall - PAREDE_H, p.pauta.padrao)
+  piso(g, p.criacao.estilo, x0 + 108, 104, PAREDE_H, topoHall - PAREDE_H, p.criacao.padrao)
+  piso(g, p.publicacao.estilo, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, p.publicacao.padrao)
   parede(g, estilo, x0, SALA_W)
 
   // parede do fundo: referências e calendário (Pauta), janelas e branding (Criação), mural de regras (Revisão)
@@ -435,16 +463,11 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   tripe(g, x0 + MESAS.cinegrafista.x + 33, MESAS.cinegrafista.y - 4)
   mesinha(g, estilo, x0 + 254, 102)
 
-  // hall: tapete da marca no meio (o nome vai por cima), sofá, café e plantas
+  // hall: tapete da marca no meio (o nome vai por cima), cofrinho e plantas
   r(g, '#1f2330', x0 + 107, 179, 106, 36)
   r(g, estilo.rodape, x0 + 108, 180, 104, 34)
   r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 183, 98, 1)
   r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 210, 98, 1)
-  r(g, estilo.tapete, x0 + 12, 182, 60, 34)
-  sofa(g, x0 + 22, 186, estilo.cadeira)
-  r(g, '#1f2330', x0 + 31, 207, 22, 7)
-  r(g, estilo.mesa, x0 + 32, 208, 20, 5)
-  cafe(g, x0 + CAFE.x, CAFE.y)
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
@@ -463,9 +486,6 @@ export function desenharSuaSala(g: Ctx, x0: number) {
   estante(g, x0 + 62, 2)
   r(g, VOCE.tapete, x0 + 40, 66, 82, 52)
   r(g, '#2a5288', x0 + 42, 68, 78, 1)
-  r(g, '#2a5288', x0 + 96, 176, 56, 38)
-  sofa(g, x0 + 104, 184, '#e6e8ee')
-  cafe(g, x0 + 8, 186)
   planta(g, x0 + 140, 36)
   planta(g, x0 + 4, 138)
   planta(g, x0 + 140, 216)

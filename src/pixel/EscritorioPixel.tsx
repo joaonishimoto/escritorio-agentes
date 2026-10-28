@@ -4,9 +4,9 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
-  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, comCorDaMarca, CORREDOR_PES, ESTILOS, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
-  desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, type Quadro,
+  desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
   COFRINHO, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
@@ -17,6 +17,8 @@ export interface MarcaNoAndar {
   cor?: string
   /** ordem em que a sala foi criada: decide o estilo padrão, mesmo com a sala mudando de lugar no andar */
   ordem?: number
+  /** o que o dono personalizou na sala: pisos, paredes, móveis */
+  sala?: SalaCustom | null
 }
 
 const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
@@ -77,7 +79,6 @@ export function EscritorioPixel({
   marcas,
   marcaAtiva,
   aoEscolherMarca,
-  aoMudarCor,
   quadros,
   aoAbrirQuadro,
   financeiro,
@@ -86,7 +87,6 @@ export function EscritorioPixel({
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
   aoEscolherMarca: (id: string) => void
-  aoMudarCor?: (id: string, cor: string) => void
   /** o que aparece nos quadros da parede de cada sala: dias com post neste mês e quantas regras estão ativas */
   quadros?: Record<string, { dias: number[]; regras: number; referencias?: number }>
   /** clique nas referências, no calendário, no branding ou no mural de regras de uma sala */
@@ -101,13 +101,14 @@ export function EscritorioPixel({
   /** camada só com quem está andando, por cima dos nomes e balões */
   const frente = useRef<HTMLCanvasElement>(null)
   const etiquetas = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [estilos, setEstilos] = useState<Record<string, string>>(() => {
+  // estilo escolhido antes, quando ficava só neste navegador: vale até o dono personalizar a sala
+  const estilosAntigos = useMemo<Record<string, string>>(() => {
     try {
       return JSON.parse(localStorage.getItem('estilos-pixel') ?? '{}')
     } catch {
       return {}
     }
-  })
+  }, [])
 
   const estados = useEscritorio((s) => s.estados)
   const acoes = useEscritorio((s) => s.acaoAtual)
@@ -123,16 +124,9 @@ export function EscritorioPixel({
   // sala do Financeiro depois da sua, separada por uma parede
   const xFin = xVoce + VOCE_W + 16
   const largura = xFin + FIN_W
-  const [cores, setCores] = useState<Record<string, string>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cores-sala') ?? '{}')
-    } catch {
-      return {}
-    }
-  })
-  const corDe = (m: MarcaNoAndar) => cores[m.id] ?? m.cor ?? '#2a5288'
-  const estiloBase = (id: string, i: number) => ESTILOS[estilos[id] ?? ORDEM_ESTILOS[i % ORDEM_ESTILOS.length]]
-  const estiloDe = (m: MarcaNoAndar, i: number) => comCorDaMarca(estiloBase(m.id, m.ordem ?? i), corDe(m))
+  const corDe = (m: MarcaNoAndar) => m.cor ?? '#2a5288'
+  const padraoDe = (m: MarcaNoAndar, i: number) => estilosAntigos[m.id] ?? ORDEM_ESTILOS[(m.ordem ?? i) % ORDEM_ESTILOS.length]
+  const estiloDe = (m: MarcaNoAndar, i: number) => estiloDaSala(padraoDe(m, i), corDe(m), m.sala)
 
   // estado que o laço de desenho lê sem precisar renderizar o React de novo
   const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
@@ -157,9 +151,8 @@ export function EscritorioPixel({
     desenharCorredor(g, largura)
     const hoje = new Date().getDate()
     marcas.forEach((m, i) => {
-      const base = estiloBase(m.id, m.ordem ?? i)
       const q = quadros?.[m.id]
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e, { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0 })
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0 })
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
@@ -167,7 +160,7 @@ export function EscritorioPixel({
     desenharSalaFin(g, xFin)
     desenharGraficoFin(g, xFin, financeiro?.barras ?? [], !!financeiro?.alerta)
     return c
-  }, [marcas, estilos, cores, largura, xVoce, quadros, financeiro?.barras.join(','), financeiro?.alerta]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas, largura, xVoce, quadros, financeiro?.barras.join(','), financeiro?.alerta]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -380,7 +373,7 @@ export function EscritorioPixel({
 
       // câmera: segue quem atravessa o corredor; senão a sala da marca ou a sua
       const viajante = andantes.current.find((a) => a.pasta && (a.sala === -1 || a.alvo?.sala === -1))
-      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco && v.foco !== 'cofre' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
+      let alvoX = v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco && v.foco !== 'cofre' && v.foco !== 'sala' ? xVoce + VOCE_W / 2 : v.indiceAtivo * PASSO_SALA + SALA_W / 2
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
@@ -624,18 +617,6 @@ export function EscritorioPixel({
     selecionar(null)
   }
 
-  const trocarEstilo = (id: string, i: number) => {
-    const ordem = marcas.find((m) => m.id === id)?.ordem ?? i
-    const atual = estilos[id] ?? ORDEM_ESTILOS[ordem % ORDEM_ESTILOS.length]
-    const novo = { ...estilos, [id]: ORDEM_ESTILOS[(ORDEM_ESTILOS.indexOf(atual) + 1) % ORDEM_ESTILOS.length] }
-    setEstilos(novo)
-    try {
-      localStorage.setItem('estilos-pixel', JSON.stringify(novo))
-    } catch {
-      // sem armazenamento local: vale até recarregar
-    }
-  }
-
   const ativa = marcas[indiceAtivo]
   const nomes: (AgenteId | 'voce')[] = [...AGENTES.map((a) => a.id), 'voce']
 
@@ -725,29 +706,10 @@ export function EscritorioPixel({
       </div>
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
       {ativa && (
-        <button className="pixel-estilo" onClick={() => trocarEstilo(ativa.id, indiceAtivo)} title="Trocar o estilo desta sala">
-          🎨 {estiloBase(ativa.id, ativa.ordem ?? indiceAtivo).nome}
-        </button>
-      )}
-      {ativa && (
-        <label className="pixel-estilo pixel-cor" title="Cor da marca nesta sala">
+        <button className={`pixel-estilo${foco === 'sala' ? ' ativo' : ''}`} onClick={() => focar(foco === 'sala' ? null : 'sala')} title="Trocar pisos, paredes, cores e móveis desta sala">
           <span className="amostra" style={{ background: corDe(ativa) }} />
-          Cor da sala
-          <input
-            type="color"
-            value={corDe(ativa)}
-            onChange={(e) => {
-              const novo = { ...cores, [ativa.id]: e.target.value }
-              setCores(novo)
-              try {
-                localStorage.setItem('cores-sala', JSON.stringify(novo))
-              } catch {
-                // sem armazenamento local: fica salvo só no banco
-              }
-            }}
-            onBlur={(e) => aoMudarCor?.(ativa.id, e.target.value)}
-          />
-        </label>
+          Editar sala
+        </button>
       )}
       {DEPTOS.map((d, i) => (
         <div

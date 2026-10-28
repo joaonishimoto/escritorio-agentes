@@ -25,9 +25,10 @@ import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarSala, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
-import type { Quadro } from './pixel/mapa'
+import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
+import { PainelSala } from './ui/PainelSala'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -142,11 +143,42 @@ function Painel({ logado }: { logado: boolean }) {
     setMarcaId(id)
     setPostId(null)
   }
+  // o que o dono mexeu na decoração das salas nesta visita (aparece na hora, antes de voltar do banco)
+  const [salasEditadas, setSalasEditadas] = useState<Record<string, { sala: SalaCustom; cor: string }>>({})
+  const [estadoSala, setEstadoSala] = useState<'salvo' | 'salvando' | 'erro' | 'local' | null>(null)
+  const salvarSalaDepois = useRef<number | undefined>(undefined)
+  const comEdicao = <T extends { id: string; cor: string }>(m: T, sala?: SalaCustom | null) =>
+    salasEditadas[m.id] ? { ...m, cor: salasEditadas[m.id].cor, sala: salasEditadas[m.id].sala } : { ...m, sala }
   // na demonstração (sem conta) o andar mostra a Drinfy e uma sala de exemplo
   const marcasNoAndar = marcas.length
     ? // a sala mais nova fica na ponta, longe da sua; a primeira marca fica do lado da sua sala
-      marcas.map((m, ordem) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem })).reverse()
-    : [{ id: 'demo', nome: 'Drinfy', cor: '#EE382B' }, { id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73' }]
+      marcas.map((m, ordem) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem }, m.identidade?.sala as SalaCustom | undefined)).reverse()
+    : [comEdicao({ id: 'demo', nome: 'Drinfy', cor: '#EE382B', ordem: 0 }), comEdicao({ id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73', ordem: 1 })]
+  const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
+  // estilo da sala quando ninguém escolheu: o que ficou neste navegador, senão o da ordem de criação
+  const estiloPadrao = (id: string, ordem: number) => {
+    try {
+      const antigo = (JSON.parse(localStorage.getItem('estilos-pixel') ?? '{}') as Record<string, string>)[id]
+      if (antigo) return antigo
+    } catch {
+      // sem armazenamento local
+    }
+    return ORDEM_ESTILOS[ordem % ORDEM_ESTILOS.length]
+  }
+  const mudarSala = (id: string, sala: SalaCustom, cor: string) => {
+    setSalasEditadas((x) => ({ ...x, [id]: { sala, cor } }))
+    if (!logado || !marcas.some((m) => m.id === id)) return setEstadoSala('local')
+    setEstadoSala('salvando')
+    window.clearTimeout(salvarSalaDepois.current)
+    salvarSalaDepois.current = window.setTimeout(() => {
+      salvarSala(id, sala as Record<string, unknown>, cor)
+        .then(() => setEstadoSala('salvo'))
+        .catch((e) => {
+          console.error('não salvou a sala', e)
+          setEstadoSala('erro')
+        })
+    }, 600)
+  }
   const quadrosDoBanco = useQuadrosDoAndar(logado ? marcas.map((m) => m.id) : [], recarregar)
   const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4, referencias: 5 } }), [])
   const quadros = marcas.length ? quadrosDoBanco : quadrosDemo
@@ -159,11 +191,6 @@ function Painel({ logado }: { logado: boolean }) {
     else if (quadro === 'referencias') setBiblioteca(true)
     else setMuralRegras(true)
   }
-  const mudarCor = (id: string, cor: string) => {
-    const m = marcas.find((x) => x.id === id)
-    if (m) salvarCorDaMarca(m, cor).catch((e) => console.error('não salvou a cor da sala', e))
-  }
-
   useEffect(() => {
     // só escolhe um post da marca aberta (a lista pode ainda ser da marca anterior)
     if (!postId && posts[0]?.marca_id === marcaId && !emDemo) setPostId(posts[0].id)
@@ -334,7 +361,6 @@ function Painel({ logado }: { logado: boolean }) {
             <p className="carregando">Montando o escritório…</p>
           ) : visual === 'pixel' ? (
             <EscritorioPixel
-              aoMudarCor={mudarCor}
               marcas={marcasNoAndar}
               marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}
@@ -366,6 +392,19 @@ function Painel({ logado }: { logado: boolean }) {
             aoAtualizar={setFinanceiro}
             aoFechar={() => focar(null)}
             aoAbrirPost={(id) => { verPost(id); focar(null) }}
+          />
+        ) : foco === 'sala' && salaAtiva ? (
+          <PainelSala
+            marcaNome={salaAtiva.nome}
+            padrao={estiloPadrao(salaAtiva.id, salaAtiva.ordem ?? 0)}
+            cor={salaAtiva.cor}
+            sala={salaAtiva.sala ?? {}}
+            estado={estadoSala}
+            aoMudar={(sala, cor) => mudarSala(salaAtiva.id, sala, cor)}
+            aoFechar={() => {
+              focar(null)
+              setEstadoSala(null)
+            }}
           />
         ) : foco === 'cofre' ? (
           <PainelGastos

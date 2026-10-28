@@ -313,6 +313,9 @@ i.publicado { background: #3f7650 }
 .pixel-estilo { position: absolute; left: 12px; bottom: 12px; font-family: 'Pixelify Sans', monospace; font-size: 14px; background: #fff; color: #1f2330;
   border: 0; padding: 6px 10px; box-shadow: 0 0 0 2px #1f2330, 3px 3px 0 2px rgba(0,0,0,.3); cursor: pointer }
 .pixel-estilo:hover { background: #dce6f5 }
+.pixel-estilo { display: inline-flex; align-items: center; gap: 8px }
+.pixel-estilo .amostra { width: 14px; height: 14px; box-shadow: 0 0 0 2px #1f2330 }
+.pixel-estilo.ativo { background: #f2b233 }
 @media (prefers-reduced-motion: reduce) { .pixel-balao { animation: none } }
 
 /* etapa atual do post */
@@ -341,9 +344,6 @@ i.publicado { background: #3f7650 }
 .pixel-placa { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; color: #fff; font-family: 'Pixelify Sans', monospace; font-weight: 700;
   line-height: 1; padding: .3em .6em .35em; box-shadow: 0 0 0 .12em #1f2330, .25em .25em 0 .12em rgba(0,0,0,.2); white-space: nowrap; text-shadow: 0 .08em 0 rgba(0,0,0,.25) }
 .pixel-depto { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; font-family: 'Pixelify Sans', monospace; font-size: 11px; color: #fff; background: rgba(31,35,48,.72); padding: 1px 5px 2px; white-space: nowrap }
-.pixel-cor { left: auto; right: 12px; display: inline-flex; align-items: center; gap: 8px }
-.pixel-cor .amostra { width: 14px; height: 14px; box-shadow: 0 0 0 2px #1f2330 }
-.pixel-cor input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
 
 
 .ver-slides img { cursor: zoom-in; transition: transform .18s ease-out }
@@ -563,7 +563,6 @@ i.falhou { background: var(--danger, #b42318) }
   .pixel-depto { font-size: 8px; padding: 0 3px 1px }
   .pixel-balao { max-width: 170px; font-size: 12px; padding: 5px 7px }
   .pixel-estilo { left: 8px; bottom: 8px; font-size: 12px; padding: 5px 8px }
-  .pixel-estilo.pixel-cor { left: auto; right: 8px; gap: 6px }
 
   /* rodapé */
   .rodape { padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) }
@@ -1063,3 +1062,49 @@ i.falhou { background: var(--danger, #b42318) }
 .pixel-nome.cofre.ativo { background: #f2a6b8 }
 .gst .fin-nota { margin-top: 0; text-align: left }
 .gst-fin { align-self: flex-start }
+
+/* editar sala */
+.painel.sl .ag-corpo { gap: 22px }
+.sl-secao { display: flex; flex-direction: column; gap: 8px }
+.sl-secao h3 { font-size: 13px; font-weight: 600 }
+.sl-dica { font-size: 12px; color: var(--muted-foreground); margin: -4px 0 0 }
+.sl-estilos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
+.sl-estilos button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px; font-weight: 500; text-align: left; cursor: pointer }
+.sl-estilos button:hover { background: var(--surface-hover) }
+.sl-estilos button.ativo { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) }
+.sl-mini { display: flex; flex-direction: column; width: 100%; height: 34px; border-radius: 4px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1) }
+.sl-mini i:nth-child(1) { flex: 4 }
+.sl-mini i:nth-child(2) { flex: 1 }
+.sl-mini i:nth-child(3) { flex: 6 }
+.sl-cor { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 4px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); cursor: pointer; flex: none }
+.sl-cor:hover { background: var(--surface-hover) }
+.sl-cor input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0 }
+.sl-amostra { width: 24px; height: 24px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15) }
+.sl-hex { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--muted-foreground) }
+.sl-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+.sl-segmento { display: inline-flex; padding: 2px; border-radius: var(--radius-md); background: var(--surface-muted); border: 1px solid var(--border) }
+.sl-segmento button { height: 26px; padding: 0 12px; border: 0; border-radius: calc(var(--radius-md) - 2px); background: none; color: var(--muted-foreground); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer }
+.sl-segmento button.ativo { background: var(--surface); color: var(--foreground); box-shadow: 0 1px 2px rgba(0,0,0,.08) }
+.sl-pisos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.sl-pisos li { display: grid; grid-template-columns: 78px auto 1fr; align-items: center; gap: 8px }
+.sl-area { font-size: 13px }
+.sl-padroes { display: flex; gap: 4px; justify-content: flex-end }
+.sl-padrao { width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; background-color: var(--piso); image-rendering: pixelated }
+.sl-padrao.ativo { outline: 2px solid var(--primary); outline-offset: 1px }
+.sl-padrao.tabua { background-image: linear-gradient(var(--linha) 1px, transparent 1px), linear-gradient(90deg, var(--linha) 1px, transparent 1px); background-size: 100% 7px, 14px 7px }
+.sl-padrao.xadrez { background-image: conic-gradient(var(--linha) 0 25%, transparent 0 50%, var(--linha) 0 75%, transparent 0); background-size: 12px 12px }
+.sl-padrao.concreto { background-image: linear-gradient(var(--linha) 1px, transparent 1px), linear-gradient(90deg, var(--linha) 1px, transparent 1px), radial-gradient(var(--linha) 0.6px, transparent 0.8px); background-size: 13px 13px, 13px 13px, 5px 5px }
+.sl-padrao.carpete { background-image: radial-gradient(var(--linha) 0.8px, transparent 1px); background-size: 4px 4px }
+.sl-padrao.ladrilho { background-image: linear-gradient(var(--linha) 1px, transparent 1px), linear-gradient(90deg, var(--linha) 1px, transparent 1px); background-size: 9px 9px }
+.sl-moveis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+.sl-moveis > div { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted-foreground) }
+.sl-moveis .sl-cor { width: 100% }
+.sl-rodape { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface) }
+.sl-estado { flex: 1; min-width: 0; font-size: 12px; color: var(--muted-foreground) }
+.sl-estado.salvo { color: var(--success-strong, #2f8a4c) }
+.sl-estado.erro { color: var(--danger-strong) }
+@media (max-width: 760px) {
+  .sl-pisos li { grid-template-columns: 1fr auto; }
+  .sl-pisos .sl-padroes { grid-column: 1 / -1; justify-content: flex-start }
+  .sl-rodape { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) }
+}

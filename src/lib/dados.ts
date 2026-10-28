@@ -21,10 +21,16 @@ export function corDaMarca(m: Marca): string {
   return achar(id.cores) ?? achar(id) ?? '#2a5288'
 }
 
-/** Guarda a cor da sala na identidade da marca (o dono pode editar a própria marca). */
-export async function salvarCorDaMarca(m: Marca, cor: string) {
+/** Guarda como o dono decorou a sala (e a cor dela) na identidade da marca. Lê a identidade na hora para não apagar o que mudou em outro lugar. */
+export async function salvarSala(marcaId: string, sala: Record<string, unknown> | null, cor: string) {
   if (!supabase) return
-  await supabase.from('marcas').update({ identidade: { ...(m.identidade ?? {}), cor_sala: cor } }).eq('id', m.id)
+  const { data, error } = await supabase.from('marcas').select('identidade').eq('id', marcaId).single()
+  if (error) throw error
+  const identidade: Record<string, unknown> = { ...((data?.identidade as Record<string, unknown>) ?? {}), cor_sala: cor }
+  if (sala && Object.keys(sala).length) identidade.sala = sala
+  else delete identidade.sala
+  const { error: e2 } = await supabase.from('marcas').update({ identidade }).eq('id', marcaId)
+  if (e2) throw e2
 }
 
 export interface Post {
