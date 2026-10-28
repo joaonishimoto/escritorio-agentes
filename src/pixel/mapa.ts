@@ -167,7 +167,7 @@ export function estiloDaSala(padrao: string, cor: string, c?: SalaCustom | null)
   return e
 }
 
-const VOCE: Estilo = { nome: 'Sua sala', piso: '#ece1cc', pisoLinha: '#ddcfb5', parede: '#1e3d66', paredeDetalhe: '#1a3559', rodape: '#976822', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#976822', tapete: '#dce6f5' }
+const VOCE: Estilo = { nome: 'Sua sala', piso: '#9a6a43', pisoLinha: '#6e4a2e', parede: '#1e3d66', paredeDetalhe: '#1a3559', rodape: '#b88a3a', mesa: '#5a3a24', mesaSombra: '#3d2817', cadeira: '#7a3b2a', tapete: '#7a2e2e' }
 
 /** Sua mesa, na sua sala (coordenadas locais). Você senta atrás dela, de frente para nós. */
 export const MESA_VOCE = { x: 64, y: 78, w: 34 }
@@ -549,13 +549,21 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
 
 /** Sua sala, no fim do corredor. */
 export function desenharSuaSala(g: Ctx, x0: number) {
-  piso(g, VOCE, x0, VOCE_W, PAREDE_H, SALA_H - PAREDE_H, 'xadrez')
+  // escritório executivo: assoalho de madeira escura, lambri, tapete persa, sofá de couro e bar
+  piso(g, VOCE, x0, VOCE_W, PAREDE_H, SALA_H - PAREDE_H, 'tabua')
   parede(g, VOCE, x0, VOCE_W)
+  lambri(g, x0, VOCE_W, '#4a2f1c')
   janela(g, x0 + 104, 7, 40, false)
+  cortina(g, x0 + 100, 4, '#7a2e2e')
+  cortina(g, x0 + 144, 4, '#7a2e2e')
   estante(g, x0 + 62, 2)
-  r(g, VOCE.tapete, x0 + 40, 66, 82, 52)
-  r(g, '#2a5288', x0 + 42, 68, 78, 1)
-  planta(g, x0 + 140, 36)
+  tapetePersa(g, x0 + 30, 62, 100, 58, '#7a2e2e', '#d9b25f', '#1e3d66')
+  luminariaDePe(g, x0 + 140, 54)
+  globo(g, x0 + 132, 126)
+  // canto de estar: sofá chesterfield, mesinha de centro e quadro
+  mesaDeCentro(g, x0 + 16, 176, 34)
+  sofa(g, x0 + 6, 198, 56, '#6b3a22')
+  carrinhoBar(g, x0 + 110, 196)
   planta(g, x0 + 4, 138)
   planta(g, x0 + 140, 216)
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18 - 32, 5)
@@ -580,12 +588,122 @@ export function desenharParedeEntre(g: Ctx, x: number) {
 
 export function desenharMesaVoce(g: Ctx, x0: number) {
   const { x, y, w } = MESA_VOCE
-  r(g, 'rgba(0,0,0,.15)', x0 + x + 2, y + 16, w, 3)
+  // mesa de nogueira com tampo de couro verde, abajur de banqueiro, notebook e bandeja de entrada
+  r(g, 'rgba(0,0,0,.2)', x0 + x + 2, y + 16, w, 3)
   r(g, '#1f2330', x0 + x - 1, y - 1, w + 2, 18)
-  r(g, '#ffffff', x0 + x, y, w, 12)
-  r(g, '#c9ccd6', x0 + x, y + 12, w, 4)
+  r(g, '#5a3a24', x0 + x, y, w, 12)
+  r(g, '#2f5d47', x0 + x + 2, y + 2, w - 4, 8)
+  r(g, '#3d2817', x0 + x, y + 12, w, 4)
+  r(g, '#b88a3a', x0 + x + w / 2 - 1, y + 13, 2, 1)
+  r(g, '#d9dde6', x0 + x + 4, y + 4, 10, 6) // notebook
+  r(g, '#9fb3d6', x0 + x + 5, y + 5, 8, 3)
   r(g, '#1e3d66', x0 + x + 20, y + 3, 10, 6) // bandeja de entrada
-  r(g, '#d9dde6', x0 + x + 4, y + 4, 10, 6)
+  r(g, '#ffffff', x0 + x + 21, y + 4, 8, 2)
+  r(g, '#1f2330', x0 + x + w - 4, y - 5, 1, 7) // abajur
+  r(g, '#1f2330', x0 + x + w - 8, y - 8, 9, 4)
+  r(g, '#2f7a52', x0 + x + w - 7, y - 7, 7, 2)
+  r(g, '#f2d27a', x0 + x + w - 6, y - 5, 5, 1)
+}
+
+/** Lambri de madeira na base da parede, com friso dourado. */
+function lambri(g: Ctx, x0: number, w: number, cor: string) {
+  r(g, cor, x0, PAREDE_H - 12, w, 8)
+  for (let x = x0 + 4; x < x0 + w; x += 12) r(g, misturar(cor, '#000000', 0.25), x, PAREDE_H - 11, 1, 6)
+  r(g, '#d9b25f', x0, PAREDE_H - 13, w, 1)
+}
+
+function cortina(g: Ctx, x: number, y: number, cor: string) {
+  r(g, '#1f2330', x - 1, y - 1, 6, 26)
+  r(g, cor, x, y, 4, 24)
+  r(g, misturar(cor, '#000000', 0.3), x + 2, y, 1, 24)
+  r(g, '#d9b25f', x - 1, y + 14, 6, 1)
+}
+
+/** Tapete persa: borda dourada, campo vinho e um medalhão no meio. */
+function tapetePersa(g: Ctx, x: number, y: number, w: number, h: number, campo: string, borda: string, detalhe: string) {
+  r(g, 'rgba(0,0,0,.15)', x + 1, y + 1, w, h)
+  r(g, borda, x, y, w, h)
+  r(g, campo, x + 3, y + 3, w - 6, h - 6)
+  for (let i = x + 4; i < x + w - 4; i += 4) r(g, misturar(borda, '#ffffff', 0.25), i, y + 1, 2, 1), r(g, misturar(borda, '#ffffff', 0.25), i, y + h - 2, 2, 1)
+  r(g, borda, x + 6, y + 6, w - 12, 1)
+  r(g, borda, x + 6, y + h - 7, w - 12, 1)
+  const cx = x + w / 2
+  const cy = y + h / 2
+  for (let k = 0; k < 7; k++) r(g, k % 2 ? borda : detalhe, cx - 14 + k * 2, cy - 7 + Math.abs(3 - k), 28 - k * 4 > 0 ? 28 - k * 4 : 2, 14 - Math.abs(3 - k) * 2)
+  r(g, borda, cx - 2, cy - 2, 4, 4)
+  for (const [a, b] of [[x + 10, y + 10], [x + w - 14, y + 10], [x + 10, y + h - 14], [x + w - 14, y + h - 14]]) r(g, detalhe, a, b, 4, 4), r(g, borda, a + 1, b + 1, 2, 2)
+  // franjas
+  for (let i = x + 2; i < x + w - 2; i += 3) r(g, '#efe3c4', i, y - 2, 1, 2), r(g, '#efe3c4', i, y + h, 1, 2)
+}
+
+function luminariaDePe(g: Ctx, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x - 3, y + 30, 10, 2)
+  r(g, '#1f2330', x - 4, y - 1, 12, 9)
+  r(g, '#efe3c4', x - 3, y, 10, 7)
+  r(g, '#fff6d8', x - 2, y + 1, 4, 2)
+  r(g, '#b88a3a', x + 1, y + 8, 2, 21)
+  r(g, '#1f2330', x - 2, y + 29, 8, 2)
+}
+
+function globo(g: Ctx, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x, y + 22, 14, 2)
+  r(g, '#1f2330', x + 1, y - 1, 12, 14)
+  r(g, '#3d77b0', x + 2, y, 10, 12)
+  r(g, '#5aa06b', x + 3, y + 2, 4, 3)
+  r(g, '#5aa06b', x + 7, y + 6, 3, 4)
+  r(g, '#9fc6ea', x + 3, y + 1, 2, 1)
+  r(g, '#b88a3a', x, y + 4, 1, 6)
+  r(g, '#b88a3a', x + 6, y + 12, 2, 6)
+  r(g, '#1f2330', x + 3, y + 18, 8, 3)
+  r(g, '#5a3a24', x + 4, y + 18, 6, 2)
+}
+
+/** Sofá chesterfield de couro, visto de frente (encosto em cima). */
+function sofa(g: Ctx, x: number, y: number, w: number, cor: string) {
+  const claro = misturar(cor, '#ffffff', 0.18)
+  const escuro = misturar(cor, '#000000', 0.3)
+  r(g, 'rgba(0,0,0,.18)', x + 2, y + 20, w, 3)
+  r(g, '#1f2330', x - 1, y - 1, w + 2, 22)
+  r(g, cor, x, y, w, 20)
+  r(g, escuro, x, y + 8, w, 1)
+  for (let i = x + 4; i < x + w - 3; i += 6) r(g, escuro, i, y + 3, 1, 1), r(g, claro, i + 1, y + 2, 1, 1)
+  r(g, claro, x + 5, y + 10, w / 2 - 6, 6)
+  r(g, claro, x + w / 2 + 1, y + 10, w / 2 - 6, 6)
+  r(g, escuro, x, y, 4, 20)
+  r(g, escuro, x + w - 4, y, 4, 20)
+  r(g, '#1f2330', x + 2, y + 20, 2, 2)
+  r(g, '#1f2330', x + w - 4, y + 20, 2, 2)
+}
+
+function mesaDeCentro(g: Ctx, x: number, y: number, w: number) {
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 10, w, 2)
+  r(g, '#1f2330', x - 1, y - 1, w + 2, 11)
+  r(g, '#5a3a24', x, y, w, 7)
+  r(g, '#3d2817', x, y + 7, w, 2)
+  r(g, '#d9dde6', x + 4, y + 2, 8, 4) // revistas
+  r(g, '#b74e45', x + 5, y + 3, 6, 1)
+  r(g, '#ffffff', x + w - 10, y + 1, 4, 4) // xícara
+  r(g, '#6b4f36', x + w - 9, y + 2, 2, 2)
+}
+
+/** Carrinho de bar dourado com garrafas e copos. */
+function carrinhoBar(g: Ctx, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x + 1, y + 20, 26, 2)
+  r(g, '#b88a3a', x, y + 6, 26, 2)
+  r(g, '#b88a3a', x, y + 16, 26, 2)
+  r(g, '#b88a3a', x, y + 6, 2, 14)
+  r(g, '#b88a3a', x + 24, y + 6, 2, 14)
+  const garrafas = ['#3f7650', '#976822', '#7a2e2e']
+  garrafas.forEach((c, i) => {
+    r(g, '#1f2330', x + 3 + i * 6, y - 3, 5, 9)
+    r(g, c, x + 4 + i * 6, y - 1, 3, 7)
+    r(g, c, x + 5 + i * 6, y - 4, 1, 3)
+  })
+  r(g, '#cfe6f2', x + 21, y + 2, 3, 4)
+  r(g, '#cfe6f2', x + 6, y + 12, 3, 4)
+  r(g, '#cfe6f2', x + 11, y + 12, 3, 4)
+  r(g, '#1f2330', x + 1, y + 20, 3, 3)
+  r(g, '#1f2330', x + 22, y + 20, 3, 3)
 }
 
 export function desenharCalendario(g: Ctx, x0: number, marcados: Set<number>, hoje: number, q: { x: number; y: number; w: number; h: number } = CALENDARIO) {
@@ -606,7 +724,7 @@ export function desenharCalendario(g: Ctx, x0: number, marcados: Set<number>, ho
 // ───────── sala do Financeiro, depois da sua sala ─────────
 
 export const FIN_W = 128
-const FIN: Estilo = { nome: 'Financeiro', piso: '#e3e9e2', pisoLinha: '#d3dccf', parede: '#2f5d47', paredeDetalhe: '#28503d', rodape: '#3f7650', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#3f7650', tapete: '#cfe0d2' }
+const FIN: Estilo = { nome: 'Financeiro', piso: '#e9e6df', pisoLinha: '#c9c3b6', parede: '#2f5d47', paredeDetalhe: '#28503d', rodape: '#3f7650', mesa: '#ffffff', mesaSombra: '#c9ccd6', cadeira: '#3f7650', tapete: '#cfe0d2' }
 /** Mesa do Financeiro (ele senta atrás, de frente para nós) e o gráfico na parede, que abre o painel. */
 export const MESA_FIN = { x: 46, y: 82, w: 36 }
 export const GRAFICO_FIN = { x: 40, y: 3, w: 48, h: 28 }
@@ -628,6 +746,50 @@ export function desenharGraficoFin(g: Ctx, x0: number, barras: number[], alerta:
   r(g, '#c9c3b4', x0 + x + 2, y + h - 3, w - 4, 1)
 }
 
+function relogio(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y - 1, 16, 16)
+  r(g, '#b88a3a', x, y, 14, 14)
+  r(g, '#fbf7ee', x + 2, y + 2, 10, 10)
+  r(g, '#1f2330', x + 6, y + 3, 1, 4)
+  r(g, '#1f2330', x + 7, y + 6, 3, 1)
+}
+
+/** Arquivo de aço com três gavetas. */
+function arquivo(g: Ctx, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x + 1, y + 30, 16, 2)
+  r(g, '#1f2330', x - 1, y - 1, 18, 32)
+  r(g, '#8a929e', x, y, 16, 30)
+  for (let i = 0; i < 3; i++) {
+    r(g, '#6f7783', x + 1, y + 1 + i * 10, 14, 1)
+    r(g, '#1f2330', x + 6, y + 4 + i * 10, 4, 2)
+    r(g, '#ffffff', x + 3, y + 3 + i * 10, 2, 2)
+  }
+}
+
+/** Poltrona de couro para quem visita, de costas para nós. */
+function poltrona(g: Ctx, x: number, y: number, cor: string) {
+  const escuro = misturar(cor, '#000000', 0.3)
+  r(g, 'rgba(0,0,0,.18)', x + 1, y + 14, 16, 2)
+  r(g, '#1f2330', x - 1, y - 1, 18, 16)
+  r(g, cor, x, y, 16, 14)
+  r(g, escuro, x, y, 3, 14)
+  r(g, escuro, x + 13, y, 3, 14)
+  r(g, misturar(cor, '#ffffff', 0.2), x + 4, y + 2, 8, 2)
+  for (let i = x + 5; i < x + 12; i += 3) r(g, escuro, i, y + 6, 1, 1)
+}
+
+/** Mesinha com pilhas de moedas de ouro. */
+function moedas(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y + 9, 22, 8)
+  r(g, '#5a3a24', x, y + 10, 20, 5)
+  r(g, '#1f2330', x + 2, y + 15, 2, 6)
+  r(g, '#1f2330', x + 16, y + 15, 2, 6)
+  for (const [a, h] of [[2, 8], [8, 5], [14, 7]]) {
+    r(g, '#1f2330', x + a - 1, y + 9 - h, 6, h + 1)
+    for (let k = 0; k < h; k += 2) r(g, k % 4 ? '#f2b233' : '#ffd36b', x + a, y + 9 - h + k, 4, 2)
+  }
+}
+
 function cofre(g: Ctx, x: number, y: number) {
   r(g, '#1f2330', x - 1, y - 1, 22, 24)
   r(g, '#5d6470', x, y, 20, 22)
@@ -637,14 +799,24 @@ function cofre(g: Ctx, x: number, y: number) {
 }
 
 export function desenharSalaFin(g: Ctx, x0: number) {
-  piso(g, FIN, x0, FIN_W, PAREDE_H, SALA_H - PAREDE_H, 'carpete')
+  // banco suíço: piso de mármore, lambri, cofre forte, arquivos, poltronas de couro e moedas de ouro
+  piso(g, FIN, x0, FIN_W, PAREDE_H, SALA_H - PAREDE_H, 'ladrilho')
+  for (let i = 0; i < 9; i++) r(g, '#d6d0c3', x0 + 6 + ((i * 37) % 110), PAREDE_H + 14 + ((i * 53) % 190), 6 + (i % 3) * 3, 1) // veios do mármore
   parede(g, FIN, x0, FIN_W)
+  lambri(g, x0, FIN_W, '#3d2817')
+  relogio(g, x0 + 14, 6)
   janela(g, x0 + 98, 7, 22, false)
-  r(g, FIN.tapete, x0 + 28, 72, 72, 54)
+  cortina(g, x0 + 94, 4, '#2f5d47')
+  tapetePersa(g, x0 + 24, 68, 80, 62, '#2f5d47', '#d9b25f', '#7a2e2e')
   cofre(g, x0 + 8, 40)
-  estante(g, x0 + 4, 140)
+  arquivo(g, x0 + 4, 150)
+  arquivo(g, x0 + 22, 150)
+  poltrona(g, x0 + 40, 112, '#6b3a22')
+  poltrona(g, x0 + 72, 112, '#6b3a22')
+  moedas(g, x0 + 100, 150)
   planta(g, x0 + 108, 40)
   planta(g, x0 + 108, 200)
+  planta(g, x0 + 6, 200)
   // parede de baixo, com a porta
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_FIN_X - 18, 5)
   r(g, '#1f2330', x0 + PORTA_FIN_X + 18, SALA_H - 5, FIN_W - PORTA_FIN_X - 18, 5)
