@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { agentePorId, type AgenteId } from './agents/catalogo'
 import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
@@ -24,7 +24,9 @@ import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { tocarAviso } from './lib/som'
-import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useRegrasPropostas } from './lib/dados'
+import { corDaMarca, salvarCorDaMarca, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { RegrasDaMarca } from './ui/RegrasDaMarca'
+import type { Quadro } from './pixel/mapa'
 
 const ROTULO_STATUS: Record<string, string> = {
   rascunho: 'rascunho',
@@ -101,6 +103,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [perfilMarca, setPerfilMarca] = useState(false)
+  const [muralRegras, setMuralRegras] = useState(false)
   const [instagram, setInstagram] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
   const [visual, setVisual] = useState<'pixel' | '3d'>(() => {
@@ -141,6 +144,17 @@ function Painel({ logado }: { logado: boolean }) {
     ? // a sala mais nova fica na ponta, longe da sua; a primeira marca fica do lado da sua sala
       marcas.map((m, ordem) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem })).reverse()
     : [{ id: 'demo', nome: 'Drinfy', cor: '#EE382B' }, { id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73' }]
+  const quadrosDoBanco = useQuadrosDoAndar(logado ? marcas.map((m) => m.id) : [], recarregar)
+  const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4 } }), [])
+  const quadros = marcas.length ? quadrosDoBanco : quadrosDemo
+  // quadros da parede: calendário, branding e mural de regras abrem para a marca daquela sala
+  const abrirQuadro = (id: string, quadro: Quadro) => {
+    escolherMarca(id)
+    if (quadro === 'calendario') return focar('calendario')
+    if (!logado || !marcas.some((m) => m.id === id)) return
+    if (quadro === 'branding') setPerfilMarca(true)
+    else setMuralRegras(true)
+  }
   const mudarCor = (id: string, cor: string) => {
     const m = marcas.find((x) => x.id === id)
     if (m) salvarCorDaMarca(m, cor).catch((e) => console.error('não salvou a cor da sala', e))
@@ -323,6 +337,8 @@ function Painel({ logado }: { logado: boolean }) {
               marcas={marcasNoAndar}
               marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}
+              quadros={quadros}
+              aoAbrirQuadro={abrirQuadro}
             />
           ) : (
             <Escritorio
@@ -376,6 +392,7 @@ function Painel({ logado }: { logado: boolean }) {
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
+      {muralRegras && marcaId && <RegrasDaMarca marcaId={marcaId} nomeMarca={marca?.nome ?? ''} aoFechar={() => setMuralRegras(false)} aoMudar={mudou} />}
       {perfilMarca && marcaId && <PerfilDaMarca marcaId={marcaId} aoFechar={() => setPerfilMarca(false)} aoSalvar={() => setVersaoMarcas((v) => v + 1)} />}
       {novaSala && (
         <NovaSala

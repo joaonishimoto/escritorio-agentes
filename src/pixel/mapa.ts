@@ -2,36 +2,89 @@
 import type { AgenteId } from '../agents/catalogo'
 
 export const T = 16
-export const SALA_W = 224 // 14 blocos
-export const PASSO_SALA = 240 // sala + parede de 1 bloco
+export const SALA_W = 320 // 20 blocos: três departamentos e o hall
+export const PASSO_SALA = 336 // sala + parede de 1 bloco
 export const PAREDE_H = 34 // faixa da parede do fundo
-export const SALA_H = 160
-export const CORREDOR_Y = 160
+export const SALA_H = 240
+export const CORREDOR_Y = 240
 export const CORREDOR_H = 64
 export const ANDAR_H = CORREDOR_Y + CORREDOR_H
 export const VOCE_W = 160
-export const PORTA_X = 112 // centro da porta de cada sala
-export const COLUNA_X = 156 // corredorzinho entre as mesas por onde se anda dentro da sala
-export const LINHA_FUNDO = 92 // altura dos pés no corredor entre as fileiras
-export const LINHA_FRENTE = 144
-export const CORREDOR_PES = 196
+export const PORTA_X = 160 // porta principal de cada sala, que dá no corredor
+export const CORREDOR_PES = CORREDOR_Y + 36
 
-/** Mesas da sala (canto de cima à esquerda da mesa). O boneco senta embaixo, de costas para nós. */
+// ───────── planta da sala: três departamentos em cima, hall embaixo ─────────
+
+export interface Depto {
+  id: 'pauta' | 'criacao' | 'publicacao'
+  nome: string
+  x: number
+  w: number
+  /** centro da porta que dá no hall */
+  porta: number
+}
+export const DEPTOS: Depto[] = [
+  { id: 'pauta', nome: 'Pauta', x: 0, w: 104, porta: 52 },
+  { id: 'criacao', nome: 'Criação', x: 108, w: 104, porta: 160 },
+  { id: 'publicacao', nome: 'Publicação', x: 216, w: 104, porta: 268 },
+]
+export const PAREDE_DEPTO_Y = 152 // parede entre os departamentos e o hall
+export const LINHA_DEPTO = 144 // onde se anda dentro do departamento, na frente das mesas
+export const LINHA_HALL = 174 // onde se anda no hall
+export const CAFE = { x: 262, y: 188 }
+
+/** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
-  chefe: { x: 16, y: 50 },
-  pesquisador: { x: 64, y: 50 },
-  redator: { x: 112, y: 50 },
-  curador: { x: 176, y: 50 },
-  publicador: { x: 16, y: 100 },
-  revisor: { x: 64, y: 100 },
-  designer: { x: 112, y: 100 },
-  cinegrafista: { x: 176, y: 100 },
+  chefe: { x: 10, y: 54 },
+  pesquisador: { x: 62, y: 54 },
+  curador: { x: 36, y: 104 },
+  redator: { x: 118, y: 54 },
+  designer: { x: 170, y: 54 },
+  cinegrafista: { x: 140, y: 104 },
+  revisor: { x: 226, y: 54 },
+  publicador: { x: 278, y: 54 },
 }
 export const MESA_W = 30
 
+/** Quadros da parede que abrem algo ao clicar: calendário (Pauta), branding (Criação) e regras (Revisão). */
+export const QUADROS = {
+  calendario: { x: 58, y: 5, w: 38, h: 26 },
+  branding: { x: 138, y: 3, w: 44, h: 28 },
+  regras: { x: 246, y: 3, w: 44, h: 28 },
+} as const
+export type Quadro = keyof typeof QUADROS
+
 /** Onde ficam os pés do boneco sentado. */
 export const assento = (m: { x: number; y: number }) => ({ x: m.x + MESA_W / 2, y: m.y + 27 })
-export const linhaDaMesa = (m: { y: number }) => (m.y < 80 ? LINHA_FUNDO : LINHA_FRENTE)
+export const deptoDe = (m: { x: number }) => DEPTOS.find((d) => m.x >= d.x && m.x < d.x + d.w) ?? DEPTOS[0]
+
+type P = [number, number]
+/** Em pé ao lado da cadeira, do lado de fora (longe da mesa do meio do departamento). */
+export function aoLadoDe(m: { x: number; y: number }): P {
+  const a = assento(m)
+  return [a.x < deptoDe(m).porta ? a.x - 13 : a.x + 13, a.y]
+}
+/** Da cadeira até o hall, saindo pela porta do departamento (coordenadas da sala). */
+export function ateOHall(m: { x: number; y: number }): P[] {
+  const a = assento(m)
+  const d = deptoDe(m)
+  return [[a.x, a.y], [a.x, LINHA_DEPTO], [d.porta, LINHA_DEPTO], [d.porta, LINHA_HALL]]
+}
+/** Do hall até ficar ao lado de quem recebe. */
+export function doHallAte(m: { x: number; y: number }): P[] {
+  const d = deptoDe(m)
+  const [lx, ly] = aoLadoDe(m)
+  return [[d.porta, LINHA_HALL], [d.porta, LINHA_DEPTO], [lx, LINHA_DEPTO], [lx, ly]]
+}
+/** Caminho dentro da mesma sala, de uma cadeira até o lado de outra. */
+export function dentroDaSala(de: { x: number; y: number }, para: { x: number; y: number }): P[] {
+  if (deptoDe(de) === deptoDe(para)) {
+    const a = assento(de)
+    const [lx, ly] = aoLadoDe(para)
+    return [[a.x, a.y], [a.x, LINHA_DEPTO], [lx, LINHA_DEPTO], [lx, ly]]
+  }
+  return [...ateOHall(de), ...doHallAte(para)]
+}
 
 export interface Estilo {
   nome: string
@@ -55,7 +108,7 @@ export const ESTILOS: Record<string, Estilo> = {
 export const ORDEM_ESTILOS = ['d', 'e', 'f']
 
 /** Onde fica a placa com o nome da marca na parede (o texto é HTML por cima, para ficar nítido). */
-export const PLACA = { x: 106, y: 8 }
+export const PLACA = { x: 160, y: 192 }
 
 const misturar = (a: string, b: string, t: number) => {
   const pa = parseInt(a.slice(1), 16)
@@ -82,8 +135,22 @@ const r = (g: Ctx, cor: string, x: number, y: number, w: number, h: number) => {
   g.fillRect(Math.round(x), Math.round(y), w, h)
 }
 
-function piso(g: Ctx, e: Estilo, x0: number, w: number, y0: number, h: number, tipo: 'tabua' | 'xadrez' | 'concreto') {
+type Piso = 'tabua' | 'xadrez' | 'concreto' | 'carpete' | 'ladrilho'
+function piso(g: Ctx, e: Estilo, x0: number, w: number, y0: number, h: number, tipo: Piso) {
   r(g, e.piso, x0, y0, w, h)
+  if (tipo === 'carpete') {
+    for (let y = y0 + 2; y < y0 + h; y += 4) for (let x = x0 + ((y / 4) % 2) * 2; x < x0 + w; x += 4) r(g, e.pisoLinha, x, y, 1, 1)
+    return
+  }
+  if (tipo === 'ladrilho') {
+    for (let y = y0; y < y0 + h; y += 24)
+      for (let x = x0; x < x0 + w; x += 24) {
+        r(g, e.pisoLinha, x, y, 24, 1)
+        r(g, e.pisoLinha, x, y, 1, 24)
+        if (((x - x0) / 24 + (y - y0) / 24) % 2 === 0) r(g, 'rgba(255,255,255,.08)', x + 1, y + 1, 23, 23)
+      }
+    return
+  }
   if (tipo === 'tabua') {
     for (let y = y0; y < y0 + h; y += 8) {
       r(g, e.pisoLinha, x0, y, w, 1)
@@ -169,14 +236,6 @@ function cafe(g: Ctx, x: number, y: number) {
   r(g, '#2a5288', x + 23, y - 3, 3, 4)
 }
 
-function quadro(g: Ctx, x: number, y: number) {
-  r(g, '#1f2330', x - 1, y - 1, 42, 22)
-  r(g, '#ffffff', x, y, 40, 20)
-  const notas = ['#f2b233', '#9fd3a8', '#f3a6a0', '#a9c4ef', '#f2b233']
-  notas.forEach((c, i) => r(g, c, x + 3 + (i % 3) * 9, y + 3 + Math.floor(i / 3) * 8, 6, 6))
-  r(g, '#2a5288', x + 31, y + 4, 1, 12)
-}
-
 /** Mesa com monitor (a tela é redesenhada a cada quadro por cima). */
 export function mesa(g: Ctx, e: Estilo, x: number, y: number) {
   r(g, 'rgba(0,0,0,.15)', x + 2, y + 14, MESA_W, 3)
@@ -197,25 +256,134 @@ export function cadeira(g: Ctx, e: Estilo, x: number, y: number) {
   r(g, e.cadeira, x, y, 12, 8)
 }
 
-/** Desenha uma sala de marca inteira (sem os bonecos). */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean) {
-  piso(g, estilo, x0, SALA_W, PAREDE_H, SALA_H - PAREDE_H, estilo.tijolo ? 'concreto' : 'tabua')
+/** Pisos de cada parte da sala, tirados das cores do estilo e da marca. */
+function pisos(e: Estilo) {
+  const v = (piso: string, pisoLinha: string) => ({ ...e, piso, pisoLinha })
+  return {
+    pauta: e,
+    criacao: v(misturar(e.piso, e.tapete, 0.55), misturar(e.piso, e.rodape, 0.35)),
+    publicacao: v(misturar(e.tapete, e.piso, 0.35), misturar(e.tapete, '#1f2330', 0.25)),
+    hall: v(misturar(e.piso, '#ffffff', 0.25), misturar(e.pisoLinha, '#1f2330', 0.1)),
+  }
+}
+
+function divisoria(g: Ctx, e: Estilo, x: number, y: number, w: number, h: number) {
+  r(g, '#1f2330', x, y, w, h)
+  if (w > h) r(g, e.paredeDetalhe, x, y + 1, w, h - 3)
+  else r(g, e.paredeDetalhe, x + 1, y, w - 2, h)
+}
+
+/** Quadro de branding: logo em bloco na cor da marca, paleta e uma amostra de letra. */
+function quadroBranding(g: Ctx, e: Estilo, x: number, y: number, w: number, h: number) {
+  r(g, '#1f2330', x - 1, y - 1, w + 2, h + 2)
+  r(g, '#ffffff', x, y, w, h)
+  r(g, e.rodape, x + 3, y + 3, 14, 14)
+  r(g, '#ffffff', x + 6, y + 7, 8, 2)
+  r(g, '#ffffff', x + 6, y + 11, 5, 2)
+  const paleta = [e.rodape, misturar(e.rodape, '#ffffff', 0.5), misturar(e.rodape, '#1f2330', 0.45), e.tapete]
+  paleta.forEach((c, i) => r(g, c, x + 20 + i * 5.5, y + 4, 5, 5))
+  // "Aa" em pixel
+  r(g, '#1f2330', x + 21, y + 12, 2, 6)
+  r(g, '#1f2330', x + 25, y + 12, 2, 6)
+  r(g, '#1f2330', x + 23, y + 11, 2, 2)
+  r(g, '#1f2330', x + 23, y + 14, 2, 1)
+  r(g, '#1f2330', x + 30, y + 14, 4, 4)
+  r(g, '#ffffff', x + 31, y + 15, 2, 2)
+  r(g, '#1f2330', x + 34, y + 14, 1, 4)
+  r(g, '#d9dde6', x + 3, y + 21, w - 6, 2)
+  r(g, '#d9dde6', x + 3, y + 24, w - 16, 1)
+}
+
+/** Mural de regras: cortiça com um bilhete por regra ativa (até caber). */
+function quadroRegras(g: Ctx, x: number, y: number, w: number, h: number, regras: number) {
+  r(g, '#1f2330', x - 1, y - 1, w + 2, h + 2)
+  r(g, '#b98a5a', x, y, w, h)
+  for (let i = 0; i < 18; i++) r(g, '#a77a4c', x + ((i * 7) % (w - 2)) + 1, y + ((i * 5) % (h - 2)) + 1, 2, 1)
+  const notas = ['#fff3b0', '#ffd6a5', '#cdeac0', '#bde0fe', '#ffc8dd']
+  const n = Math.min(regras, 10)
+  for (let i = 0; i < n; i++) {
+    const nx = x + 3 + (i % 5) * 8
+    const ny = y + 3 + Math.floor(i / 5) * 12
+    r(g, notas[i % notas.length], nx, ny, 6, 9)
+    r(g, '#e05a4f', nx + 2, ny, 2, 1)
+    r(g, 'rgba(0,0,0,.25)', nx + 1, ny + 3, 4, 1)
+    r(g, 'rgba(0,0,0,.25)', nx + 1, ny + 5, 3, 1)
+  }
+  if (!n) {
+    r(g, '#ffffff', x + 14, y + 9, 16, 10)
+    r(g, '#d9dde6', x + 16, y + 12, 12, 1)
+    r(g, '#d9dde6', x + 16, y + 15, 8, 1)
+  }
+}
+
+/** Mesinha redonda com notebook (canto livre da Revisão e publicação). */
+function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 12, 26, 3)
+  r(g, '#1f2330', x - 1, y - 1, 28, 14)
+  r(g, e.mesa, x, y, 26, 10)
+  r(g, e.mesaSombra, x, y + 10, 26, 2)
+  r(g, '#2a2d36', x + 8, y + 2, 10, 6)
+  r(g, '#9fb3d6', x + 9, y + 3, 8, 3)
+  r(g, '#f2b233', x + 2, y + 3, 4, 5)
+}
+
+/** Desenha uma sala de marca inteira (sem os bonecos): Pauta, Criação e Revisão em cima, hall embaixo. */
+export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number }) {
+  const p = pisos(estilo)
+  const topoHall = PAREDE_DEPTO_Y + 6
+  piso(g, p.hall, x0, SALA_W, topoHall, SALA_H - topoHall, 'ladrilho')
+  piso(g, p.pauta, x0, 104, PAREDE_H, topoHall - PAREDE_H, estilo.tijolo ? 'concreto' : 'tabua')
+  piso(g, p.criacao, x0 + 108, 104, PAREDE_H, topoHall - PAREDE_H, 'xadrez')
+  piso(g, p.publicacao, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, 'carpete')
   parede(g, estilo, x0, SALA_W)
-  janela(g, x0 + 150, 7, 30, noite)
-  janela(g, x0 + 186, 7, 30, noite)
-  estante(g, x0 + 8, 2)
-  quadro(g, x0 + 60, 5)
-  cafe(g, x0 + 186, 74)
-  tripe(g, x0 + 210, 98)
-  planta(g, x0 + 204, 138)
-  planta(g, x0 + 204, 36)
-  planta(g, x0 + 4, 138)
+
+  // parede do fundo: estante e calendário (Pauta), janelas e branding (Criação), mural de regras (Revisão)
+  estante(g, x0 + 6, 2)
+  const c = QUADROS.calendario
+  desenharCalendario(g, x0, quadros.dias, quadros.hoje, c)
+  janela(g, x0 + 112, 7, 20, noite)
+  janela(g, x0 + 188, 7, 20, noite)
+  const b = QUADROS.branding
+  quadroBranding(g, estilo, x0 + b.x, b.y, b.w, b.h)
+  janela(g, x0 + 222, 7, 18, noite)
+  janela(g, x0 + 296, 7, 18, noite)
+  const q = QUADROS.regras
+  quadroRegras(g, x0 + q.x, q.y, q.w, q.h, quadros.regras)
+
+  // divisórias entre os departamentos e a parede do hall, com uma porta em cada
+  divisoria(g, estilo, x0 + 104, PAREDE_H, 4, topoHall - PAREDE_H)
+  divisoria(g, estilo, x0 + 212, PAREDE_H, 4, topoHall - PAREDE_H)
+  let ultimo = 0
+  for (const d of DEPTOS) {
+    divisoria(g, estilo, x0 + ultimo, PAREDE_DEPTO_Y, d.porta - 15 - ultimo, 6)
+    r(g, estilo.rodape, x0 + d.porta - 15, PAREDE_DEPTO_Y + 4, 30, 2)
+    ultimo = d.porta + 15
+  }
+  divisoria(g, estilo, x0 + ultimo, PAREDE_DEPTO_Y, SALA_W - ultimo, 6)
+
+  // mesas
   for (const id of Object.keys(MESAS) as AgenteId[]) {
     const m = MESAS[id]
     mesa(g, estilo, x0 + m.x, m.y)
     cadeira(g, estilo, x0 + m.x + 9, m.y + 17)
   }
-  // parede de baixo, com a porta
+  tripe(g, x0 + MESAS.cinegrafista.x + 33, MESAS.cinegrafista.y - 4)
+  mesinha(g, estilo, x0 + 254, 102)
+
+  // hall: tapete da marca no meio (o nome vai por cima), sofá, café e plantas
+  r(g, '#1f2330', x0 + 107, 179, 106, 36)
+  r(g, estilo.rodape, x0 + 108, 180, 104, 34)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 183, 98, 1)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 210, 98, 1)
+  r(g, estilo.tapete, x0 + 12, 182, 60, 34)
+  sofa(g, x0 + 22, 186, estilo.cadeira)
+  r(g, '#1f2330', x0 + 31, 207, 22, 7)
+  r(g, estilo.mesa, x0 + 32, 208, 20, 5)
+  cafe(g, x0 + CAFE.x, CAFE.y)
+  planta(g, x0 + 4, 216)
+  planta(g, x0 + 302, 216)
+  planta(g, x0 + 300, 160)
+  // parede de baixo, com a porta principal
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18, 5)
   r(g, '#1f2330', x0 + PORTA_X + 18, SALA_H - 5, SALA_W - PORTA_X - 18, 5)
   r(g, estilo.rodape, x0 + PORTA_X - 18, SALA_H - 2, 36, 2)
@@ -229,9 +397,12 @@ export function desenharSuaSala(g: Ctx, x0: number) {
   estante(g, x0 + 62, 2)
   r(g, VOCE.tapete, x0 + 40, 66, 82, 52)
   r(g, '#2a5288', x0 + 42, 68, 78, 1)
-  sofa(g, x0 + 104, 128, '#2a5288')
+  r(g, '#2a5288', x0 + 96, 176, 56, 38)
+  sofa(g, x0 + 104, 184, '#e6e8ee')
+  cafe(g, x0 + 8, 186)
   planta(g, x0 + 140, 36)
   planta(g, x0 + 4, 138)
+  planta(g, x0 + 140, 216)
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18 - 32, 5)
   r(g, '#1f2330', x0 + 96, SALA_H - 5, VOCE_W - 96, 5)
   r(g, VOCE.rodape, x0 + 62, SALA_H - 2, 34, 2)
@@ -262,15 +433,17 @@ export function desenharMesaVoce(g: Ctx, x0: number) {
   r(g, '#d9dde6', x0 + x + 4, y + 4, 10, 6)
 }
 
-export function desenharCalendario(g: Ctx, x0: number, marcados: Set<number>, hoje: number) {
-  const { x, y, w, h } = CALENDARIO
+export function desenharCalendario(g: Ctx, x0: number, marcados: Set<number>, hoje: number, q: { x: number; y: number; w: number; h: number } = CALENDARIO) {
+  const { x, y, w, h } = q
   r(g, '#1f2330', x0 + x - 1, y - 1, w + 2, h + 2)
   r(g, '#ffffff', x0 + x, y, w, h)
   r(g, '#b74e45', x0 + x, y, w, 5)
+  const passoX = (w - 4) / 7
+  const passoY = (h - 8) / 5
   for (let d = 1; d <= 31; d++) {
     const c = (d - 1) % 7
     const l = Math.floor((d - 1) / 7)
     const cor = d === hoje ? '#1e3d66' : marcados.has(d) ? '#f2b233' : '#d9dde6'
-    r(g, cor, x0 + x + 2 + c * 4.4, y + 7 + l * 3.4, 3, 2)
+    r(g, cor, x0 + x + 2 + c * passoX, y + 7 + l * passoY, Math.max(3, passoX - 1.4), Math.max(2, passoY - 1.4))
   }
 }
