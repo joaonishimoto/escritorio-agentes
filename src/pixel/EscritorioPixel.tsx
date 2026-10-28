@@ -475,10 +475,13 @@ export function EscritorioPixel({
       const mx = xVoce + MESA_VOCE.x
       if (x >= xVoce + CALENDARIO.x && x <= xVoce + CALENDARIO.x + CALENDARIO.w && y <= CALENDARIO.y + CALENDARIO.h) return focar('calendario')
       if (x >= mx - 6 && x <= mx + MESA_VOCE.w + 6 && y >= MESA_VOCE.y - 24 && y <= MESA_VOCE.y + 20) return focar('voce')
-      return
+      return focar(null) // clicou fora: fecha o painel aberto
     }
     const sala = Math.floor(x / PASSO_SALA)
-    if (sala !== indiceAtivo && marcas[sala]) return aoEscolherMarca(marcas[sala].id)
+    if (sala !== indiceAtivo && marcas[sala]) {
+      focar(null)
+      return aoEscolherMarca(marcas[sala].id)
+    }
     const lx = x - sala * PASSO_SALA
     for (const a of AGENTES) {
       const m = MESAS[a.id]
