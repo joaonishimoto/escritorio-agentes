@@ -392,6 +392,8 @@ function Painel({ logado }: { logado: boolean }) {
       {novo && marcaId && (
         <NovoPost
           marcaId={marcaId}
+          marcaNome={marca?.nome}
+          marcaCor={marca ? corDaMarca(marca) : undefined}
           neutra={!!marca?.identidade?.neutra}
           inicial={briefingInicial}
           aoFechar={() => { setNovo(false); setBriefingInicial(undefined) }}

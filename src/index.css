@@ -733,3 +733,137 @@ i.falhou { background: var(--danger, #b42318) }
   .painel.pa::before { position: sticky; top: 0; z-index: 2; margin: 8px auto -10px }
   .pa-topo { padding-top: 14px }
 }
+
+/* novo post */
+.modal.np { width: min(1040px, 100%); height: min(860px, calc(100% - 32px)); padding: 0; gap: 0; overflow: hidden }
+.np-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 24px 14px; border-bottom: 1px solid var(--border) }
+.np-topo h2 { font-size: 18px }
+.np-topo p { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); margin-top: 3px }
+.np-corpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px }
+.np-principal { overflow-y: auto; padding: 8px 24px 28px; display: flex; flex-direction: column }
+.np-lado { overflow-y: auto; padding: 18px; border-left: 1px solid var(--border); background: var(--surface-muted); display: flex; flex-direction: column; gap: 14px }
+.np-secao { display: flex; flex-direction: column; gap: 10px; padding: 18px 0; border-bottom: 1px solid var(--border) }
+.np-secao:last-child { border-bottom: 0 }
+.np-secao > header { display: flex; align-items: center; gap: 10px }
+.np-secao h3 { font-size: 15px; font-weight: 600; color: var(--foreground) }
+.np-numero { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--foreground); color: var(--background); flex: none }
+.np-extra { margin-left: auto; font-size: 12px; color: var(--muted-foreground) }
+.np-extra .link { font-size: 13px; padding: 2px 6px }
+.np-pedido { min-height: 120px; font-size: 15px; line-height: 1.55; padding: 12px 14px; border-radius: var(--radius-lg) }
+.np-chips { display: flex; flex-wrap: wrap; gap: 6px }
+.np-chips button { height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--muted-foreground); font: inherit; font-size: 13px; cursor: pointer }
+.np-chips button:hover { color: var(--foreground); border-color: var(--border-strong) }
+.np-ideias-botao, .np-ideias-movel { display: none }
+.np-formatos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px }
+.np-formatos button, .np-quando button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--surface); color: var(--foreground); font: inherit; cursor: pointer; transition: border-color .12s, box-shadow .12s, background-color .12s }
+.np-formatos button svg { color: var(--muted-foreground); margin-bottom: 6px }
+.np-formatos button strong, .np-quando button strong { font-size: 14px; font-weight: 600 }
+.np-formatos button span, .np-quando button span { font-size: 12px; color: var(--muted-foreground); line-height: 1.35 }
+.np-formatos button:hover, .np-quando button:hover { border-color: var(--border-strong) }
+.np-formatos button.ativo, .np-quando button.ativo { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)) }
+.np-formatos button.ativo svg { color: var(--primary) }
+.np-slides { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 500 }
+.np-segmentos { display: inline-flex; padding: 3px; gap: 2px; border-radius: var(--radius-md); background: var(--surface-muted); border: 1px solid var(--border); flex-wrap: wrap }
+.np-segmentos button { min-width: 34px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--muted-foreground); font: inherit; font-size: 13px; cursor: pointer }
+.np-segmentos button.ativo { background: var(--surface); color: var(--foreground); font-weight: 600; box-shadow: var(--shadow-sm) }
+.np-nota { font-size: 13px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface-muted); color: var(--muted-foreground) }
+.np-soltar { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 20px 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg);
+  color: var(--muted-foreground); text-align: center; cursor: pointer; transition: border-color .12s, background-color .12s; font-size: 14px }
+.np-soltar input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
+.np-soltar span { color: var(--foreground); font-weight: 500 }
+.np-soltar small { font-size: 12px }
+.np-soltar:hover, .np-soltar.ativo { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)) }
+.np-refs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px }
+.np-refs li { position: relative; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface) }
+.np-refs li.imagem img { width: 72px; height: 72px; object-fit: cover; border-radius: calc(var(--radius-md) - 1px); display: block }
+.np-refs li.link { display: flex; align-items: center; height: 36px; padding: 0 30px 0 10px; font-size: 13px; max-width: 100% }
+.np-refs li.link a { color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.np-refs li > button { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted-foreground); font-size: 14px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-sm) }
+.np-refs li.link > button { top: 7px; right: 6px; box-shadow: none; border: 0 }
+.np-link { display: flex; gap: 8px }
+.np-link input { flex: 1; min-width: 0 }
+.np-dica { font-size: 13px; color: var(--muted-foreground); line-height: 1.45 }
+.np-estilo { display: flex; flex-direction: column; gap: 16px }
+.np-estilo h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); margin-bottom: 8px }
+.np-opcoes { display: flex; flex-wrap: wrap; gap: 6px }
+.np-opcoes button { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground); font: inherit; font-size: 13px; cursor: pointer }
+.np-opcoes button:hover { border-color: var(--border-strong) }
+.np-opcoes button.ativo { background: var(--foreground); color: var(--background); border-color: var(--foreground) }
+.np-layouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px }
+.np-layouts button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 6px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px; cursor: pointer; text-align: center }
+.np-layouts button:hover { border-color: var(--border-strong) }
+.np-layouts button.ativo { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) }
+/* miniaturas dos layouts */
+.np-mini { position: relative; width: 44px; height: 55px; border-radius: 4px; overflow: hidden; background: #ece9e1; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08) }
+.np-mini i, .np-mini b { position: absolute; display: block }
+.np-mini.variar { display: grid; place-items: center; font-size: 18px; font-weight: 600; color: var(--muted-foreground); background: var(--surface-muted) }
+.np-mini.foto-cheia { background: linear-gradient(160deg, #8fa98a, #3e5a48) }
+.np-mini.foto-cheia i { left: 0; right: 0; bottom: 0; height: 45%; background: linear-gradient(transparent, rgba(0,0,0,.6)) }
+.np-mini.foto-cheia b { left: 6px; bottom: 7px; width: 28px; height: 4px; background: #fff; box-shadow: 0 -7px 0 #fff }
+.np-mini.tipografico-cor { background: #d9473c }
+.np-mini.tipografico-cor i { left: 6px; top: 12px; width: 32px; height: 8px; background: #fff; box-shadow: 0 12px 0 #fff }
+.np-mini.tipografico-cor b { left: 6px; bottom: 8px; width: 16px; height: 3px; background: rgba(255,255,255,.6) }
+.np-mini.editorial-claro { background: #f7f4ec }
+.np-mini.editorial-claro i { left: 6px; top: 6px; right: 6px; height: 24px; background: #b9a58a }
+.np-mini.editorial-claro b { left: 6px; top: 36px; width: 30px; height: 4px; background: #2a2a2a; box-shadow: 0 7px 0 #c9453b }
+.np-mini.dividido { background: linear-gradient(90deg, #6d8fae 50%, #f4f1ea 50%) }
+.np-mini.dividido i { right: 4px; top: 18px; width: 14px; height: 4px; background: #2a2a2a; box-shadow: 0 7px 0 #2a2a2a }
+.np-mini.numero-gigante { background: #1f2330 }
+.np-mini.numero-gigante i { left: 7px; top: 8px; width: 18px; height: 28px; border: 5px solid #f2b233; border-radius: 4px }
+.np-mini.numero-gigante b { left: 7px; bottom: 7px; width: 26px; height: 3px; background: #fff }
+.np-mini.ficha-tecnica { background: #fbfaf6; background-image: repeating-linear-gradient(transparent 0 9px, #cfc8b8 9px 10px) }
+.np-mini.ficha-tecnica i { left: 22px; top: 0; bottom: 0; width: 1px; background: #cfc8b8 }
+.np-mini.ficha-tecnica b { left: 5px; top: 4px; width: 14px; height: 3px; background: #2a2a2a }
+.np-mini.minimalista-escuro { background: #121212 }
+.np-mini.minimalista-escuro i { left: 10px; top: 25px; width: 24px; height: 4px; background: #eee }
+.np-mini.minimalista-escuro b { left: 19px; top: 33px; width: 6px; height: 3px; background: #e0473c }
+.np-mini.colagem { background: #e9e3d6 }
+.np-mini.colagem i { left: 5px; top: 7px; width: 22px; height: 26px; background: #fff; transform: rotate(-8deg); box-shadow: 1px 1px 0 rgba(0,0,0,.15) }
+.np-mini.colagem b { right: 4px; bottom: 6px; width: 20px; height: 22px; background: #c9b48e; transform: rotate(7deg) }
+.np-quando { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.np-data { align-self: flex-start; height: 38px }
+.np-ideias { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border) }
+.np-ideias-topo { display: flex; gap: 10px; align-items: flex-start }
+.np-ideias-topo strong { font-size: 14px }
+.np-ideias-topo p { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4 }
+.np-ideias-avatar { width: 30px; height: 30px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #3f7650; color: #fff; font-weight: 700; font-size: 14px }
+.np-ideias-busca { display: flex; gap: 6px }
+.np-ideias-busca input { flex: 1; min-width: 0 }
+.np-ideias-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.np-ideias-lista button { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 10px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground); font: inherit; cursor: pointer }
+.np-ideias-lista button:hover { border-color: var(--primary) }
+.np-ideias-lista strong { font-size: 13px; font-weight: 600; line-height: 1.35 }
+.np-ideia-formato { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground) }
+.np-ideia-gancho { font-size: 12px; color: var(--muted-foreground); line-height: 1.4 }
+.np-ideia-usar { font-size: 12px; color: var(--primary); font-weight: 500; margin-top: 2px; opacity: 0; transition: opacity .12s }
+.np-ideias-lista button:hover .np-ideia-usar, .np-ideias-lista button:focus-visible .np-ideia-usar { opacity: 1 }
+.np-ideias-lista.carregando li { height: 64px; border-radius: var(--radius-md); background: linear-gradient(90deg, var(--surface-muted), var(--surface-hover), var(--surface-muted)); background-size: 200% 100%; animation: brilho 1.2s linear infinite }
+@keyframes brilho { to { background-position: -200% 0 } }
+.np-resumo { padding: 14px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border) }
+.np-resumo h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); margin-bottom: 10px }
+.np-resumo dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 13px }
+.np-resumo dt { color: var(--muted-foreground) }
+.np-resumo dd { margin: 0; text-align: right; font-weight: 500 }
+.np-rodape { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--surface) }
+.np-rodape > p { flex: 1; min-width: 0; font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.np-rodape .aviso { color: var(--danger-strong); font-size: 13px; white-space: normal }
+@media (max-width: 860px) {
+  .np-corpo { grid-template-columns: 1fr }
+  .np-lado { display: none }
+  .np-ideias-botao { display: flex; align-items: center; gap: 8px; align-self: flex-start; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #3f765055;
+    background: color-mix(in srgb, #3f7650 8%, var(--surface)); color: #2f5d3d; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer }
+  .np-ideias-movel { display: block }
+}
+@media (max-width: 760px) {
+  .modal.np { height: 96%; max-height: 96%; padding: 0 }
+  .np-topo { padding: 14px 16px 12px }
+  .np-principal { padding: 0 16px 20px }
+  .np-formatos { grid-template-columns: 1fr 1fr }
+  .np-quando { grid-template-columns: 1fr }
+  .np-rodape { padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); flex-wrap: wrap }
+  .np-rodape > p.np-caminho { display: none }
+  .np-rodape > p.aviso { flex-basis: 100% }
+  .np-rodape .primario, .np-rodape .secundario { flex: 1; height: 44px }
+  .np-rodape .secundario { flex: 0 0 auto }
+}

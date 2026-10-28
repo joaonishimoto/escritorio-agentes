@@ -35,6 +35,8 @@ export interface Post {
   voltas_revisao: number
   custo_usd: number
   referencias?: Referencia[]
+  /** escolhas do dono no Novo post */
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string }
 }
 
 export type Referencia = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }

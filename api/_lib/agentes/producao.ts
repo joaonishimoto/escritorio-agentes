@@ -34,6 +34,15 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   const recentes = await postsRecentes(ctx)
   const caminhos = sugerirCaminhos(recentes)
   const angulos = recentes.map((r) => r.angulo).filter(Boolean)
+  const pref = ctx.post.preferencias ?? {}
+  const escolhas = [
+    pref.formato && `Formato: ${pref.formato}`,
+    pref.estrutura && `Estrutura: ${pref.estrutura} (${ESTRUTURAS[pref.estrutura as keyof typeof ESTRUTURAS]})`,
+    pref.layout && `Layout: ${pref.layout} (${LAYOUTS[pref.layout as keyof typeof LAYOUTS]})`,
+    pref.voz && `Voz: ${pref.voz} (${VOZES[pref.voz as keyof typeof VOZES]})`,
+    pref.slides && pref.formato !== 'reel' && `Quantidade de slides: ${pref.slides}`,
+  ].filter(Boolean)
+  const textoEscolhas = escolhas.length ? `\n\n## Escolhas do dono para este post (obrigatórias, valem mais que os caminhos sorteados)\n${escolhas.map((e) => `- ${e}`).join('\n')}` : ''
   const { dados, uso } = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
@@ -42,11 +51,16 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
   })
+  // o que o dono escolheu não fica a critério do modelo
+  if (pref.formato) dados.formato = pref.formato as typeof dados.formato
+  if (pref.estrutura && pref.estrutura in ESTRUTURAS) dados.estrutura = pref.estrutura as typeof dados.estrutura
+  if (pref.layout && pref.layout in LAYOUTS) dados.layout = pref.layout as typeof dados.layout
+  if (pref.voz && pref.voz in VOZES) dados.voz = pref.voz as typeof dados.voz
   await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nEstrutura: ${dados.estrutura} · Layout: ${dados.layout} · Voz: ${dados.voz}\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
   await db.from('posts').update({ formato: dados.formato }).eq('id', ctx.post.id)
   return { saida: dados, uso, entrega: 'Pauta pronta' }

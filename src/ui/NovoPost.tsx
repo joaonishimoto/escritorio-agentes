@@ -1,20 +1,132 @@
-import { useState, type ClipboardEvent, type FormEvent } from 'react'
+import { useState, type ClipboardEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { chamarApi } from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { ESTRUTURAS, LAYOUTS, VOZES, nomeDe } from '../lib/estilos'
 import type { Post } from '../lib/dados'
 
 type Ref = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
+type Formato = '' | 'carrossel' | 'foto' | 'reel'
+interface Ideia {
+  titulo: string
+  formato: string
+  gancho: string
+  briefing: string
+}
 
-export function NovoPost({ marcaId, neutra, inicial, aoCriar, aoFechar }: { marcaId: string; neutra?: boolean; inicial?: string; aoCriar: (p: Post) => void; aoFechar: () => void }) {
+const FORMATOS: { id: Formato; nome: string; desc: string }[] = [
+  { id: '', nome: 'A equipe decide', desc: 'Escolhe pelo pedido' },
+  { id: 'carrossel', nome: 'Carrossel', desc: '2 a 10 slides' },
+  { id: 'foto', nome: 'Foto', desc: 'Uma imagem só' },
+  { id: 'reel', nome: 'Reel', desc: 'Vídeo curto com IA' },
+]
+
+const PONTOS_DE_PARTIDA = [
+  { nome: 'Dica rápida', texto: 'Uma dica rápida e prática sobre ' },
+  { nome: 'Passo a passo', texto: 'Um passo a passo de como ' },
+  { nome: 'Curiosidade', texto: 'Uma curiosidade pouco conhecida sobre ' },
+  { nome: 'Erro comum', texto: 'O erro que quase todo mundo comete com ' },
+  { nome: 'Novidade', texto: 'Anunciar a novidade: ' },
+  { nome: 'Data especial', texto: 'Post para a data: ' },
+]
+
+const QUANTIDADES = [0, 3, 4, 5, 6, 7, 8, 10]
+
+/** Data no formato do campo datetime-local, no fuso do navegador. */
+function paraCampo(d: Date) {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+function amanhaAs19() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(19, 0, 0, 0)
+  return paraCampo(d)
+}
+
+/** Ícone pequeno de cada formato, desenhado em SVG. */
+function IconeFormato({ id }: { id: Formato }) {
+  const props = { width: 22, height: 22, viewBox: '0 0 22 22', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true }
+  if (id === 'carrossel')
+    return (
+      <svg {...props}>
+        <rect x="5" y="4" width="10" height="14" rx="2" />
+        <path d="M17.5 6v10M2.5 6v10" />
+      </svg>
+    )
+  if (id === 'foto')
+    return (
+      <svg {...props}>
+        <rect x="3.5" y="4" width="15" height="14" rx="2" />
+        <circle cx="8.5" cy="9" r="1.6" />
+        <path d="m4 16 4.5-4 3 3 2.5-2 4 3.5" />
+      </svg>
+    )
+  if (id === 'reel')
+    return (
+      <svg {...props}>
+        <rect x="5" y="2.5" width="12" height="17" rx="2.5" />
+        <path d="m9.5 8 4 3-4 3z" fill="currentColor" stroke="none" />
+      </svg>
+    )
+  return (
+    <svg {...props}>
+      <path d="M11 3.5v3M11 15.5v3M3.5 11h3M15.5 11h3M5.7 5.7l2.1 2.1M14.2 14.2l2.1 2.1M5.7 16.3l2.1-2.1M14.2 7.8l2.1-2.1" />
+    </svg>
+  )
+}
+
+function Secao({ numero, titulo, extra, children }: { numero: number; titulo: string; extra?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="np-secao">
+      <header>
+        <span className="np-numero">{numero}</span>
+        <h3>{titulo}</h3>
+        {extra && <span className="np-extra">{extra}</span>}
+      </header>
+      {children}
+    </section>
+  )
+}
+
+export function NovoPost({
+  marcaId,
+  marcaNome,
+  marcaCor,
+  neutra,
+  inicial,
+  aoCriar,
+  aoFechar,
+}: {
+  marcaId: string
+  marcaNome?: string
+  marcaCor?: string
+  neutra?: boolean
+  inicial?: string
+  aoCriar: (p: Post) => void
+  aoFechar: () => void
+}) {
+  const [formato, setFormato] = useState<Formato>('')
+  const [slides, setSlides] = useState(0)
   const [briefing, setBriefing] = useState(inicial ?? '')
   const [refs, setRefs] = useState<Ref[]>([])
   const [link, setLink] = useState('')
   const [subindo, setSubindo] = useState(0)
+  const [arrastando, setArrastando] = useState(false)
+  const [estiloAberto, setEstiloAberto] = useState(false)
+  const [estrutura, setEstrutura] = useState('')
+  const [layout, setLayout] = useState('')
+  const [voz, setVoz] = useState('')
+  const [agendar, setAgendar] = useState(false)
+  const [quando, setQuando] = useState(amanhaAs19)
+  const [linha, setLinha] = useState('')
+  const [ideias, setIdeias] = useState<Ideia[]>([])
+  const [pensando, setPensando] = useState(false)
+  const [ideiasAbertas, setIdeiasAbertas] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
   const subir = async (arquivos: File[]) => {
-    if (!supabase) return
+    if (!supabase) return setErro('Entre na sua conta para mandar imagens')
     const imagens = arquivos.filter((f) => f.type.startsWith('image/')).slice(0, 12 - refs.length)
     setSubindo((n) => n + imagens.length)
     for (const f of imagens) {
@@ -40,6 +152,11 @@ export function NovoPost({ marcaId, neutra, inicial, aoCriar, aoFechar }: { marc
       void subir(arquivos)
     }
   }
+  const soltar = (e: DragEvent) => {
+    e.preventDefault()
+    setArrastando(false)
+    void subir(Array.from(e.dataTransfer.files))
+  }
 
   const addLink = () => {
     const u = link.trim()
@@ -49,13 +166,49 @@ export function NovoPost({ marcaId, neutra, inicial, aoCriar, aoFechar }: { marc
     setErro(null)
   }
 
+  const pedirIdeias = async () => {
+    setPensando(true)
+    setErro(null)
+    try {
+      const r = await chamarApi<{ ideias: Ideia[] }>('ideias', { marca_id: marcaId, linha })
+      setIdeias(r.ideias)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'O pesquisador não respondeu')
+    } finally {
+      setPensando(false)
+    }
+  }
+  const usarIdeia = (i: Ideia) => {
+    setBriefing(i.briefing)
+    const f = i.formato.toLowerCase()
+    if (f.includes('reel') || f.includes('vídeo')) setFormato('reel')
+    else if (f.includes('carrossel')) setFormato('carrossel')
+    else if (f.includes('foto')) setFormato('foto')
+    setIdeiasAbertas(false)
+    document.getElementById('np-pedido')?.focus()
+  }
+
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
+    if (!briefing.trim()) return setErro('Escreva o que você quer postar')
     if (neutra && refs.length === 0) return setErro('Na sala neutra, mande pelo menos uma referência')
+    if (agendar && new Date(quando).getTime() < Date.now()) return setErro('O horário para publicar já passou')
     setEnviando(true)
     setErro(null)
     try {
-      const { post } = await chamarApi<{ post: Post }>('posts', { marca_id: marcaId, briefing, referencias: refs })
+      const { post } = await chamarApi<{ post: Post }>('posts', {
+        marca_id: marcaId,
+        briefing,
+        referencias: refs,
+        preferencias: {
+          formato: formato || undefined,
+          slides: formato === 'carrossel' && slides ? slides : undefined,
+          estrutura: estrutura || undefined,
+          layout: formato === 'reel' ? undefined : layout || undefined,
+          voz: voz || undefined,
+          agendar_para: agendar ? new Date(quando).toISOString() : undefined,
+        },
+      })
       aoCriar(post)
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Não deu para criar o post')
@@ -63,53 +216,249 @@ export function NovoPost({ marcaId, neutra, inicial, aoCriar, aoFechar }: { marc
     }
   }
 
+  const escolhasDeEstilo = [nomeDe(ESTRUTURAS, estrutura), formato !== 'reel' ? nomeDe(LAYOUTS, layout) : undefined, nomeDe(VOZES, voz)].filter(Boolean)
+  const resumoFormato = formato ? `${FORMATOS.find((f) => f.id === formato)!.nome}${formato === 'carrossel' && slides ? ` · ${slides} slides` : ''}` : 'A equipe decide'
+  const quandoTexto = agendar
+    ? new Date(quando).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : 'Você escolhe ao aprovar'
+
+  const painelIdeias = (
+    <div className="np-ideias">
+      <div className="np-ideias-topo">
+        <span className="np-ideias-avatar" aria-hidden>P</span>
+        <div>
+          <strong>Sem ideia? Pergunte ao pesquisador</strong>
+          <p>Dê uma linha e ele sugere posts no tom da marca.</p>
+        </div>
+      </div>
+      <div className="np-ideias-busca">
+        <input
+          value={linha}
+          onChange={(e) => setLinha(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void pedirIdeias() } }}
+          placeholder="Ex.: dicas para o fim de semana"
+          aria-label="Linha para as ideias"
+        />
+        <button type="button" className="secundario" disabled={pensando} onClick={pedirIdeias}>
+          {pensando ? 'Pensando…' : ideias.length ? 'Outras' : 'Sugerir'}
+        </button>
+      </div>
+      {pensando && !ideias.length && (
+        <ul className="np-ideias-lista carregando">
+          {[0, 1, 2].map((i) => <li key={i} />)}
+        </ul>
+      )}
+      {ideias.length > 0 && (
+        <ul className="np-ideias-lista">
+          {ideias.map((i) => (
+            <li key={i.titulo}>
+              <button type="button" onClick={() => usarIdeia(i)}>
+                <span className="np-ideia-formato">{i.formato}</span>
+                <strong>{i.titulo}</strong>
+                <span className="np-ideia-gancho">“{i.gancho}”</span>
+                <span className="np-ideia-usar">Usar esta ideia →</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+
   return (
     <div className="modal-fundo" onClick={aoFechar}>
-      <form className="modal" onSubmit={enviar} onClick={(e) => e.stopPropagation()} onPaste={colar}>
-        <h2>Novo post</h2>
-        <label htmlFor="briefing">O que você quer postar?</label>
-        <textarea
-          id="briefing"
-          rows={4}
-          required
-          autoFocus
-          placeholder={neutra ? 'Ex.: carrossel no estilo dessas referências sobre…' : 'Ex.: carrossel sobre a história do Negroni, com a receita no final'}
-          value={briefing}
-          onChange={(e) => setBriefing(e.target.value)}
-        />
+      <form className="modal np" onSubmit={enviar} onClick={(e) => e.stopPropagation()} onPaste={colar} aria-label="Novo post">
+        <header className="np-topo">
+          <div>
+            <h2>Novo post</h2>
+            <p>
+              <i className="ponto-marca" style={{ background: marcaCor ?? 'var(--primary)' }} /> {marcaNome ?? 'Marca'}
+              {neutra && <span className="chip">sala neutra</span>}
+            </p>
+          </div>
+          <button type="button" className="fechar" onClick={aoFechar} aria-label="Fechar">×</button>
+        </header>
 
-        <label>Referências {neutra ? '(obrigatório na sala neutra)' : '(opcional)'}</label>
-        <p className="muted dica">Imagens de estilo, posts que você gostou, prints, links. Dá para colar imagem com Ctrl/⌘+V.</p>
-        {refs.length > 0 && (
-          <ul className="refs">
-            {refs.map((r, i) => (
-              <li key={r.url}>
-                {r.tipo === 'imagem' ? <img src={r.url} alt={`Referência ${i + 1}`} /> : <a href={r.url} target="_blank" rel="noreferrer">{r.url.replace(/^https?:\/\//, '').slice(0, 40)}</a>}
-                <button type="button" className="fechar" aria-label="Tirar referência" onClick={() => setRefs((x) => x.filter((_, n) => n !== i))}>×</button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="refs-acoes">
-          <label className="botao-arquivo secundario">
-            {subindo ? `Subindo ${subindo}…` : 'Adicionar imagens'}
-            <input type="file" accept="image/*" multiple onChange={(e) => { void subir(Array.from(e.target.files ?? [])); e.target.value = '' }} />
-          </label>
-          <input
-            className="refs-link"
-            placeholder="Colar um link"
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
-          />
-          <button type="button" className="secundario" disabled={!link.trim()} onClick={addLink}>Adicionar</button>
+        <div className="np-corpo">
+          <div className="np-principal">
+            <Secao numero={1} titulo="O que você quer postar?">
+              <button type="button" className="np-ideias-botao" onClick={() => setIdeiasAbertas(!ideiasAbertas)} aria-expanded={ideiasAbertas}>
+                Sem ideia? Pedir sugestões ao pesquisador
+              </button>
+              {ideiasAbertas && <div className="np-ideias-movel">{painelIdeias}</div>}
+              <textarea
+                id="np-pedido"
+                className="np-pedido"
+                rows={5}
+                autoFocus
+                placeholder={neutra ? 'Ex.: carrossel no estilo dessas referências sobre…' : 'Ex.: carrossel sobre a história do Negroni, com a receita no final'}
+                value={briefing}
+                onChange={(e) => setBriefing(e.target.value)}
+              />
+              <div className="np-chips" aria-label="Pontos de partida">
+                {PONTOS_DE_PARTIDA.map((p) => (
+                  <button key={p.nome} type="button" onClick={() => { setBriefing((b) => (b.trim() ? `${b.trim()}\n${p.texto}` : p.texto)); document.getElementById('np-pedido')?.focus() }}>
+                    {p.nome}
+                  </button>
+                ))}
+              </div>
+            </Secao>
+
+            <Secao numero={2} titulo="Formato">
+              <div className="np-formatos" role="radiogroup" aria-label="Formato">
+                {FORMATOS.map((f) => (
+                  <button key={f.id || 'auto'} type="button" role="radio" aria-checked={formato === f.id} className={formato === f.id ? 'ativo' : ''} onClick={() => setFormato(f.id)}>
+                    <IconeFormato id={f.id} />
+                    <strong>{f.nome}</strong>
+                    <span>{f.desc}</span>
+                  </button>
+                ))}
+              </div>
+              {formato === 'carrossel' && (
+                <div className="np-slides">
+                  <span>Slides</span>
+                  <div className="np-segmentos">
+                    {QUANTIDADES.map((q) => (
+                      <button key={q} type="button" className={slides === q ? 'ativo' : ''} onClick={() => setSlides(q)}>
+                        {q || 'Auto'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {formato === 'reel' && <p className="np-nota">O vídeo é gerado por IA a partir de cenas, sem texto na tela. A capa é um slide.</p>}
+            </Secao>
+
+            <Secao numero={3} titulo="Referências" extra={neutra ? 'obrigatório' : 'opcional'}>
+              <label
+                className={`np-soltar${arrastando ? ' ativo' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setArrastando(true) }}
+                onDragLeave={() => setArrastando(false)}
+                onDrop={soltar}
+              >
+                <input type="file" accept="image/*" multiple onChange={(e) => { void subir(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                  <path d="M11 14V4M7 8l4-4 4 4M4 14v3a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 18 17v-3" />
+                </svg>
+                <span>{subindo ? `Subindo ${subindo} imagem${subindo > 1 ? 'ns' : ''}…` : 'Arraste imagens, clique para escolher ou cole com ⌘/Ctrl+V'}</span>
+                <small>Estilos que você gostou, prints, fotos do produto</small>
+              </label>
+              {refs.length > 0 && (
+                <ul className="np-refs">
+                  {refs.map((r, i) => (
+                    <li key={r.url} className={r.tipo}>
+                      {r.tipo === 'imagem' ? <img src={r.url} alt={`Referência ${i + 1}`} /> : <a href={r.url} target="_blank" rel="noreferrer">{r.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 34)}</a>}
+                      <button type="button" aria-label="Tirar referência" onClick={() => setRefs((x) => x.filter((_, n) => n !== i))}>×</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="np-link">
+                <input
+                  placeholder="Ou cole um link (post, site, Pinterest)"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
+                  aria-label="Link de referência"
+                />
+                <button type="button" className="secundario" disabled={!link.trim()} onClick={addLink}>Adicionar</button>
+              </div>
+            </Secao>
+
+            <Secao
+              numero={4}
+              titulo="Estilo"
+              extra={
+                <button type="button" className="link" onClick={() => setEstiloAberto(!estiloAberto)} aria-expanded={estiloAberto}>
+                  {estiloAberto ? 'Fechar' : escolhasDeEstilo.length ? 'Editar' : 'Escolher'}
+                </button>
+              }
+            >
+              {!estiloAberto && (
+                <p className="np-dica">
+                  {escolhasDeEstilo.length ? escolhasDeEstilo.join(' · ') : 'A equipe varia estrutura, layout e voz sozinha, fugindo do que usou nos últimos posts.'}
+                </p>
+              )}
+              {estiloAberto && (
+                <div className="np-estilo">
+                  <div>
+                    <h4>Estrutura</h4>
+                    <div className="np-opcoes">
+                      <button type="button" className={!estrutura ? 'ativo' : ''} onClick={() => setEstrutura('')}>Variar</button>
+                      {ESTRUTURAS.map((x) => (
+                        <button key={x.id} type="button" title={x.desc} className={estrutura === x.id ? 'ativo' : ''} onClick={() => setEstrutura(x.id)}>{x.nome}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {formato !== 'reel' && (
+                    <div>
+                      <h4>Layout</h4>
+                      <div className="np-layouts">
+                        <button type="button" className={!layout ? 'ativo' : ''} onClick={() => setLayout('')}>
+                          <span className="np-mini variar">?</span>
+                          Variar
+                        </button>
+                        {LAYOUTS.map((x) => (
+                          <button key={x.id} type="button" className={layout === x.id ? 'ativo' : ''} onClick={() => setLayout(x.id)}>
+                            <span className={`np-mini ${x.id}`} aria-hidden><i /><b /></span>
+                            {x.nome}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <h4>Voz do texto</h4>
+                    <div className="np-opcoes">
+                      <button type="button" className={!voz ? 'ativo' : ''} onClick={() => setVoz('')}>Variar</button>
+                      {VOZES.map((x) => (
+                        <button key={x.id} type="button" title={x.desc} className={voz === x.id ? 'ativo' : ''} onClick={() => setVoz(x.id)}>{x.nome}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Secao>
+
+            <Secao numero={5} titulo="Quando publicar">
+              <div className="np-quando" role="radiogroup" aria-label="Quando publicar">
+                <button type="button" role="radio" aria-checked={!agendar} className={!agendar ? 'ativo' : ''} onClick={() => setAgendar(false)}>
+                  <strong>Decido na aprovação</strong>
+                  <span>Publico ou agendo quando o post chegar na minha mesa</span>
+                </button>
+                <button type="button" role="radio" aria-checked={agendar} className={agendar ? 'ativo' : ''} onClick={() => setAgendar(true)}>
+                  <strong>Já sei o horário</strong>
+                  <span>Vem sugerido na aprovação</span>
+                </button>
+              </div>
+              {agendar && <input type="datetime-local" className="np-data" value={quando} onChange={(e) => setQuando(e.target.value)} aria-label="Data e hora" />}
+              <p className="np-dica">Nada vai para o Instagram sem você aprovar.</p>
+            </Secao>
+          </div>
+
+          <aside className="np-lado">
+            {painelIdeias}
+            <div className="np-resumo">
+              <h4>Resumo do pedido</h4>
+              <dl>
+                <dt>Formato</dt>
+                <dd>{resumoFormato}</dd>
+                <dt>Estilo</dt>
+                <dd>{escolhasDeEstilo.length ? escolhasDeEstilo.join(' · ') : 'Variado'}</dd>
+                <dt>Referências</dt>
+                <dd>{refs.length ? `${refs.length} ${refs.length > 1 ? 'itens' : 'item'}` : 'Nenhuma'}</dd>
+                <dt>Publicação</dt>
+                <dd>{quandoTexto}</dd>
+              </dl>
+            </div>
+          </aside>
         </div>
 
-        {erro && <p className="aviso">{erro}</p>}
-        <div className="acoes">
+        <footer className="np-rodape">
+          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {formato === 'reel' ? 'vídeo' : 'design'} → revisão → você</p>}
           <button type="button" className="secundario" onClick={aoFechar}>Cancelar</button>
-          <button className="primario" disabled={enviando || subindo > 0}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
-        </div>
+          <button className="primario" disabled={enviando || subindo > 0 || !briefing.trim()}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
+        </footer>
       </form>
     </div>
   )

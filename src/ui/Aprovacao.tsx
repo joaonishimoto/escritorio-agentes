@@ -10,7 +10,11 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [confirmar, setConfirmar] = useState<'agora' | 'agendar' | null>(null)
-  const [quando, setQuando] = useState(sugestaoDeHorario)
+  // horário que você já tinha escolhido no Novo post, se ainda não passou
+  const [quando, setQuando] = useState(() => {
+    const d = post.preferencias?.agendar_para ? new Date(post.preferencias.agendar_para) : null
+    return d && d.getTime() > Date.now() + 5 * 60_000 ? paraCampo(d) : sugestaoDeHorario()
+  })
   const slides = [...(post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
 
   const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar') => {
