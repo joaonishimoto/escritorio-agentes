@@ -39,9 +39,12 @@ const Curadoria = z.object({
       motivo: z.string(),
     }),
   ),
+  pontual: z
+    .boolean()
+    .describe('true se a correção é um ajuste pequeno no que já existe (trocar/remover palavra ou letra, mudar uma cor, um tamanho, uma frase da legenda) e não pede novo conteúdo nem nova pesquisa'),
   refazer_a_partir_de: z
     .enum(['chefe', 'pesquisador', 'redator', 'designer', 'nenhum'])
-    .describe('primeiro agente que precisa refazer para atender a correção'),
+    .describe('primeiro agente que precisa refazer para atender a correção. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado'),
   instrucao: z.string().describe('o que esse agente deve mudar, em uma ou duas frases'),
 })
 
@@ -80,10 +83,14 @@ export const curador: Agente = async (ctx, passo, em) => {
     return { saida: dados, uso, entrega: `${dados.regras.length} regra(s) proposta(s) para você aceitar`, proximos: null, para: 'voce' }
   }
   await db.from('posts').update({ status: 'em_producao', voltas_revisao: 0 }).eq('id', ctx.post.id)
+  // ajuste pequeno: o designer edita os slides prontos, sem refazer pesquisa nem texto
+  const pontual = dados.pontual && !!(ctx.saidas.designer as { html?: string } | undefined)?.html
+  const agente = pontual ? 'designer' : dados.refazer_a_partir_de
+  const correcao = { comentario, instrucao: dados.instrucao, pontual }
   return {
     saida: dados,
     uso,
-    entrega: `Correção repassada ao ${dados.refazer_a_partir_de}`,
-    proximos: [{ agente: dados.refazer_a_partir_de, entrada: { feedback: `Correção do dono da marca: ${comentario}\n${dados.instrucao}` } }],
+    entrega: pontual ? 'Ajuste pequeno: direto pro designer' : `Correção repassada ao ${agente}`,
+    proximos: [{ agente, entrada: { feedback: `Correção do dono da marca: ${comentario}\n${dados.instrucao}`, correcao } }],
   }
 }

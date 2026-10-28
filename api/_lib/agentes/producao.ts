@@ -3,7 +3,7 @@ import { gerarJson, gerarTexto } from '../claude.js'
 import { sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { renderizarSlides } from '../render.js'
-import { feedback, type Agente } from './tipos.js'
+import { feedback, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
 const Pauta = z.object({
@@ -81,7 +81,73 @@ export const redator: Agente = async (ctx, passo, em) => {
 }
 
 // ───────── Designer ─────────
+interface Correcao {
+  comentario: string
+  instrucao: string
+  pontual: boolean
+}
+
+const Trocas = z.object({
+  trocas: z
+    .array(z.object({ de: z.string().describe('trecho exato que existe hoje no HTML'), para: z.string() }))
+    .describe('substituições mínimas no HTML dos slides; vazio se só a legenda muda'),
+  legenda: z.string().describe('a legenda completa já ajustada, ou vazio se a legenda não muda'),
+})
+
+async function salvarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], html: string) {
+  const imagens = await renderizarSlides(html)
+  const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
+  const slides = []
+  for (const [i, img] of imagens.entries()) {
+    const caminho = `${pasta}/slide-${i + 1}.jpg`
+    const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, img, { contentType: 'image/jpeg', upsert: true })
+    if (error) throw new Error(`Falha ao subir slide ${i + 1}: ${error.message}`)
+    slides.push({ ordem: i + 1, caminho, url: urlPublica(caminho) })
+  }
+  await db.from('posts').update({ slides }).eq('id', ctx.post.id)
+  return slides
+}
+
+/** Ajuste pequeno pedido por você: edita o HTML pronto em vez de refazer tudo. Devolve null se não deu para editar. */
+async function ajustePontual(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], correcao: Correcao) {
+  const anterior = (ctx.saidas.designer as { html?: string } | undefined)?.html
+  if (!anterior) return null
+  await em.inicio('Ajuste pequeno: editando os slides prontos')
+  const { dados, uso } = await gerarJson({
+    modelo: 'claude-sonnet-5-5',
+    effort: 'low',
+    sistema: sistemaDoAgente(
+      ctx,
+      'designer',
+      'Você aplica um ajuste pequeno em slides prontos. Mude só o que foi pedido, com substituições exatas e mínimas. Não reescreva nada além disso.',
+    ),
+    conteudo: `## Pedido do dono da marca\n${correcao.comentario}\n${correcao.instrucao}\n\n## Legenda atual\n${ctx.post.legenda ?? ''}\n\n## HTML atual dos slides\n${anterior}${feedback(passo)}`,
+    schema: Trocas,
+  })
+  let html = anterior
+  for (const t of dados.trocas) {
+    if (!t.de || !html.includes(t.de)) return null
+    html = html.split(t.de).join(t.para)
+  }
+  if (dados.legenda.trim()) {
+    await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
+    ctx.post.legenda = dados.legenda
+  }
+  let slides = ctx.post.slides
+  if (html !== anterior) {
+    await em.acao('Renderizando de novo')
+    slides = await salvarSlides(ctx, passo, html)
+  }
+  return { saida: { html, slides }, uso, entrega: 'Ajuste aplicado' }
+}
+
 export const designer: Agente = async (ctx, passo, em) => {
+  const correcao = passo.entrada.correcao as Correcao | undefined
+  if (correcao?.pontual) {
+    const r = await ajustePontual(ctx, passo, em, correcao)
+    if (r) return r
+    await em.acao('Não deu para editar direto, refazendo os slides')
+  }
   await em.inicio('Escolhendo as fotos aprovadas')
   const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
   const fotos = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags }))
@@ -104,16 +170,7 @@ export const designer: Agente = async (ctx, passo, em) => {
   const html = gerado.texto.replace(/^[\s\S]*?(<!doctype|<html)/i, '$1').replace(/```\s*$/, '').trim()
 
   await em.acao('Renderizando JPEG 1080 × 1350')
-  const imagens = await renderizarSlides(html)
-  const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
-  const slides = []
-  for (const [i, img] of imagens.entries()) {
-    const caminho = `${pasta}/slide-${i + 1}.jpg`
-    const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, img, { contentType: 'image/jpeg', upsert: true })
-    if (error) throw new Error(`Falha ao subir slide ${i + 1}: ${error.message}`)
-    slides.push({ ordem: i + 1, caminho, url: urlPublica(caminho) })
-  }
-  await db.from('posts').update({ slides }).eq('id', ctx.post.id)
+  const slides = await salvarSlides(ctx, passo, html)
   return { saida: { html, slides }, uso: gerado.uso, entrega: `${slides.length} slides renderizados` }
 }
 
@@ -131,7 +188,9 @@ const Revisao = z.object({
 
 const MAX_VOLTAS = 2
 
-export const revisor: Agente = async (ctx, _passo, em) => {
+export const revisor: Agente = async (ctx, passo, em) => {
+  const correcao = passo.entrada.correcao as Correcao | undefined
+  if (correcao) return revisarCorrecao(ctx, passo, em, correcao)
   await em.inicio(`Conferindo o checklist e ${ctx.regras.length} regras aprendidas`)
   const slides = ctx.post.slides ?? []
   const { dados, uso } = await gerarJson({
@@ -176,5 +235,39 @@ export const revisor: Agente = async (ctx, _passo, em) => {
     uso,
     entrega: `Devolvido: ${dados.problemas[0]?.problema.slice(0, 80) ?? 'ajustes'}`,
     proximos: [{ agente: primeiro, entrada: { feedback: texto } }],
+  }
+}
+
+const ConferenciaDeAjuste = z.object({
+  aplicado: z.boolean().describe('o pedido foi atendido e nada que estava certo quebrou'),
+  problema: z.string().describe('o que falta ou quebrou, vazio se está tudo certo'),
+})
+
+/** Depois de uma correção sua, o revisor só confere se o pedido foi atendido; não reabre o post inteiro. */
+async function revisarCorrecao(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], correcao: Correcao): Promise<Resultado> {
+  await em.inicio('Conferindo se o seu ajuste foi aplicado')
+  const slides = ctx.post.slides ?? []
+  const { dados, uso } = await gerarJson({
+    modelo: 'claude-sonnet-5-5',
+    effort: 'low',
+    sistema: sistemaDoAgente(ctx, 'revisor', 'Você confere se um ajuste pedido pelo dono da marca foi aplicado. Olhe só o pedido e se algo visivelmente quebrou (texto cortado, sobreposto, caractere estranho). Não reavalie o resto do post.'),
+    conteudo: [
+      ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
+      { type: 'text' as const, text: `## Ajuste pedido\n${correcao.comentario}\n\n## Legenda\n${ctx.post.legenda ?? ''}` },
+    ],
+    schema: ConferenciaDeAjuste,
+  })
+  if (dados.aplicado || ctx.post.voltas_revisao >= 1) {
+    await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
+    await em.texto(dados.aplicado ? 'Ajuste aplicado.' : `Pendência: ${dados.problema}`)
+    return { saida: dados, uso, entrega: dados.aplicado ? 'Ajuste conferido. De volta pra você' : 'Enviado com pendência para você decidir', proximos: null, para: 'voce' }
+  }
+  await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
+  await em.texto(dados.problema)
+  return {
+    saida: dados,
+    uso,
+    entrega: `Devolvido: ${dados.problema.slice(0, 80)}`,
+    proximos: [{ agente: 'designer', entrada: { feedback: dados.problema, correcao } }],
   }
 }

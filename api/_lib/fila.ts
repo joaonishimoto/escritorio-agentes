@@ -54,7 +54,9 @@ export async function rodarUmPasso(): Promise<boolean> {
     if (proximos === undefined) {
       const fluxo = fluxoDeProducao(ctx.etapas)
       const seguinte = fluxo[fluxo.indexOf(passo.agente) + 1]
-      proximos = seguinte ? [{ agente: seguinte }] : null
+      // numa correção sua, o próximo agente continua sabendo o que você pediu
+      const correcao = passo.entrada.correcao
+      proximos = seguinte ? [{ agente: seguinte, entrada: correcao ? { correcao } : {} }] : null
     }
     for (const p of proximos ?? []) await enfileirar(passo.post_id, p.agente, p.entrada)
     await em.entrega(r.para ?? proximos?.[0]?.agente ?? 'voce', r.entrega, r.uso.custo_usd)
