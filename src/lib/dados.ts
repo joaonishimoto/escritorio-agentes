@@ -280,8 +280,11 @@ export interface Andar {
   mes: Record<string, number>
   /** posts prontos guardados na gaveta de cada sala, mais novos primeiro */
   gaveta: Record<string, Post[]>
+  /** posts com data de todas as marcas (agendados, publicados e os que falharam na hora), para o calendário geral */
+  comData: Post[]
+  carregado: boolean
 }
-const ANDAR_VAZIO: Andar = { porSala: {}, naSuaMesa: [], mes: {}, gaveta: {} }
+const ANDAR_VAZIO: Andar = { porSala: {}, naSuaMesa: [], mes: {}, gaveta: {}, comData: [], carregado: false }
 const DO_PASSO: Record<string, EstadoNaSala> = { pendente: 'na_fila', rodando: 'trabalhando', feito: 'concluido', falhou: 'erro' }
 
 /** O andar inteiro ao vivo: cada sala com o próprio post trabalhando e tudo que está esperando na sua mesa. */
@@ -296,10 +299,17 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
       const inicioDoMes = new Date()
       inicioDoMes.setDate(1)
       inicioDoMes.setHours(0, 0, 0, 0)
-      const [vivos, mes, guardados] = await Promise.all([
+      const [vivos, mes, guardados, comData] = await Promise.all([
         sb.from('posts').select('*').in('marca_id', marcaIds).in('status', ['em_producao', 'aprovado', 'aguardando_aprovacao', 'erro']).order('criado_em', { ascending: false }).limit(60),
         sb.from('posts').select('marca_id, custo_usd').in('marca_id', marcaIds).gte('criado_em', inicioDoMes.toISOString()),
         sb.from('posts').select('*').in('marca_id', marcaIds).eq('status', 'guardado').order('criado_em', { ascending: false }).limit(200),
+        sb
+          .from('posts')
+          .select('id, marca_id, briefing, status, legenda, slides, agendado_para, publicado_em, criado_em, custo_usd')
+          .in('marca_id', marcaIds)
+          .or('status.eq.agendado,status.eq.publicado,and(status.eq.erro,agendado_para.not.is.null)')
+          .order('criado_em', { ascending: false })
+          .limit(500),
       ])
       const gaveta: Andar['gaveta'] = {}
       for (const p of (guardados.data as Post[]) ?? []) (gaveta[p.marca_id] ??= []).push(p)
@@ -323,7 +333,7 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
       }
       const gasto: Record<string, number> = {}
       for (const x of (mes.data ?? []) as { marca_id: string; custo_usd: number }[]) gasto[x.marca_id] = (gasto[x.marca_id] ?? 0) + Number(x.custo_usd)
-      if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro'), mes: gasto, gaveta })
+      if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro'), mes: gasto, gaveta, comData: (comData.data as Post[]) ?? [], carregado: true })
     }
     buscar().catch((e) => console.error('não consegui ver o andar', e))
     const id = window.setInterval(() => document.visibilityState === 'visible' && buscar().catch(() => {}), 8000)

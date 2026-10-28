@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
-import { useEscritorio } from '../store/escritorio'
-import { COR_ESTADO } from '../office/EstacaoAgente'
+import { COR_ESTADO, useEscritorio } from '../store/escritorio'
 import { AcoesDeErro } from './PostComErro'
 import { PedirIdeias } from './PedirIdeias'
 import type { Post } from '../lib/dados'

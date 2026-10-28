@@ -22,9 +22,23 @@ const SEM_ITENS: ItemAgenda[] = []
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 /** Calendário grande que abre ao clicar no da parede: o mês com as capas dos posts e, ao lado, o dia escolhido com o preview. */
-export function Calendario({ aoAbrirPost, aoMudar, marcaNome, carregando = false }: { aoAbrirPost: (id: string) => void; aoMudar?: () => void; marcaNome?: string; carregando?: boolean }) {
-  const agendaDaMarca = useEscritorio((s) => s.agenda)
-  const agenda = carregando ? SEM_ITENS : agendaDaMarca
+export function Calendario({
+  aoAbrirPost,
+  aoMudar,
+  marcaId,
+  marcaNome,
+  carregando = false,
+}: {
+  aoAbrirPost: (id: string) => void
+  aoMudar?: () => void
+  /** só os posts desta marca (calendário da parede de uma sala); sem ela, o geral */
+  marcaId?: string | null
+  marcaNome?: string
+  carregando?: boolean
+}) {
+  const agendaGeral = useEscritorio((s) => s.agenda)
+  const agenda = carregando ? SEM_ITENS : marcaId ? agendaGeral.filter((i) => !i.marcaId || i.marcaId === marcaId) : agendaGeral
+  const geral = !marcaId && agendaGeral.some((i) => i.marca)
   const focar = useEscritorio((s) => s.focar)
   const hoje = new Date()
   const [mes, setMes] = useState({ ano: hoje.getFullYear(), mes: hoje.getMonth() })
@@ -56,7 +70,7 @@ export function Calendario({ aoAbrirPost, aoMudar, marcaNome, carregando = false
         <header className="painel-topo">
           <div className="cal-nav">
             <button className="icone" onClick={() => mudarMes(-1)} aria-label="Mês anterior">‹</button>
-            <h2>{MESES[mes.mes]} {mes.ano}{marcaNome && <small className="cal-marca"> · {marcaNome}</small>}</h2>
+            <h2>{MESES[mes.mes]} {mes.ano}{marcaNome ? <small className="cal-marca"> · {marcaNome}</small> : geral ? <small className="cal-marca"> · Todas as marcas</small> : null}</h2>
             <button className="icone" onClick={() => mudarMes(1)} aria-label="Próximo mês">›</button>
             <button className="secundario cal-hoje" onClick={() => { setMes({ ano: hoje.getFullYear(), mes: hoje.getMonth() }); escolher(chaveDia(hoje)) }}>Hoje</button>
           </div>
@@ -155,7 +169,10 @@ function PostDoDia({ item, aberto, aoAlternar, aoAbrirPost, aoMudar }: { item: I
         {slides[0] ? <img src={slides[0]} alt="" /> : <span className={`cal-post-sem ${item.status}`} />}
         <span className="cal-post-texto">
           <strong>{item.titulo}</strong>
-          <span className="muted mono">{hora(item.data)} · {slides.length ? `${slides.length} slides` : 'sem slides'}</span>
+          <span className="muted mono">
+            {item.marca && <i className="cal-post-marca" style={{ background: item.cor }} />}
+            {item.marca ? `${item.marca} · ` : ''}{hora(item.data)} · {slides.length ? `${slides.length} slides` : 'sem slides'}
+          </span>
         </span>
         <span className={`chip status-${item.status === 'falhou' ? 'erro' : item.status}`}>{item.status === 'falhou' ? 'não publicou' : item.status}</span>
       </button>

@@ -1,5 +1,5 @@
 // Equipe padrão. Cada marca pode ligar/desligar agentes e reescrever as instruções no roteiro;
-// aqui fica só a identidade visual de cada um. O lugar das mesas vem da sala (office/salas.ts).
+// aqui fica só a identidade visual de cada um. O lugar das mesas vem da planta do andar (pixel/mapa.ts).
 
 export type AgenteId =
   | 'chefe'

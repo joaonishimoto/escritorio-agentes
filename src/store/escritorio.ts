@@ -3,6 +3,16 @@ import type { AgenteId } from '../agents/catalogo'
 
 export type Estado = 'ocioso' | 'na_fila' | 'trabalhando' | 'concluido' | 'esperando_voce' | 'erro'
 
+/** Cor de cada estado nos painéis. */
+export const COR_ESTADO: Record<Estado, string> = {
+  ocioso: '#a2a39a',
+  na_fila: '#7a8fb0',
+  trabalhando: '#3969a8',
+  concluido: '#3f7650',
+  esperando_voce: '#976822',
+  erro: '#b74e45',
+}
+
 /** Espelha uma linha da tabela `eventos` do Supabase. */
 export interface Evento {
   id: string
@@ -32,6 +42,10 @@ export interface ItemAgenda {
   /** urls dos slides, na ordem (vazio na demonstração) */
   slides?: string[]
   legenda?: string | null
+  /** de qual marca é (no calendário geral) */
+  marcaId?: string
+  marca?: string
+  cor?: string
 }
 
 interface EscritorioState {

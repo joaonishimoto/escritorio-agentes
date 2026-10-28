@@ -189,6 +189,43 @@ export function EscritorioPixel({
   const diasRef = useRef(diasMarcados)
   diasRef.current = diasMarcados
 
+  /** retângulo do dia no calendário da parede da sua sala (mesma conta do desenharCalendario) */
+  const celulaDoDia = (d: number): [number, number, number, number] => {
+    const { x, y, w, h } = CALENDARIO
+    const passoX = (w - 4) / 7
+    const passoY = (h - 8) / 5
+    return [Math.round(xVoce + x + 2 + ((d - 1) % 7) * passoX), Math.round(y + 7 + Math.floor((d - 1) / 7) * passoY), Math.max(3, Math.round(passoX - 1.4)), Math.max(2, Math.round(passoY - 1.4))]
+  }
+  // post que acabou de ser agendado ou publicado: uma folhinha sai da sala da marca e voa até o dia no calendário da sua sala
+  const folhas = useRef<{ de: Ponto; dia: number; cor: string; inicio: number }[]>([])
+  const pousou = useRef<Map<number, number>>(new Map())
+  const vistos = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    // sem nada com data ao abrir: depois de uns segundos, o primeiro post agendado já anima
+    const id = window.setTimeout(() => {
+      if (vistos.current === null) vistos.current = new Set(useEscritorio.getState().agenda.map((a) => `${a.id}:${a.status}`))
+    }, 5000)
+    return () => window.clearTimeout(id)
+  }, [])
+  useEffect(() => {
+    const chaves = new Set(agenda.map((a) => `${a.id}:${a.status}`))
+    // a primeira lista que chega (ao abrir o app) não anima; o que mudar depois, sim
+    if (vistos.current === null) {
+      if (agenda.length) vistos.current = chaves
+      return
+    }
+    const hoje = new Date()
+    for (const a of agenda) {
+      if (vistos.current.has(`${a.id}:${a.status}`) || a.status === 'falhou') continue
+      const d = new Date(a.data)
+      if (d.getMonth() !== hoje.getMonth() || d.getFullYear() !== hoje.getFullYear()) continue
+      const i = marcas.findIndex((m) => m.id === a.marcaId)
+      const de: Ponto = i >= 0 ? [i * PASSO_SALA + PLACA.x, PLACA.y - 10] : [xVoce + MESA_VOCE.x + 17, MESA_VOCE.y]
+      folhas.current.push({ de, dia: d.getDate(), cor: a.cor ?? (a.status === 'publicado' ? '#3f7650' : '#f2b233'), inicio: performance.now() + folhas.current.length * 250 })
+    }
+    vistos.current = chaves
+  }, [agenda]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const andantes = useRef<Andante[]>([])
   const gatos = useRef<Gato[]>(GATOS.map((x, n) => ({ ...x, sala: n, area: -1, x: 60 + n * 150, y: 200, rota: [], dist: 0, ate: 0, dormindo: false, dir: 1 })))
   const [miau, setMiau] = useState<Record<string, string>>({})
@@ -379,6 +416,8 @@ export function EscritorioPixel({
           pendentes: pendentes.current.map((e) => `${e.de}>${e.para}`),
           estados: Object.fromEntries(AGENTES.map((a) => [a.id, estadoNaTela(v.indiceAtivo, a.id)])),
           voceAguardando,
+          folhas: folhas.current.length,
+          loja: useEscritorio,
         }
       }
 
@@ -421,6 +460,11 @@ export function EscritorioPixel({
           ? alvoAntes.current
           : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? v.indiceAtivo * PASSO_SALA + SALA_W / 2
       alvoAntes.current = alvoX
+      const voando = folhas.current.find((f) => agora >= f.inicio)
+      if (voando && !viajante && !v.foco) {
+        const k = Math.min(1, (agora - voando.inicio) / 1800)
+        alvoX = voando.de[0] + (xVoce + CALENDARIO.x - voando.de[0]) * Math.min(1, k * 1.4)
+      }
       if (viajante) {
         const rota = viajante.fase === 'volta' ? viajante.volta : viajante.ida
         alvoX = noCaminho(rota, Math.max(0, viajante.dist)).x
@@ -443,6 +487,21 @@ export function EscritorioPixel({
       g.setTransform(escala, 0, 0, escala, -Math.round(camX * escala), offY * escala)
       g.drawImage(cenario, 0, 0)
       desenharCalendario(g, xVoce, diasRef.current, new Date().getDate(), CALENDARIO)
+      // o dia em que a folhinha pousou pisca por um instante
+      for (const [dia, quando] of pousou.current) {
+        const k = (agora - quando) / 1000
+        if (k > 1.6) {
+          pousou.current.delete(dia)
+          continue
+        }
+        const [cx, cy, cw2, ch2] = celulaDoDia(dia)
+        if (Math.floor(k * 6) % 2 === 0) {
+          g.fillStyle = '#ffffff'
+          g.fillRect(cx - 1, cy - 1, cw2 + 2, ch2 + 2)
+          g.fillStyle = '#f2b233'
+          g.fillRect(cx, cy, cw2, ch2)
+        }
+      }
 
       // telas dos monitores
       marcas.forEach((_, i) => {
@@ -631,6 +690,35 @@ export function EscritorioPixel({
         gato(gAndando, Math.round(gt.x), Math.round(gt.y), gt, andandoAgora ? Math.floor(t * 8) % 2 : -1, t)
         posicoesEtiqueta[`gato:${gt.nome}`] = [gt.x, gt.y - 12]
       }
+
+      // folhinhas voando até o calendário da sua sala (a câmera vai junto enquanto voam)
+      folhas.current = folhas.current.filter((f) => {
+        const k = (agora - f.inicio) / 1800
+        if (k < 0) return true
+        const [cx, cy, cw2, ch2] = celulaDoDia(f.dia)
+        const para: Ponto = [cx + cw2 / 2, cy + ch2 / 2]
+        if (k >= 1) {
+          pousou.current.set(f.dia, agora)
+          return false
+        }
+        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2
+        const x = f.de[0] + (para[0] - f.de[0]) * e
+        const y = f.de[1] + (para[1] - f.de[1]) * e - Math.sin(k * Math.PI) * 60
+        const tam = 1 - k * 0.55
+        const w = Math.max(6, Math.round(16 * tam))
+        const h = Math.max(7, Math.round(19 * tam))
+        const fx = Math.round(x - w / 2)
+        const fy = Math.round(y - h / 2 + Math.sin(t * 12) * 1.2)
+        gAndando.fillStyle = '#1f2330'
+        gAndando.fillRect(fx - 1, fy - 1, w + 2, h + 2)
+        gAndando.fillStyle = '#ffffff'
+        gAndando.fillRect(fx, fy, w, h)
+        gAndando.fillStyle = f.cor
+        gAndando.fillRect(fx, fy, w, Math.max(1, Math.round(h / 4)))
+        gAndando.fillStyle = '#c9ced8'
+        for (let l = Math.round(h / 4) + 2; l < h - 1; l += 3) gAndando.fillRect(fx + 2, fy + l, w - 4, 1)
+        return true
+      })
 
       // etiquetas em HTML acompanham os bonecos
       for (const [chave, el] of etiquetas.current) {

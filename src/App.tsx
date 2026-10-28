@@ -2,7 +2,6 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type R
 import { agentePorId, type AgenteId } from './agents/catalogo'
 import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
-import { Escritorio } from './office/Escritorio'
 import { EscritorioPixel } from './pixel/EscritorioPixel'
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
@@ -25,7 +24,6 @@ import { useEscritorio } from './store/escritorio'
 import { rodarDemo, pararDemo } from './lib/simulacao'
 import { modoDemo, supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
-import { tocarAviso } from './lib/som'
 import { type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
@@ -113,24 +111,6 @@ function Painel({ logado }: { logado: boolean }) {
   const [muralRegras, setMuralRegras] = useState(false)
   const [instagram, setInstagram] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
-  const [visual, setVisual] = useState<'pixel' | '3d'>(() => {
-    const pedido = new URLSearchParams(location.search).get('visual')
-    if (pedido === 'pixel' || pedido === '3d') return pedido
-    try {
-      return localStorage.getItem('visual') === '3d' ? '3d' : 'pixel'
-    } catch {
-      return 'pixel'
-    }
-  })
-  const trocarVisual = () => {
-    const novo = visual === 'pixel' ? '3d' : 'pixel'
-    setVisual(novo)
-    try {
-      localStorage.setItem('visual', novo)
-    } catch {
-      // sem armazenamento local: vale até recarregar
-    }
-  }
 
   useEffect(() => {
     if (!marcaId && marcas[0]) setMarcaId(marcas[0].id)
@@ -162,7 +142,7 @@ function Painel({ logado }: { logado: boolean }) {
         .map((m, ordem) => ({ m, ordem, pos: posicaoDe(m, ordem) }))
         .sort((a, b) => a.pos - b.pos)
         .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem }, m.identidade?.sala as SalaCustom | undefined))
-    : [comEdicao({ id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73', ordem: 1 }), comEdicao({ id: 'demo', nome: 'Drinfy', cor: '#EE382B', ordem: 0 })].sort(
+    : [comEdicao({ id: 'demo', nome: 'Drinfy', cor: '#EE382B', ordem: 0 }), comEdicao({ id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73', ordem: 1 })].sort(
         (a, b) => (ordemSalas?.indexOf(a.id) ?? 0) - (ordemSalas?.indexOf(b.id) ?? 0),
       )
   const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
@@ -204,7 +184,10 @@ function Painel({ logado }: { logado: boolean }) {
   // quadros da parede: referências, calendário, branding e mural de regras abrem para a marca daquela sala
   const abrirQuadro = (id: string, quadro: Quadro) => {
     escolherMarca(id)
-    if (quadro === 'calendario') return focar('calendario')
+    if (quadro === 'calendario') {
+      calendarioDaSala.current = id
+      return focar('calendario')
+    }
     if (!logado || !marcas.some((m) => m.id === id)) return
     if (quadro === 'branding') setPerfilMarca(true)
     else if (quadro === 'referencias') setBiblioteca(true)
@@ -220,21 +203,32 @@ function Painel({ logado }: { logado: boolean }) {
     if (post) mudou()
   }, [post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // o calendário da parede mostra o que tem data: agendados pela data marcada, publicados pela data em que saíram
-  // (antes de pintar a tela, para o calendário não mostrar por um instante os posts da sala anterior)
+  // o calendário da sua sala é geral: tudo que tem data em todas as marcas (agendados pela data marcada,
+  // publicados pela data em que saíram); o calendário da parede de cada sala abre só com a marca dela
+  const geral = logado && !emDemo && marcas.length > 0
+  const fontes = geral ? andar.comData : posts
   useLayoutEffect(() => {
     if (emDemo && posts.length === 0) return definirAgenda(agendaDemo())
     definirAgenda(
-      posts.flatMap((p) => {
+      fontes.flatMap((p) => {
         // agendado que deu erro na hora de publicar aparece como "falhou" no dia marcado
         const falhou = p.status === 'erro' && !!p.agendado_para
         const data = p.status === 'agendado' || falhou ? p.agendado_para : p.status === 'publicado' ? p.publicado_em : null
         const slides = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem).map((x) => x.url)
         const status = falhou ? 'falhou' : (p.status as 'agendado' | 'publicado')
-        return data ? [{ id: p.id, data, titulo: p.briefing, status, slides, legenda: p.legenda }] : []
+        const m = marcasNoAndar.find((x) => x.id === p.marca_id)
+        return data ? [{ id: p.id, data, titulo: p.briefing, status, slides, legenda: p.legenda, marcaId: p.marca_id, marca: m?.nome, cor: m?.cor }] : []
       }),
     )
-  }, [posts, emDemo, definirAgenda])
+  }, [fontes, emDemo, definirAgenda]) // eslint-disable-line react-hooks/exhaustive-deps
+  // qual calendário abriu: o da parede de uma sala (só aquela marca) ou o geral (sua sala e o botão do topo)
+  const calendarioDaSala = useRef<string | null>(null)
+  const [calendarioDe, setCalendarioDe] = useState<string | null>(null)
+  useEffect(() => {
+    if (foco !== 'calendario') return
+    setCalendarioDe(calendarioDaSala.current)
+    calendarioDaSala.current = null
+  }, [foco])
 
   // rede de segurança: se o post em produção ficar 45 s sem nenhum evento, pede para o servidor rodar a fila
   const ultimoEvento = eventos.at(-1)?.criado_em
@@ -289,13 +283,6 @@ function Painel({ logado }: { logado: boolean }) {
     focar('voce')
   }
   const voltarParaMesa = () => (naSuaMesa.length > 1 ? setEscolhido(null) : focar(null))
-  const statusAnterior = useRef<{ id: string; status: string } | null>(null)
-  useEffect(() => {
-    if (!post) return
-    const antes = statusAnterior.current
-    if (antes?.id === post.id && antes.status !== 'aguardando_aprovacao' && post.status === 'aguardando_aprovacao' && visual === '3d') tocarAviso() // no pixel, toca quando a pasta chega na sua mesa
-    statusAnterior.current = { id: post.id, status: post.status }
-  }, [post?.id, post?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const custos = useCustos(emDemo ? null : marcaId, emDemo ? null : (post?.id ?? null), post ? Number(post.custo_usd) : undefined, post?.status)
   useEffect(() => {
     if (!logado || emDemo || !supabase) return
@@ -375,7 +362,6 @@ function Painel({ logado }: { logado: boolean }) {
               <button onClick={() => setInstagram(true)}>{marca.instagram_conta_id ? 'Instagram conectado' : 'Conectar Instagram'}</button>
             )}
             <button onClick={demo}>Ver demonstração</button>
-            <button onClick={trocarVisual}>{visual === 'pixel' ? 'Ver em 3D' : 'Ver em pixel art'}</button>
             {logado && <hr />}
             {logado && <button onClick={() => setTrocarSenha(true)}>Trocar senha</button>}
             {logado && <button onClick={() => supabase?.auth.signOut()}>Sair</button>}
@@ -402,7 +388,7 @@ function Painel({ logado }: { logado: boolean }) {
         <Suspense fallback={<Abertura noPalco frase="Montando o escritório…" />}>
           {carregandoMarcas ? (
             <Abertura noPalco frase="Montando o escritório…" />
-          ) : visual === 'pixel' ? (
+          ) : (
             <EscritorioPixel
               marcas={marcasNoAndar}
               marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
@@ -425,12 +411,6 @@ function Painel({ logado }: { logado: boolean }) {
                 escolherMarca(id)
                 focar('sala')
               }}
-            />
-          ) : (
-            <Escritorio
-              marcas={marcasNoAndar}
-              marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
-              aoEscolherMarca={escolherMarca}
             />
           )}
         </Suspense>
@@ -513,7 +493,15 @@ function Painel({ logado }: { logado: boolean }) {
         <LinhaDoTempo />
       </footer>
 
-      {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} marcaNome={marca?.nome} carregando={!emDemo && logado && !postsCarregados} />}
+      {foco === 'calendario' && (
+        <Calendario
+          aoAbrirPost={verPost}
+          aoMudar={mudou}
+          marcaId={calendarioDe}
+          marcaNome={calendarioDe ? marcasNoAndar.find((m) => m.id === calendarioDe)?.nome : undefined}
+          carregando={!emDemo && logado && (geral ? !andar.carregado : !postsCarregados)}
+        />
+      )}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} marcaNome={marca?.nome} marcaCor={marca ? corDaMarca(marca) : undefined} aoFechar={() => setBiblioteca(false)} />}
       {muralRegras && marcaId && <RegrasDaMarca marcaId={marcaId} nomeMarca={marca?.nome ?? ''} aoFechar={() => setMuralRegras(false)} aoMudar={mudou} />}
       {perfilMarca && marcaId && <PerfilDaMarca marcaId={marcaId} aoFechar={() => setPerfilMarca(false)} aoSalvar={() => setVersaoMarcas((v) => v + 1)} />}

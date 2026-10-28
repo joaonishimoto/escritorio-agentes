@@ -1195,3 +1195,4 @@ i.falhou { background: var(--danger, #b42318) }
 .gv-info strong { font-size: 14px; font-weight: 550; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
 .gv-info .primario { align-self: flex-start; margin-top: auto; min-height: 34px }
 .ap-gaveta { align-self: center; display: inline-flex; align-items: center; gap: 6px; font-size: 13px }
+.cal-post-marca { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0 }
