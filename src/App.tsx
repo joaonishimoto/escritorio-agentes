@@ -10,6 +10,7 @@ import { Login, TrocarSenha } from './ui/Login'
 import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
 import { Biblioteca } from './ui/Biblioteca'
+import { PerfilDaMarca } from './ui/PerfilDaMarca'
 import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Calendario } from './ui/Calendario'
@@ -99,6 +100,7 @@ function Painel({ logado }: { logado: boolean }) {
   const [briefingInicial, setBriefingInicial] = useState<string | undefined>()
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
+  const [perfilMarca, setPerfilMarca] = useState(false)
   const [instagram, setInstagram] = useState(false)
   const [emDemo, setEmDemo] = useState(modoDemo)
   const [visual, setVisual] = useState<'pixel' | '3d'>(() => {
@@ -247,6 +249,7 @@ function Painel({ logado }: { logado: boolean }) {
               </button>
             ))}
             <hr />
+            {marcaId && <button onClick={() => setPerfilMarca(true)}>Editar marca</button>}
             <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
           </Popover>
           {emDemo ? (
@@ -264,14 +267,23 @@ function Painel({ logado }: { logado: boolean }) {
             {agendados > 0 && <span className="contador">{agendados}</span>}
           </button>
           {logado && marcaId && (
-            <button className="botao-topo" onClick={() => setBiblioteca(true)} aria-label="Fotos da marca">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                <rect x="2" y="2.5" width="12" height="11" rx="2" /><circle cx="6" cy="6.5" r="1.3" /><path d="m2.5 12 3.5-3.5 3 3 2-2 2.5 2.5" />
-              </svg>
-              <span className="so-largo">Fotos</span>
-            </button>
+            <>
+              <button className="botao-topo" onClick={() => setPerfilMarca(true)} aria-label="Marca: tom de voz, cores e fontes">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                  <path d="M8 1.8a6.2 6.2 0 1 0 0 12.4c.9 0 1.3-.5 1.3-1.1 0-.8-.7-1-.7-1.8 0-.7.5-1.1 1.2-1.1h1.6c1.6 0 2.8-1.1 2.8-2.9C14.2 4.3 11.4 1.8 8 1.8Z" />
+                  <circle cx="5" cy="7" r=".9" fill="currentColor" stroke="none" /><circle cx="7.6" cy="4.6" r=".9" fill="currentColor" stroke="none" /><circle cx="10.6" cy="5.6" r=".9" fill="currentColor" stroke="none" />
+                </svg>
+                <span className="so-largo">Marca</span>
+              </button>
+              <button className="botao-topo" onClick={() => setBiblioteca(true)} aria-label="Referências da marca">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                  <rect x="2" y="2.5" width="12" height="11" rx="2" /><circle cx="6" cy="6.5" r="1.3" /><path d="m2.5 12 3.5-3.5 3 3 2-2 2.5 2.5" />
+                </svg>
+                <span className="so-largo">Referências</span>
+              </button>
+            </>
           )}
-          {logado && marcaId && <button className="primario so-lista-fechada" data-lista={listaAberta ? 'aberta' : 'fechada'} onClick={() => setNovo(true)}>Novo post</button>}
+          {logado && marcaId && <button className="primario so-lista-fechada" data-lista={listaAberta ? 'aberta' : 'fechada'} onClick={() => setNovo(true)}>Novo<span className="so-largo"> post</span></button>}
           <Menu>
             {logado && marca && (
               <button onClick={() => setInstagram(true)}>{marca.instagram_conta_id ? 'Instagram conectado' : 'Conectar Instagram'}</button>
@@ -363,6 +375,7 @@ function Painel({ logado }: { logado: boolean }) {
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
+      {perfilMarca && marcaId && <PerfilDaMarca marcaId={marcaId} aoFechar={() => setPerfilMarca(false)} aoSalvar={() => setVersaoMarcas((v) => v + 1)} />}
       {novaSala && (
         <NovaSala
           aoFechar={() => setNovaSala(false)}

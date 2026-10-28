@@ -71,8 +71,8 @@ export function Biblioteca({ marcaId, aoFechar }: { marcaId: string; aoFechar: (
   return (
     <div className="modal-fundo" onClick={aoFechar}>
       <div className="modal modal-largo" onClick={(e) => e.stopPropagation()}>
-        <h2>Fotos da marca</h2>
-        <p className="muted">O designer só usa as fotos daqui. Arquivos com "icone" ou "logo" no nome viram o ícone da marca.</p>
+        <h2>Referências da marca</h2>
+        <p className="muted">Fotos, logo e imagens de referência. O designer só usa as fotos daqui. Arquivos com "icone" ou "logo" no nome viram o ícone da marca.</p>
         <label className="secundario envio" htmlFor="fotos">
           Escolher fotos
           <input id="fotos" type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={enviar} hidden />

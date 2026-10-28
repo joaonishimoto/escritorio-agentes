@@ -598,3 +598,27 @@ i.falhou { background: var(--danger, #b42318) }
 }
 @keyframes sobe-gaveta { from { transform: translateY(40px); opacity: .4 } }
 @media (prefers-reduced-motion: reduce) { .painel, .modal { animation: none !important } }
+
+/* perfil da marca */
+.perfil-marca { gap: 14px }
+.perfil-secao { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px }
+.perfil-secao h3 { font-size: 13px; font-weight: 600; color: var(--foreground) }
+.perfil-secao label { font-size: 13px; margin-top: 4px }
+.perfil-secao .dica { margin-top: -2px }
+.perfil-linha { display: flex; gap: 10px; flex-wrap: wrap }
+.perfil-campo { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 4px }
+.perfil-campo.estreito { flex: none; min-width: 0 }
+.perfil-campo input:not([type="color"]) { width: 100% }
+.perfil-cores, .perfil-regras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.perfil-cores li { display: flex; align-items: center; gap: 8px }
+.perfil-cores input:not([type="color"]) { flex: 1; min-width: 0 }
+.perfil-cores input[type="color"] { width: 40px; height: 32px; padding: 2px; flex: none }
+.perfil-cores code { font-size: 12px; width: 62px; flex: none }
+.perfil-regras li { display: grid; grid-template-columns: minmax(90px, 160px) 1fr auto; gap: 8px; align-items: start }
+.perfil-mais { align-self: flex-start; height: 30px; font-size: 13px }
+.perfil-salvo { align-self: center; margin-right: auto; color: var(--success-strong, #2f8a4c) }
+@media (max-width: 760px) {
+  .perfil-regras li { grid-template-columns: 1fr auto }
+  .perfil-regras li textarea { grid-column: 1 / -1; grid-row: 2 }
+  .perfil-cores input[type="color"] { height: 40px }
+}
