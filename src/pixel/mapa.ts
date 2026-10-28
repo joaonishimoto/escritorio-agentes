@@ -46,8 +46,9 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
 }
 export const MESA_W = 30
 
-/** Quadros da parede que abrem algo ao clicar: calendário (Pauta), branding (Criação) e regras (Revisão). */
+/** Quadros da parede que abrem algo ao clicar: referências e calendário (Pauta), branding (Criação) e regras (Revisão). */
 export const QUADROS = {
+  referencias: { x: 6, y: 3, w: 42, h: 28 },
   calendario: { x: 58, y: 5, w: 38, h: 26 },
   branding: { x: 138, y: 3, w: 44, h: 28 },
   regras: { x: 246, y: 3, w: 44, h: 28 },
@@ -294,6 +295,31 @@ function quadroBranding(g: Ctx, e: Estilo, x: number, y: number, w: number, h: n
   r(g, '#d9dde6', x + 3, y + 24, w - 16, 1)
 }
 
+/** Painel de referências: fotos presas num quadro, uma por referência da marca (até caber). */
+function quadroReferencias(g: Ctx, e: Estilo, x: number, y: number, w: number, h: number, refs: number) {
+  r(g, '#1f2330', x - 1, y - 1, w + 2, h + 2)
+  r(g, '#eef0f4', x, y, w, h)
+  r(g, e.rodape, x, y, w, 2)
+  const n = Math.min(refs, 6)
+  const tons = [e.rodape, misturar(e.rodape, '#ffffff', 0.45), e.tapete, '#52738a', '#976822', misturar(e.rodape, '#1f2330', 0.4)]
+  for (let i = 0; i < Math.max(n, 2); i++) {
+    const fx = x + 3 + (i % 3) * 13
+    const fy = y + 4 + Math.floor(i / 3) * 12
+    const vazia = i >= n
+    r(g, 'rgba(0,0,0,.18)', fx + 1, fy + 1, 11, 10)
+    r(g, vazia ? '#ffffff' : '#ffffff', fx, fy, 11, 10)
+    if (vazia) {
+      r(g, '#d9dde6', fx + 2, fy + 2, 7, 5)
+      r(g, '#ffffff', fx + 5, fy + 3, 1, 3)
+      r(g, '#ffffff', fx + 4, fy + 4, 3, 1)
+    } else {
+      r(g, tons[i % tons.length], fx + 1, fy + 1, 9, 6)
+      r(g, 'rgba(255,255,255,.55)', fx + 2, fy + 5, 3, 2)
+      r(g, '#e05a4f', fx + 5, fy - 1, 2, 2)
+    }
+  }
+}
+
 /** Mural de regras: cortiça com um bilhete por regra ativa (até caber). */
 function quadroRegras(g: Ctx, x: number, y: number, w: number, h: number, regras: number) {
   r(g, '#1f2330', x - 1, y - 1, w + 2, h + 2)
@@ -328,7 +354,7 @@ function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
 }
 
 /** Desenha uma sala de marca inteira (sem os bonecos): Pauta, Criação e Revisão em cima, hall embaixo. */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number }) {
+export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number }) {
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
   piso(g, p.hall, x0, SALA_W, topoHall, SALA_H - topoHall, 'ladrilho')
@@ -337,8 +363,9 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   piso(g, p.publicacao, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, 'carpete')
   parede(g, estilo, x0, SALA_W)
 
-  // parede do fundo: estante e calendário (Pauta), janelas e branding (Criação), mural de regras (Revisão)
-  estante(g, x0 + 6, 2)
+  // parede do fundo: referências e calendário (Pauta), janelas e branding (Criação), mural de regras (Revisão)
+  const f = QUADROS.referencias
+  quadroReferencias(g, estilo, x0 + f.x, f.y, f.w, f.h, quadros.referencias)
   const c = QUADROS.calendario
   desenharCalendario(g, x0, quadros.dias, quadros.hoje, c)
   janela(g, x0 + 112, 7, 20, noite)

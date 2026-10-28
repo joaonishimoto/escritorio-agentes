@@ -154,7 +154,7 @@ export function useRegrasPropostas(marcaId: string | null, recarregar: number) {
 
 /** Para os quadros da parede de cada sala: dias deste mês com post agendado ou publicado e quantas regras estão ativas. */
 export function useQuadrosDoAndar(marcaIds: string[], recarregar: number) {
-  const [quadros, setQuadros] = useState<Record<string, { dias: number[]; regras: number }>>({})
+  const [quadros, setQuadros] = useState<Record<string, { dias: number[]; regras: number; referencias: number }>>({})
   const chave = marcaIds.join(',')
   useEffect(() => {
     if (!supabase || !marcaIds.length) return
@@ -168,13 +168,15 @@ export function useQuadrosDoAndar(marcaIds: string[], recarregar: number) {
         .in('marca_id', marcaIds)
         .or(`and(agendado_para.gte.${inicio},agendado_para.lt.${fim}),and(publicado_em.gte.${inicio},publicado_em.lt.${fim})`),
       supabase.from('regras').select('marca_id').in('marca_id', marcaIds).eq('status', 'ativa'),
-    ]).then(([posts, regras]) => {
-      const novo: Record<string, { dias: number[]; regras: number }> = Object.fromEntries(marcaIds.map((id) => [id, { dias: [], regras: 0 }]))
+      supabase.from('midias').select('marca_id').in('marca_id', marcaIds),
+    ]).then(([posts, regras, midias]) => {
+      const novo: Record<string, { dias: number[]; regras: number; referencias: number }> = Object.fromEntries(marcaIds.map((id) => [id, { dias: [], regras: 0, referencias: 0 }]))
       for (const p of posts.data ?? []) {
         const data = p.status === 'publicado' ? p.publicado_em : p.agendado_para
         if (data && novo[p.marca_id]) novo[p.marca_id].dias.push(new Date(data).getDate())
       }
       for (const r of regras.data ?? []) if (novo[r.marca_id]) novo[r.marca_id].regras++
+      for (const m of midias.data ?? []) if (novo[m.marca_id]) novo[m.marca_id].referencias++
       setQuadros(novo)
     })
   }, [chave, recarregar]) // eslint-disable-line react-hooks/exhaustive-deps

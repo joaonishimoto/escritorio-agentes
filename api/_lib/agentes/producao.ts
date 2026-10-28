@@ -232,7 +232,10 @@ export const designer: Agente = async (ctx, passo, em) => {
   }
   await em.inicio('Escolhendo as fotos aprovadas')
   const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
-  const fotos = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags }))
+  const todas = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags as string[] }))
+  // "inspiração" é só estilo: o designer vê as imagens, mas elas não entram nos slides
+  const fotos = todas.filter((m) => !m.tags.includes('inspiracao'))
+  const inspiracoes = todas.filter((m) => m.tags.includes('inspiracao')).slice(-3)
 
   const refsDesign = referenciasDoPost(ctx)
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
@@ -245,6 +248,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     ),
     conteudo: [
       ...refsDesign.blocos,
+      ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
       {
         type: 'text' as const,
         text: [
@@ -253,6 +257,7 @@ export const designer: Agente = async (ctx, passo, em) => {
             : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
           // com referências, o visual vem delas; sem, segue o layout sorteado na pauta
           refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx)),
+          inspiracoes.length ? `## Inspirações da marca (as últimas imagens acima)\nPeças que o dono gosta. Use como referência de estilo; não coloque essas imagens nos slides.\n${inspiracoes.map((m) => `- ${m.descricao ?? 'inspiração'}`).join('\n')}` : '',
           `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : '(nenhuma: faça slides só com tipografia e cor)'}`,
           refsDesign.tem
             ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`

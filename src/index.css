@@ -1019,3 +1019,62 @@ i.falhou { background: var(--danger, #b42318) }
 .fin-caros button span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .fin-caros button small { font-size: 11px; color: var(--muted-foreground) }
 .fin-caros strong { font-size: 13px; font-variant-numeric: tabular-nums }
+
+/* referências da marca */
+.modal.rf { position: relative; width: min(880px, 100%) }
+.rf-conta { margin-left: 4px; font-size: 11px; font-weight: 600; color: var(--muted-foreground); background: var(--surface-muted); border-radius: 999px; padding: 1px 6px }
+.pm-abas button.ativo .rf-conta { color: var(--foreground) }
+.rf-envio { display: flex; gap: 10px; align-items: stretch }
+.rf-solta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px dashed var(--border-strong, var(--border)); border-radius: var(--radius-lg); background: var(--surface-muted); color: var(--muted-foreground); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s }
+.rf-solta:hover:not(:disabled) { border-color: var(--primary); background: var(--surface-hover); color: var(--foreground) }
+.rf-solta span { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
+.rf-solta strong { font-size: 14px; color: var(--foreground); font-weight: 600 }
+.rf-solta small { font-size: 12px }
+.rf-barra { display: block; height: 4px; border-radius: 4px; background: var(--border); overflow: hidden; margin-top: 4px }
+.rf-barra b { display: block; height: 100%; background: var(--primary); transition: width .2s }
+.rf-tipo-novo { display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 12px; color: var(--muted-foreground) }
+.rf-tipo-novo select { height: 34px }
+.rf-dica { margin: -6px 0 0 }
+.rf-vazio { padding: 36px 16px; text-align: center; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius-lg) }
+.rf-grade { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 14px }
+.rf-card { display: flex; flex-direction: column; gap: 6px; min-width: 0 }
+.rf-card.pausada .rf-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s }
+.rf-img { position: relative; display: block; width: 100%; height: 0; padding: 0 0 100%; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-muted); cursor: zoom-in }
+.rf-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s }
+.rf-img:hover img { transform: scale(1.03) }
+.rf-img.icone { background: repeating-conic-gradient(var(--surface-muted) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px }
+.rf-img.icone img { object-fit: contain; padding: 18%; box-sizing: border-box }
+.rf-selo { position: absolute; z-index: 1; left: 6px; top: 6px; white-space: nowrap; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.92); color: #2b2f36; box-shadow: 0 1px 2px rgba(0,0,0,.12) }
+.rf-selo.inspiracao { background: #2b2f36; color: #fff }
+.rf-desc { width: 100%; height: 30px; padding: 0 8px; font-size: 13px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--foreground) }
+.rf-desc:hover { border-color: var(--border) }
+.rf-desc:focus { border-color: var(--primary); background: var(--surface); outline: none }
+.rf-linha { display: flex; align-items: center; gap: 6px }
+.rf-linha select { flex: 1; min-width: 0; height: 28px; font-size: 12px; padding: 0 4px }
+.rf-chave { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted-foreground); cursor: pointer; flex: none }
+.rf-chave input { position: absolute; opacity: 0; pointer-events: none }
+.rf-chave i { width: 26px; height: 15px; border-radius: 999px; background: var(--border); position: relative; transition: background .15s }
+.rf-chave i::after { content: ''; position: absolute; left: 2px; top: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2) }
+.rf-chave input:checked + i { background: var(--success-strong, #2f8a4c) }
+.rf-chave input:checked + i::after { transform: translateX(11px) }
+.rf-chave input:focus-visible + i { outline: 2px solid var(--primary); outline-offset: 2px }
+.rf-remover { flex: none; height: 28px; min-width: 28px; display: grid; place-items: center; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: none; color: var(--muted-foreground); font: inherit; font-size: 12px; cursor: pointer }
+.rf-remover:hover { color: var(--danger-strong); background: var(--surface-hover) }
+.rf-remover.confirmar { color: #fff; background: var(--danger-strong); font-weight: 600 }
+.rf-arrasto { position: absolute; inset: 8px; z-index: 2; display: grid; place-items: center; border: 2px dashed var(--primary); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--surface) 88%, transparent); font-weight: 600; pointer-events: none }
+.rf-luz { position: fixed; inset: 0; z-index: 60; background: rgba(12,14,18,.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px 56px; cursor: zoom-out }
+.rf-luz img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; border-radius: 6px; cursor: default; background: repeating-conic-gradient(#2a2d33 0 25%, #33363d 0 50%) 0 0 / 16px 16px }
+.rf-luz p { color: #e8e9ec; font-size: 14px; margin: 0 }
+.rf-luz button { position: absolute; border: 0; background: rgba(255,255,255,.12); color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 24px; line-height: 1; cursor: pointer }
+.rf-luz button:hover { background: rgba(255,255,255,.22) }
+.rf-luz-ant { left: 12px; top: 50% }
+.rf-luz-prox { right: 12px; top: 50% }
+.rf-luz-fechar { right: 12px; top: 12px }
+@media (max-width: 760px) {
+  .rf-envio { flex-direction: column }
+  .rf-tipo-novo { flex-direction: row; align-items: center; justify-content: space-between }
+  .rf-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px }
+  .rf-chave span { display: none }
+  .rf-luz { padding: 56px 8px }
+  .rf-luz-ant, .rf-luz-prox { top: auto; bottom: 12px }
+}

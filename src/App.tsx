@@ -148,14 +148,15 @@ function Painel({ logado }: { logado: boolean }) {
       marcas.map((m, ordem) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem })).reverse()
     : [{ id: 'demo', nome: 'Drinfy', cor: '#EE382B' }, { id: 'demo-2', nome: 'Outra marca', cor: '#2f6f73' }]
   const quadrosDoBanco = useQuadrosDoAndar(logado ? marcas.map((m) => m.id) : [], recarregar)
-  const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4 } }), [])
+  const quadrosDemo = useMemo(() => ({ demo: { dias: agendaDemo().filter((a) => new Date(a.data).getMonth() === new Date().getMonth()).map((a) => new Date(a.data).getDate()), regras: 4, referencias: 5 } }), [])
   const quadros = marcas.length ? quadrosDoBanco : quadrosDemo
-  // quadros da parede: calendário, branding e mural de regras abrem para a marca daquela sala
+  // quadros da parede: referências, calendário, branding e mural de regras abrem para a marca daquela sala
   const abrirQuadro = (id: string, quadro: Quadro) => {
     escolherMarca(id)
     if (quadro === 'calendario') return focar('calendario')
     if (!logado || !marcas.some((m) => m.id === id)) return
     if (quadro === 'branding') setPerfilMarca(true)
+    else if (quadro === 'referencias') setBiblioteca(true)
     else setMuralRegras(true)
   }
   const mudarCor = (id: string, cor: string) => {
@@ -281,6 +282,7 @@ function Painel({ logado }: { logado: boolean }) {
             ))}
             <hr />
             {marcaId && <button onClick={() => setPerfilMarca(true)}>Editar marca</button>}
+            {marcaId && <button onClick={() => setBiblioteca(true)}>Referências</button>}
             <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
           </Popover>
           {emDemo ? (
@@ -297,23 +299,6 @@ function Painel({ logado }: { logado: boolean }) {
             <span className="so-largo">Calendário</span>
             {agendados > 0 && <span className="contador">{agendados}</span>}
           </button>
-          {logado && marcaId && (
-            <>
-              <button className="botao-topo" onClick={() => setPerfilMarca(true)} aria-label="Marca: tom de voz, cores e fontes">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                  <path d="M8 1.8a6.2 6.2 0 1 0 0 12.4c.9 0 1.3-.5 1.3-1.1 0-.8-.7-1-.7-1.8 0-.7.5-1.1 1.2-1.1h1.6c1.6 0 2.8-1.1 2.8-2.9C14.2 4.3 11.4 1.8 8 1.8Z" />
-                  <circle cx="5" cy="7" r=".9" fill="currentColor" stroke="none" /><circle cx="7.6" cy="4.6" r=".9" fill="currentColor" stroke="none" /><circle cx="10.6" cy="5.6" r=".9" fill="currentColor" stroke="none" />
-                </svg>
-                <span className="so-largo">Marca</span>
-              </button>
-              <button className="botao-topo" onClick={() => setBiblioteca(true)} aria-label="Referências da marca">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                  <rect x="2" y="2.5" width="12" height="11" rx="2" /><circle cx="6" cy="6.5" r="1.3" /><path d="m2.5 12 3.5-3.5 3 3 2-2 2.5 2.5" />
-                </svg>
-                <span className="so-largo">Referências</span>
-              </button>
-            </>
-          )}
           {logado && marcaId && <button className="primario so-lista-fechada" data-lista={listaAberta ? 'aberta' : 'fechada'} onClick={() => setNovo(true)}>Novo<span className="so-largo"> post</span></button>}
           <Menu>
             {logado && marca && (
@@ -416,7 +401,7 @@ function Painel({ logado }: { logado: boolean }) {
       </footer>
 
       {foco === 'calendario' && <Calendario aoAbrirPost={verPost} aoMudar={mudou} />}
-      {biblioteca && marcaId && <Biblioteca marcaId={marcaId} aoFechar={() => setBiblioteca(false)} />}
+      {biblioteca && marcaId && <Biblioteca marcaId={marcaId} marcaNome={marca?.nome} marcaCor={marca ? corDaMarca(marca) : undefined} aoFechar={() => setBiblioteca(false)} />}
       {muralRegras && marcaId && <RegrasDaMarca marcaId={marcaId} nomeMarca={marca?.nome ?? ''} aoFechar={() => setMuralRegras(false)} aoMudar={mudou} />}
       {perfilMarca && marcaId && <PerfilDaMarca marcaId={marcaId} aoFechar={() => setPerfilMarca(false)} aoSalvar={() => setVersaoMarcas((v) => v + 1)} />}
       {novaSala && (

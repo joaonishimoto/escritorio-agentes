@@ -87,8 +87,8 @@ export function EscritorioPixel({
   aoEscolherMarca: (id: string) => void
   aoMudarCor?: (id: string, cor: string) => void
   /** o que aparece nos quadros da parede de cada sala: dias com post neste mês e quantas regras estão ativas */
-  quadros?: Record<string, { dias: number[]; regras: number }>
-  /** clique no calendário, no branding ou no mural de regras de uma sala */
+  quadros?: Record<string, { dias: number[]; regras: number; referencias?: number }>
+  /** clique nas referências, no calendário, no branding ou no mural de regras de uma sala */
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
   /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
   financeiro?: { barras: number[]; dicas: number; alerta: boolean }
@@ -156,7 +156,7 @@ export function EscritorioPixel({
     marcas.forEach((m, i) => {
       const base = estiloBase(m.id, m.ordem ?? i)
       const q = quadros?.[m.id]
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e, { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0 })
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), base === ESTILOS.e, { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0 })
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
@@ -601,7 +601,7 @@ export function EscritorioPixel({
       return aoEscolherMarca(marcas[sala].id)
     }
     const lx = x - sala * PASSO_SALA
-    // quadros da parede: calendário, branding e regras desta sala
+    // quadros da parede: referências, calendário, branding e regras desta sala
     for (const [q, r] of Object.entries(QUADROS) as [Quadro, (typeof QUADROS)[Quadro]][]) {
       if (lx >= r.x - 2 && lx <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2) {
         selecionar(null)
