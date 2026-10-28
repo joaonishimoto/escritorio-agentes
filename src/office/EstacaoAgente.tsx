@@ -4,6 +4,7 @@ import { Html } from '@react-three/drei'
 import type { Group, Mesh, MeshStandardMaterial } from 'three'
 import type { Agente } from '../agents/catalogo'
 import { useEscritorio, type Estado } from '../store/escritorio'
+import { SALA } from './salas'
 
 export const COR_ESTADO: Record<Estado, string> = {
   ocioso: '#a2a39a',
@@ -74,12 +75,12 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* mesa */}
       <mesh castShadow receiveShadow position={[0, 0.75, -0.35]}>
         <boxGeometry args={[1.8, 0.08, 0.9]} />
-        <meshStandardMaterial color="#e3d6bf" flatShading />
+        <meshStandardMaterial color={SALA.cores.mesa} flatShading />
       </mesh>
       {[[-0.82, -0.72], [0.82, -0.72], [-0.82, 0.02], [0.82, 0.02]].map(([px, pz], i) => (
         <mesh key={i} castShadow position={[px, 0.37, pz]}>
           <boxGeometry args={[0.06, 0.74, 0.06]} />
-          <meshStandardMaterial color="#bfb9a5" />
+          <meshStandardMaterial color={SALA.cores.perna} />
         </mesh>
       ))}
       {/* monitor */}
@@ -104,11 +105,11 @@ export function EstacaoAgente({ agente }: { agente: Agente }) {
       {/* cadeira */}
       <mesh castShadow position={[0, 0.45, 0.55]}>
         <boxGeometry args={[0.6, 0.08, 0.6]} />
-        <meshStandardMaterial color="#45473f" />
+        <meshStandardMaterial color={SALA.cores.cadeira} />
       </mesh>
       <mesh castShadow position={[0, 0.8, 0.85]}>
         <boxGeometry args={[0.6, 0.7, 0.08]} />
-        <meshStandardMaterial color="#45473f" />
+        <meshStandardMaterial color={SALA.cores.cadeira} />
       </mesh>
 
       {/* boneco */}

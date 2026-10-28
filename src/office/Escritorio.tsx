@@ -7,6 +7,7 @@ import { MesaVoce } from './MesaVoce'
 import { Pastas } from './Pastas'
 import { Ambiente } from './Ambiente'
 import { CalendarioParede } from './CalendarioParede'
+import { SALA } from './salas'
 
 export function Escritorio() {
   const selecionar = useEscritorio((s) => s.selecionar)
@@ -18,11 +19,11 @@ export function Escritorio() {
       camera={{ position: [13, 12, 13], fov: 32 }}
       onPointerMissed={() => { selecionar(null) }}
     >
-      <color attach="background" args={['#faf9f5']} />
-      <hemisphereLight args={['#ffffff', '#eeebe2', 1.15]} />
+      <color attach="background" args={[SALA.cores.fundo]} />
+      <hemisphereLight args={[SALA.cores.ceu, SALA.cores.solo, SALA.luz < 1 ? 0.55 : 1.15]} />
       <directionalLight
         position={[6, 12, 4]}
-        intensity={1.6}
+        intensity={SALA.luz}
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-left={-10}

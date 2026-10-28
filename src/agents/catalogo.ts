@@ -1,3 +1,5 @@
+import { SALA } from '../office/salas'
+
 // Equipe padrão. Cada marca pode ligar/desligar agentes e reescrever as instruções no roteiro;
 // aqui ficam só a identidade visual e o lugar de cada um no escritório.
 
@@ -34,6 +36,13 @@ export const AGENTES: Agente[] = [
   { id: 'curador', nome: 'Curador', papel: 'Transforma suas correções em regras curtas e verificáveis.', cor: '#74766d', modelo: 'claude-haiku-5-5', mesa: [-1.6, 0], rotacao: Math.PI / 2 },
 ]
 
-export const MESA_VOCE: [number, number] = [1.6, 0]
+// a posição das mesas vem da sala escolhida
+for (const a of AGENTES) {
+  const [x, z, r] = SALA.mesas[a.id]
+  a.mesa = [x, z]
+  a.rotacao = r
+}
+
+export const MESA_VOCE: [number, number] = SALA.voce
 
 export const agentePorId = (id: AgenteId) => AGENTES.find((a) => a.id === id)!
