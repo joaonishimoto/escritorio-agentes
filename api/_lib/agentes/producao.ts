@@ -8,7 +8,7 @@ import { juntarNarracao } from '../ffmpeg.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
 import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
-import { renderizarSlides } from '../render.js'
+import { renderizarESalvar } from '../render-remoto.js'
 import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
@@ -166,17 +166,10 @@ const Trocas = z.object({
 
 async function salvarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], html: string) {
   // se o render cair, o HTML fica guardado: a próxima tentativa só desenha de novo, sem chamar a IA
-  const imagens = await renderizarSlides(html).catch((e) => {
+  const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
+  const slides = await renderizarESalvar(html, pasta).catch((e) => {
     throw new ErroRetomavel(e, { html }, { html_pronto: html })
   })
-  const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
-  const slides = []
-  for (const [i, img] of imagens.entries()) {
-    const caminho = `${pasta}/slide-${i + 1}.jpg`
-    const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, img, { contentType: 'image/jpeg', upsert: true })
-    if (error) throw new Error(`Falha ao subir slide ${i + 1}: ${error.message}`)
-    slides.push({ ordem: i + 1, caminho, url: urlPublica(caminho) })
-  }
   await db.from('posts').update({ slides }).eq('id', ctx.post.id)
   return slides
 }
