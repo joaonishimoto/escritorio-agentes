@@ -23,8 +23,9 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
    - `SUPABASE_URL` (igual ao de cima) e `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API Keys → service_role / secret)
    - `ANTHROPIC_API_KEY` (console da Anthropic)
    - `EXECUTOR_SECRET` (qualquer texto longo e aleatório; protege a rota que roda os agentes)
-   - `KLING_API_KEY` (opcional; console da Kling AI em kling.ai, área de API). Sem ela, escolha outra IA de vídeo no post (por exemplo o Claude, que faz uma animação gravada no próprio app).
-   - `FAL_KEY` (opcional; fal.ai → API Keys). Libera Kling 3.0, Hailuo e Seedance como IA de vídeo, com os créditos do fal.ai.
+   - `FAL_KEY` (recomendada para Reels; fal.ai → API Keys). Libera Kling 3.0, Hailuo e Seedance como IA de vídeo, cobrados por uso. Com ela, o cinegrafista usa o Kling 3.0 por padrão.
+   - `KLING_API_KEY` (opcional; console da Kling AI em kling.ai, área de API). Vira o padrão só quando não há `FAL_KEY`. Sem nenhuma das duas, o Claude faz uma animação gravada no próprio app.
+   - Depois de configurar, abra o perfil de uma sala → aba **Serviços** → **Testar agora**: ele confere cada chave e o Instagram de cada sala sem gerar nada.
    - `ELEVENLABS_API_KEY` (opcional; elevenlabs.io → API Keys). O narrador usa para gravar a voz dos Reels; a voz de cada marca fica na aba Narração do perfil.
    - `OPENROUTER_API_KEY` (opcional; openrouter.ai → Keys). Libera GPT, Gemini e DeepSeek para os funcionários de texto.
 3. No Supabase, em Authentication → URL Configuration, ponha a URL da Vercel em Site URL.
