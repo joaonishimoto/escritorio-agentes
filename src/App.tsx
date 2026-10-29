@@ -1,7 +1,5 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { avisoDoToken } from './lib/token'
-import { agentePorId, type AgenteId } from './agents/catalogo'
-import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
 import { EscritorioPixel } from './pixel/EscritorioPixel'
 import { PainelAgente } from './ui/PainelAgente'
@@ -26,6 +24,8 @@ import { supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
+import { Menu } from './ui/Menu'
+import { Etapa } from './ui/Etapa'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
 import type { Ideia } from './lib/ideias'
 import { PainelSala } from './ui/PainelSala'
@@ -479,59 +479,6 @@ function Painel() {
           }}
         />
       )}
-    </div>
-  )
-}
-
-
-/** Menu de três pontinhos: fecha ao clicar fora, ao apertar Esc ou ao escolher uma opção. */
-function Menu({ children }: { children: ReactNode }) {
-  const [aberto, setAberto] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!aberto) return
-    const fora = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setAberto(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false)
-    document.addEventListener('pointerdown', fora)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('pointerdown', fora)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [aberto])
-
-  return (
-    <div className="menu" ref={ref}>
-      <button className="icone" aria-label="Mais opções" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden><circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" /></svg>
-      </button>
-      {aberto && (
-        <div className="menu-lista" role="menu" onClick={() => setAberto(false)}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Em que etapa o post está agora, sempre visível no canto do escritório. */
-function Etapa({ estados, aguardando, ativo }: { estados: Record<AgenteId, Estado>; aguardando: boolean; ativo: boolean }) {
-  const ids = Object.keys(estados) as AgenteId[]
-  const trabalhando = ids.find((id) => estados[id] === 'trabalhando')
-  const naFila = ids.find((id) => estados[id] === 'na_fila')
-  const texto = aguardando
-    ? 'Esperando sua aprovação'
-    : trabalhando
-      ? `${agentePorId(trabalhando).nome} trabalhando`
-      : naFila
-        ? `${agentePorId(naFila).nome} vai começar`
-        : null
-  if (!texto || (!ativo && !aguardando)) return null
-  return (
-    <div className="etapa" role="status">
-      <span className={`etapa-ponto${aguardando ? ' voce' : ''}`} />
-      {texto}
     </div>
   )
 }
