@@ -3,7 +3,7 @@ import type { Post } from '../lib/dados'
 import { resumoMetricas, useMetricas } from '../lib/metricas'
 
 const GRUPOS: [string, string[]][] = [
-  ['Esperando você', ['aguardando_aprovacao']],
+  ['Esperando você', ['aguardando_texto', 'aguardando_aprovacao']],
   ['Em produção', ['em_producao', 'rascunho', 'aprovado']],
   ['Agendados', ['agendado']],
   ['Na gaveta', ['guardado']],

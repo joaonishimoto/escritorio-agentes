@@ -45,10 +45,13 @@ export interface Post {
   custo_usd: number
   agendado_para: string | null
   /** escolhas do Novo post; agendar_para pré-preenche o horário na aprovação */
-  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string> } | null
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean } | null
   publicado_em: string | null
   criado_em: string
 }
+
+/** Status de post que param na sua mesa: texto para aprovar, post pronto para aprovar e post com erro. */
+export const ESPERANDO_VOCE = ['aguardando_texto', 'aguardando_aprovacao', 'erro']
 
 export interface Regra {
   id: string
@@ -305,7 +308,7 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
       inicioDoMes.setDate(1)
       inicioDoMes.setHours(0, 0, 0, 0)
       const [vivos, mes, guardados, comData] = await Promise.all([
-        sb.from('posts').select('*').in('marca_id', marcaIds).in('status', ['em_producao', 'aprovado', 'aguardando_aprovacao', 'erro']).order('criado_em', { ascending: false }).limit(60),
+        sb.from('posts').select('*').in('marca_id', marcaIds).in('status', ['em_producao', 'aprovado', 'aguardando_aprovacao', 'aguardando_texto', 'erro']).order('criado_em', { ascending: false }).limit(60),
         sb.from('posts').select('marca_id, custo_usd').in('marca_id', marcaIds).gte('criado_em', inicioDoMes.toISOString()),
         sb.from('posts').select('*').in('marca_id', marcaIds).eq('status', 'guardado').order('criado_em', { ascending: false }).limit(200),
         sb
@@ -338,7 +341,7 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
       }
       const gasto: Record<string, number> = {}
       for (const x of (mes.data ?? []) as { marca_id: string; custo_usd: number }[]) gasto[x.marca_id] = (gasto[x.marca_id] ?? 0) + Number(x.custo_usd)
-      if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro'), mes: gasto, gaveta, comData: (comData.data as Post[]) ?? [], carregado: true })
+      if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => ESPERANDO_VOCE.includes(p.status)), mes: gasto, gaveta, comData: (comData.data as Post[]) ?? [], carregado: true })
     }
     buscar().catch((e) => console.error('não consegui ver o andar', e))
     // mudou um post em qualquer sala (status, slides, agendamento): busca de novo na hora, juntando mudanças próximas

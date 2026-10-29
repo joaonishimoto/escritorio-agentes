@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { carregarContexto, fluxoDeProducao } from './_lib/contexto.js'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { limparIas } from './_lib/ias.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 
-type Acao = 'aprovar' | 'agendar' | 'reagendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar' | 'guardar' | 'tirar_da_gaveta'
-const ACOES: Acao[] = ['aprovar', 'agendar', 'reagendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar', 'guardar', 'tirar_da_gaveta']
+type Acao = 'aprovar_texto' | 'ajustar_texto' | 'aprovar' | 'agendar' | 'reagendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar' | 'guardar' | 'tirar_da_gaveta'
+const ACOES: Acao[] = ['aprovar_texto', 'ajustar_texto', 'aprovar', 'agendar', 'reagendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar', 'guardar', 'tirar_da_gaveta']
 
 /** Sua decisão sobre um post: publicar agora, agendar, pedir ajuste (vira regra) ou reprovar. */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
@@ -15,10 +16,29 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
 
   const { post_id, acao, comentario, quando, ia } = (req.body ?? {}) as { post_id?: string; acao?: Acao; comentario?: string; quando?: string; ia?: string }
   if (!post_id || !acao || !ACOES.includes(acao)) return res.status(400).json({ erro: 'Pedido inválido' })
-  if ((acao === 'corrigir' || acao === 'reprovar') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
+  if ((acao === 'corrigir' || acao === 'reprovar' || acao === 'ajustar_texto') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
 
   const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides, preferencias').eq('id', post_id).single()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
+
+  // texto do redator esperando você: segue para o próximo do fluxo (o designer) ou volta para o redator ajustar
+  if (acao === 'aprovar_texto' || acao === 'ajustar_texto') {
+    if (post.status !== 'aguardando_texto') return res.status(409).json({ erro: 'Esse texto não está esperando aprovação' })
+    const { data: mudou } = await db.from('posts').update({ status: 'em_producao' }).eq('id', post_id).eq('status', 'aguardando_texto').select('id')
+    if (!mudou?.length) return res.status(409).json({ erro: 'Esse texto já foi decidido' })
+    if (acao === 'aprovar_texto') {
+      const ctx = await carregarContexto(post_id)
+      const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato)
+      const seguinte = fluxo[fluxo.indexOf('redator') + 1] ?? 'revisor'
+      await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'entrega', mensagem: 'Texto aprovado', para: seguinte })
+      await enfileirar(post_id, seguinte)
+    } else {
+      await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'entrega', mensagem: `Ajuste no texto: ${comentario}`, para: 'redator' })
+      await enfileirar(post_id, 'redator', { feedback: `Pedido do dono da marca (redator): ${comentario!.trim()}`, ajuste_texto: true })
+    }
+    acordarExecutor(origemDaRequisicao(req))
+    return res.status(200).json({ ok: true })
+  }
 
   // post que deu erro: o mesmo agente que falhou tenta de novo, do ponto em que parou
   if (acao === 'tentar_de_novo') {

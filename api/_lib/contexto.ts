@@ -48,7 +48,7 @@ export interface Post {
   custo_usd: number
   referencias?: Referencia[]
   /** escolhas do dono no Novo post */
-  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string> }
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean }
 }
 
 export type Referencia = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }

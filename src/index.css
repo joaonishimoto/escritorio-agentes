@@ -1273,3 +1273,17 @@ i.falhou { background: var(--danger, #b42318) }
 .cal-metricas dt { font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .cal-metricas dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums }
 @media (max-width: 640px) { .cal-metricas { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
+
+/* aprovação do texto (antes do design) */
+.at-dica { font-size: 13px; margin: 0 0 4px }
+.at-slides { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px }
+.at-slides > li { padding-left: 2px }
+.at-slides strong { display: block; font-size: 14px; line-height: 1.35 }
+.at-slides p { margin: 3px 0 0; font-size: 13px; color: var(--muted-foreground); line-height: 1.45; white-space: pre-wrap }
+.at-slides ul { margin: 4px 0 0; padding-left: 16px; font-size: 13px; color: var(--muted-foreground) }
+.at-etiqueta { display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground); margin-bottom: 2px }
+.np-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; cursor: pointer }
+.np-toggle input { margin-top: 3px; accent-color: var(--primary) }
+.np-toggle span { display: flex; flex-direction: column; gap: 3px }
+.np-toggle strong { font-size: 14px; font-weight: 600 }
+.np-toggle small { font-size: 12px; color: var(--muted-foreground); line-height: 1.35 }
