@@ -248,7 +248,16 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .slides img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-md); display: block; border: 1px solid var(--border) }
 .confirmar { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; color: var(--warning-strong) }
 .regras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
-.regras li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px }
+.regras > li > .chip { align-self: flex-start }
+.regras > li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px }
+.regras-topo { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 8px 0 }
+.regras-topo input { flex: 1 1 200px; max-width: 280px }
+.regras-cabeca { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap }
+.regras-cabeca h3 { display: flex; gap: 8px; align-items: center }
+.chip-alerta { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger-strong) }
+.regras-proposta { border: 1px dashed var(--border); border-radius: var(--radius-lg); padding: 12px; margin: 8px 0 12px; display: flex; flex-direction: column; gap: 8px }
+.regras-proposta details summary { cursor: pointer; font-size: 13px }
+.regras-antigas { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted-foreground); display: flex; flex-direction: column; gap: 4px }
 .painel-regras { top: auto; max-height: 45%; z-index: 1 }
 .painel:not(.painel-regras) { z-index: 2 }
 .vazio { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 18px 22px; width: min(420px, calc(100% - 32px)); text-align: center; box-shadow: var(--shadow-md) }
