@@ -132,6 +132,67 @@ const CONFERIR = `(() => {
     if (texto.length >= 60 && tamanho < 28) problemas.push('texto do corpo com ' + Math.round(tamanho) + ' px (mínimo 28): "' + trecho + '"')
     textos.push({ el, r, trecho })
   }
+  // faixa vazia: junta tudo o que ocupa espaço (texto, imagem, desenho, cartão com fundo) e procura o maior vão
+  // na altura do slide, no slide inteiro e em cada metade (layout em colunas deixa uma coluna vazia)
+  const fundo = getComputedStyle(slide).backgroundColor
+  const area = limite.width * limite.height
+  const blocos = textos.map((t) => t.r)
+  for (const el of slide.querySelectorAll('*')) {
+    if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue
+    const estilo = getComputedStyle(el)
+    if (estilo.display === 'none' || estilo.visibility === 'hidden' || Number(estilo.opacity) < 0.15) continue
+    const tag = el.tagName.toLowerCase()
+    const midia = ['img', 'svg', 'video', 'canvas', 'picture'].includes(tag) || estilo.backgroundImage.includes('url(')
+    // forma desenhada com degradê (fruta, círculo) conta; o degradê grande por cima da foto é só sombra
+    const desenho = estilo.backgroundImage.includes('gradient(')
+    const cor = estilo.backgroundColor
+    const alfa = cor.startsWith('rgba') ? parseFloat(cor.split(',')[3]) : 1
+    const cartao = cor !== fundo && cor !== 'transparent' && alfa > 0.05
+    if (!midia && !cartao && !desenho) continue
+    const r = el.getBoundingClientRect()
+    if (r.width * r.height < 2000) continue
+    if (!midia && !cartao && r.width * r.height > area * 0.35) continue
+    // fundo do slide inteiro (cor chapada) não conta como conteúdo; foto de fundo conta
+    if (!midia && r.width * r.height > area * 0.9) continue
+    blocos.push(r)
+  }
+  const maiorVao = (esq, dir) => {
+    const faixas = blocos
+      .filter((r) => r.right > esq + 20 && r.left < dir - 20)
+      .map((r) => [Math.max(0, r.top - limite.top), Math.min(limite.height, r.bottom - limite.top)])
+      .filter(([a, b]) => b > a)
+      .sort((a, b) => a[0] - b[0])
+    if (!faixas.length) return null
+    let fim = faixas[0][1]
+    let vao = { de: 0, ate: 0 }
+    for (const [a, b] of faixas.slice(1)) {
+      if (a - fim > vao.ate - vao.de) vao = { de: fim, ate: a }
+      fim = Math.max(fim, b)
+    }
+    const borda = Math.max(faixas[0][0], limite.height - fim)
+    return { vao, borda }
+  }
+  const total = maiorVao(limite.left, limite.right)
+  if (total) {
+    const { vao, borda } = total
+    if (vao.ate - vao.de > limite.height * 0.24) problemas.push('faixa vazia de y=' + Math.round(vao.de) + ' a y=' + Math.round(vao.ate) + ' px; aproxime os blocos ou aumente o elemento principal')
+    else if (borda > limite.height * 0.36) problemas.push('o conteúdo ocupa só parte do slide: sobram ' + Math.round(borda) + ' px vazios em cima ou embaixo; distribua os blocos na altura')
+    else {
+      const meio = limite.left + limite.width / 2
+      for (const [lado, esq, dir] of [['esquerda', limite.left, meio], ['direita', meio, limite.right]]) {
+        const v = maiorVao(esq, dir)
+        if (v && v.vao.ate - v.vao.de > limite.height * 0.3) problemas.push('coluna da ' + lado + ' com faixa vazia de y=' + Math.round(v.vao.de) + ' a y=' + Math.round(v.vao.ate) + ' px; distribua os blocos')
+      }
+    }
+  }
+  // corte 1:1 da grade do perfil: o 4:5 perde ~135 px em cima e embaixo; título ali some na miniatura
+  const corte = (limite.height - limite.width) / 2
+  if (corte > 40) {
+    for (const t of textos) {
+      if (parseFloat(getComputedStyle(t.el).fontSize) < 40) continue
+      if (t.r.top - limite.top < corte - 4 || limite.bottom - t.r.bottom < corte - 4) problemas.push('título fora da área central 1:1 (some no corte da grade): "' + t.trecho + '"')
+    }
+  }
   for (let i = 0; i < textos.length; i++) {
     for (let j = i + 1; j < textos.length; j++) {
       const a = textos[i], b = textos[j]
@@ -142,7 +203,7 @@ const CONFERIR = `(() => {
       if (menor > 0 && (x * y) / menor > 0.25) problemas.push('texto sobreposto: "' + a.trecho + '" e "' + b.trecho + '"')
     }
   }
-  return Array.from(new Set(problemas)).slice(0, 6)
+  return Array.from(new Set(problemas)).slice(0, 8)
 })()`
 
 type Modo = { espera: 'networkidle' | 'load'; leve: boolean }

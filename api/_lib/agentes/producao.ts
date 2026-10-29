@@ -221,7 +221,7 @@ async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters
   if (r.problemas.length) {
     await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
     await em.texto(`${textoDaChecagem(r.problemas)}\n`)
-    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Não mude o texto.`, html, { renderizar: false })
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título fora da área 1:1: traga para dentro de y 135 a 1215. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false })
     if (ajuste && ajuste.html !== html) {
       html = ajuste.html
       usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
@@ -290,6 +290,18 @@ async function editarSlides(
   }
   return { html, uso, saida: { html, slides, imagens }, entrega: 'Ajuste aplicado' }
 }
+
+/** Composição que vale para toda marca: vem das correções do dono que se repetiam (vazio, desalinhado, número gigante, site no botão). */
+const COMPOSICAO = `## Composição (todas as marcas)
+- Monte cada slide com uma grade: margem lateral igual em todos os slides (cerca de 80 px) e o mesmo espaço entre selo, título, corpo e rodapé de um slide para o outro. Prefira flexbox em coluna para os blocos de texto em vez de position absolute solto: evita sobreposição e vazios.
+- Nada de faixa grande vazia sem função. O conteúdo ocupa a altura do slide: se o texto é curto, aumente o título, a foto ou o ícone, ou centralize o grupo; espaço livre fica entre blocos, não sobrando num canto.
+- Título, logo e o que importa ficam dentro da área central 1:1 (de y 135 a y 1215): a grade do perfil corta o 4:5 em cima e embaixo.
+- Selo ou pílula é opcional; quando entrar, alinhe na mesma margem do título e varie a posição entre posts. Rodapé numa linha só, itens alinhados pela mesma base.
+- Número ou palavra gigante decorativa no fundo só no layout numero-gigante, e nunca cortado na borda.
+- Botão e chamada com palavras comuns ("Link na bio", "Começar grátis"), nunca endereço de site.
+- A marca aparece com o arquivo de imagem do logo ou ícone (na identidade ou no modelo), nunca com uma letra ou inicial no lugar.
+- Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide.
+- Post com objetivo "marca": pouco texto na arte, a marca em destaque.`
 
 const PlanoDeImagens = z.object({
   imagens: z
@@ -402,11 +414,11 @@ export const designer: Agente = async (ctx, passo, em) => {
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: modeloDe(ctx, 'designer'),
-    sistema: sistemaDoAgente(
+    sistema: `${sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha.',
-    ),
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título fora da área 1:1.',
+    )}\n\n${COMPOSICAO}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
@@ -427,6 +439,10 @@ export const designer: Agente = async (ctx, passo, em) => {
           refsDesign.tem
             ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`
             : '',
+          (() => {
+            const p = ctx.saidas.chefe as { objetivo?: string; formato?: string; quantidade_slides?: number } | undefined
+            return p?.objetivo ? `## Objetivo deste post: ${p.objetivo}\nFormato: ${p.formato}, ${p.quantidade_slides} ${p.quantidade_slides === 1 ? 'imagem' : 'slides'} (nem mais nem menos).` : ''
+          })(),
           `## Texto dos slides (não mude o texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto>)?.slides)}`,
           feedback(passo),
         ].join('\n\n'),
