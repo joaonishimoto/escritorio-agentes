@@ -4,8 +4,8 @@ import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { limparIas } from './_lib/ias.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 
-type Acao = 'aprovar' | 'agendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar' | 'guardar' | 'tirar_da_gaveta'
-const ACOES: Acao[] = ['aprovar', 'agendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar', 'guardar', 'tirar_da_gaveta']
+type Acao = 'aprovar' | 'agendar' | 'reagendar' | 'desagendar' | 'tentar_de_novo' | 'corrigir' | 'reprovar' | 'guardar' | 'tirar_da_gaveta'
+const ACOES: Acao[] = ['aprovar', 'agendar', 'reagendar', 'desagendar', 'tentar_de_novo', 'corrigir', 'reprovar', 'guardar', 'tirar_da_gaveta']
 
 /** Sua decisão sobre um post: publicar agora, agendar, pedir ajuste (vira regra) ou reprovar. */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
@@ -52,6 +52,20 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     await enfileirar(post_id, agente, entrada)
     acordarExecutor(origemDaRequisicao(req))
     return res.status(200).json({ ok: true, agente })
+  }
+
+  // calendário: arrastar para outro dia ou mudar a hora de um post já agendado
+  if (acao === 'reagendar') {
+    if (post.status !== 'agendado') return res.status(409).json({ erro: 'Esse post não está agendado' })
+    const data = quando ? new Date(quando) : null
+    if (!data || Number.isNaN(data.getTime())) return res.status(400).json({ erro: 'Escolha a data e a hora' })
+    if (data.getTime() < Date.now() + 60_000) return res.status(400).json({ erro: 'Escolha um horário no futuro' })
+    // só muda se ainda estiver agendado: o publicador pode ter acabado de pegar
+    const { data: mudou } = await db.from('posts').update({ agendado_para: data.toISOString() }).eq('id', post_id).eq('status', 'agendado').select('id')
+    if (!mudou?.length) return res.status(409).json({ erro: 'Esse post acabou de sair para publicar' })
+    const quandoTexto = data.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'fim', mensagem: `Reagendado para ${quandoTexto}` })
+    return res.status(200).json({ ok: true })
   }
 
   if (acao === 'desagendar') {

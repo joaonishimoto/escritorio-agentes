@@ -89,7 +89,7 @@ function Painel() {
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
   // ideia do pesquisador que abre o Novo post já preenchido (e qual ideia guardada era, para sair da lista ao criar)
-  const [ideiaInicial, setIdeiaInicial] = useState<{ ideia: Ideia; guardadaId?: string } | undefined>()
+  const [ideiaInicial, setIdeiaInicial] = useState<{ ideia: Ideia; guardadaId?: string; quando?: Date } | undefined>()
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [perfilMarca, setPerfilMarca] = useState(false)
@@ -432,6 +432,16 @@ function Painel() {
           marcaId={calendarioDe}
           marcaNome={calendarioDe ? marcasNoAndar.find((m) => m.id === calendarioDe)?.nome : undefined}
           carregando={geral ? !andar.carregado : !postsCarregados}
+          aoPlanejar={
+            calendarioDe
+              ? (ideia, quando) => {
+                  escolherMarca(calendarioDe)
+                  selecionar(null)
+                  setIdeiaInicial({ ideia, quando })
+                  setNovo(true)
+                }
+              : undefined
+          }
         />
       )}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} marcaNome={marca?.nome} marcaCor={marca ? corDaMarca(marca) : undefined} aoFechar={() => setBiblioteca(false)} />}
@@ -458,6 +468,7 @@ function Painel() {
           neutra={!!marca?.identidade?.neutra}
           inicial={ideiaInicial?.ideia}
           ideiaGuardadaId={ideiaInicial?.guardadaId}
+          agendarPara={ideiaInicial?.quando}
           aoFechar={() => { setNovo(false); setIdeiaInicial(undefined) }}
           aoCriar={(p) => {
             setNovo(false)
