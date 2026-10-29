@@ -15,6 +15,8 @@ export function explicarErro(agente: string, erro: string): Explicacao {
   const e = erro.toLowerCase()
   if (/kling/.test(e) && /cr[ée]dito|saldo|balance|insufficient|quota/.test(e))
     return { titulo: 'A Kling está sem créditos', texto: 'O vídeo não saiu porque acabou o saldo da conta na Kling. Dá para fazer agora com a animação do Claude, ou recarregar a Kling e tentar de novo.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
+  if (/vídeos pagos/.test(e))
+    return { titulo: 'Limite de vídeos pagos do post', texto: 'Este post já pagou dois vídeos e cada ajuste pagaria outro inteiro. Faça o vídeo com a animação do Claude (só custo de texto) ou volte para a aprovação com o vídeo que já existe.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
   if (/fal\.ai/.test(e) && /saldo|cr[ée]dito|balance|acesso/.test(e))
     return { titulo: 'O fal.ai está sem saldo', texto: 'O serviço de vídeo recusou o pedido por falta de saldo ou de acesso ao modelo. Dá para fazer agora com a animação do Claude.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
   if (/elevenlabs/.test(e) && /permiss|permission|id da chave|recusou a chave|falta configurar|créditos/.test(e))

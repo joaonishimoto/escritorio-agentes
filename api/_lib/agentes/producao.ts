@@ -551,6 +551,10 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   const prompt = r.dados.prompt
   await em.texto(`${prompt}\n`)
   const primeiroQuadro = ctx.post.referencias?.find((x) => x.tipo === 'imagem')?.url
+  // teto de vídeos pagos por post: cada ajuste num vídeo da Kling ou do fal.ai paga um vídeo inteiro de novo
+  const pagos = await videosPagosDoPost(ctx.post.id)
+  if (pagos >= MAX_VIDEOS_PAGOS)
+    throw new Error(`Limite de ${MAX_VIDEOS_PAGOS} vídeos pagos neste post já usado no ${NOME_DO_MOTOR(motor)}. Para não gastar mais, refaça com a animação do Claude ou siga com o vídeo que já existe.`)
   let novo: PedidoVideo
   let segundos: number = r.dados.segundos
   let custo: number
@@ -583,6 +587,20 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   uso = { ...uso, custo_usd: uso.custo_usd + custo }
   await em.acao(custo ? `Vídeo na fila (US$ ${custo.toFixed(2)})` : 'Vídeo na fila (o custo aparece no painel do fal.ai)')
   return esperarVideo(ctx, { ...entrada, prompt, segundos }, novo, em, uso)
+}
+
+const MAX_VIDEOS_PAGOS = 2
+
+/** Quantos vídeos já foram pedidos a serviços pagos neste post (cada pedido tem um id próprio). */
+async function videosPagosDoPost(postId: string) {
+  const { data } = await db.from('passos').select('saida').eq('post_id', postId).eq('agente', 'cinegrafista').eq('status', 'feito')
+  const ids = new Set<string>()
+  for (const p of data ?? []) {
+    const s = p.saida as { pedido?: { id?: string }; video?: { pedido_id?: string } } | null
+    const id = s?.pedido?.id ?? s?.video?.pedido_id
+    if (id) ids.add(id)
+  }
+  return ids.size
 }
 
 /** Acompanha o pedido no serviço de vídeo; se não ficar pronto neste passo, volta para a fila. */

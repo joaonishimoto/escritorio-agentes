@@ -5,10 +5,8 @@ import type { Contexto } from '../api/_lib/contexto'
 const ctx = (ias?: Record<string, string>) => ({ post: { preferencias: { ias } } }) as unknown as Contexto
 
 describe('motor de vídeo padrão', () => {
-  it('prefere o fal.ai, depois a Kling direta, depois a animação do Claude', () => {
-    expect(motorPadrao({ fal: true, kling: true })).toBe('fal-kling')
-    expect(motorPadrao({ fal: false, kling: true })).toBe('kling')
-    expect(motorPadrao({})).toBe('claude')
+  it('é sempre a animação do Claude: vídeo pago só por escolha no post', () => {
+    expect(motorPadrao()).toBe('claude')
   })
 })
 
