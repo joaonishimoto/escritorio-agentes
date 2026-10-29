@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { chamarApi } from '../lib/api'
+import { chamarApi, lerApi } from '../lib/api'
 
 interface Perfil {
   id: string
@@ -13,7 +13,7 @@ interface Perfil {
 }
 
 type Item = { chave: string; valor: string }
-type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'narracao' | 'sala'
+type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'narracao' | 'servicos' | 'sala'
 
 const HEX = /^#[0-9a-f]{6}$/i
 // chaves que têm campo próprio ou que o app cuida sozinho
@@ -24,6 +24,7 @@ const ABAS: { id: Aba; nome: string; quem: string }[] = [
   { id: 'legenda', nome: 'Legenda', quem: 'Redator' },
   { id: 'revisao', nome: 'Revisão', quem: 'Revisor' },
   { id: 'narracao', nome: 'Narração', quem: 'Narrador (Reels)' },
+  { id: 'servicos', nome: 'Serviços', quem: 'Cinegrafista, narrador e publicador' },
   { id: 'sala', nome: 'Sala', quem: 'Escritório' },
 ]
 
@@ -34,6 +35,9 @@ const VOZES_NARRACAO = [
 ]
 const NARRACAO_PADRAO = { ativa: true, voz: VOZES_NARRACAO[0].id, velocidade: 0.95, estabilidade: 0.5 }
 type Narracao = typeof NARRACAO_PADRAO
+
+type Servico = { id: string; nome: string; estado: 'ok' | 'erro' | 'falta' | 'incerto'; detalhe: string }
+const ESTADO = { ok: 'Funcionando', erro: 'Com problema', falta: 'Não configurado', incerto: 'Não deu para confirmar' }
 
 const rotulo = (k: string) => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ')
 const chave = (r: string) => r.trim().toLowerCase().replace(/\s+/g, '_')
@@ -62,6 +66,22 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
+  const [servicos, setServicos] = useState<Servico[] | null>(null)
+  const [testando, setTestando] = useState(false)
+  const [erroTeste, setErroTeste] = useState<string | null>(null)
+
+  const testarServicos = async () => {
+    setTestando(true)
+    setErroTeste(null)
+    try {
+      const r = await lerApi<{ servicos: Servico[] }>('servicos')
+      setServicos(r.servicos)
+    } catch (e) {
+      setErroTeste(e instanceof Error ? e.message : 'Não deu para testar')
+    } finally {
+      setTestando(false)
+    }
+  }
 
   const preencher = (p: Perfil) => {
     const id = p.identidade ?? {}
@@ -358,6 +378,36 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                   <label htmlFor="pm-est">Estabilidade: {narracao.estabilidade.toFixed(2).replace('.', ',')}</label>
                   <input id="pm-est" type="range" min={0} max={1} step={0.05} value={narracao.estabilidade} onChange={(e) => setNarracao({ ...narracao, estabilidade: Number(e.target.value) })} />
                   <p className="pm-dica">Mais estabilidade deixa a voz mais constante; menos, mais expressiva.</p>
+                </section>
+              )}
+
+              {aba === 'servicos' && (
+                <section className="pm-secao">
+                  <h3>Testar serviços</h3>
+                  <p className="pm-dica">
+                    Uma chamada mínima em cada serviço (Claude, OpenRouter, fal.ai, Kling, ElevenLabs e o Instagram de cada sala) para pegar chave errada, saldo zerado ou conta
+                    desconectada antes de gastar um post. Não gera nada nem cobra.
+                  </p>
+                  <div>
+                    <button type="button" className="secundario" disabled={testando} onClick={testarServicos}>
+                      {testando ? 'Testando…' : servicos ? 'Testar de novo' : 'Testar agora'}
+                    </button>
+                  </div>
+                  {erroTeste && <p className="aviso">{erroTeste}</p>}
+                  {servicos && (
+                    <ul className="pm-servicos">
+                      {servicos.map((s) => (
+                        <li key={s.id} className={s.estado}>
+                          <span className="pm-servico-ponto" aria-hidden />
+                          <div>
+                            <strong>{s.nome}</strong> <span className="chip">{ESTADO[s.estado]}</span>
+                            <p className="muted">{s.detalhe}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="pm-dica">O vídeo dos Reels sai pelo fal.ai (Kling 3.0) quando a FAL_KEY está na Vercel; sem ela, pela Kling direta; sem as duas, como animação do Claude.</p>
                 </section>
               )}
 

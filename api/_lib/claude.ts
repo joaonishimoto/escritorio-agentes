@@ -23,15 +23,31 @@ export interface Uso {
   custo_usd: number
 }
 
+// prompt caching: gravar no cache custa 1,25× a entrada; ler do cache custa 0,1×
+const FATOR_GRAVAR_CACHE = 1.25
+const FATOR_LER_CACHE = 0.1
+
 export function somarUso(modelo: Modelo, u: Anthropic.Usage, acc: Uso = { tokens_entrada: 0, tokens_saida: 0, custo_usd: 0 }): Uso {
-  const entrada = u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0)
+  const gravados = u.cache_creation_input_tokens ?? 0
+  const lidos = u.cache_read_input_tokens ?? 0
+  const entrada = u.input_tokens + gravados + lidos
   const [pe, ps] = PRECO[modelo]
   const buscas = u.server_tool_use?.web_search_requests ?? 0
+  const custoEntrada = (u.input_tokens + gravados * FATOR_GRAVAR_CACHE + lidos * FATOR_LER_CACHE) * pe
   return {
     tokens_entrada: acc.tokens_entrada + entrada,
     tokens_saida: acc.tokens_saida + u.output_tokens,
-    custo_usd: acc.custo_usd + (entrada * pe + u.output_tokens * ps) / 1e6 + buscas * PRECO_BUSCA_WEB,
+    custo_usd: acc.custo_usd + (custoEntrada + u.output_tokens * ps) / 1e6 + buscas * PRECO_BUSCA_WEB,
   }
+}
+
+/**
+ * O prompt de sistema (roteiro, identidade, regras, checklist) se repete em todos os passos e voltas do mesmo
+ * agente no mesmo post. Marcado para cache, as repetições pagam 10% da entrada. Abaixo do mínimo do modelo
+ * (cerca de 1.000 tokens) a API ignora a marca sem erro.
+ */
+export function sistemaComCache(sistema: string): Anthropic.TextBlockParam[] {
+  return [{ type: 'text', text: sistema, cache_control: { type: 'ephemeral' } }]
 }
 
 export type Conteudo = string | Anthropic.ContentBlockParam[]
@@ -67,7 +83,7 @@ export async function gerarTexto(opts: {
     const stream = claude.messages.stream({
       model: modelo,
       max_tokens: 32000,
-      system: opts.sistema,
+      system: sistemaComCache(opts.sistema),
       output_config: { effort: opts.effort ?? 'medium' },
       tools,
       messages,
@@ -106,7 +122,7 @@ export async function gerarJson<S extends z.ZodType>(opts: {
     const stream = claude.messages.stream({
       model: modelo,
       max_tokens: 32000,
-      system: opts.sistema,
+      system: sistemaComCache(opts.sistema),
       output_config: { effort: opts.effort ?? 'medium', format: zodOutputFormat(opts.schema) },
       messages: [{ role: 'user', content: opts.conteudo }],
     })
