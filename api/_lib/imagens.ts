@@ -42,6 +42,8 @@ export const MODELOS_IMAGEM = {
 } satisfies Record<string, ModeloImagem>
 export type MotorImagem = keyof typeof MODELOS_IMAGEM
 export const MOTOR_IMAGEM_PADRAO: MotorImagem = 'seedream'
+/** quanto esperar por uma imagem: passou disso, o designer segue com as fotos da marca em vez de travar o passo */
+export const LIMITE_IMAGEM_MS = 75_000
 /** teto de imagens geradas por post, para o custo não fugir (≈ US$ 0,09 no Seedream) */
 export const MAX_IMAGENS_POR_POST = 3
 
@@ -58,11 +60,11 @@ export async function gerarImagem(
     prompt: opts.prompt,
     ...m.extras,
     ...(refs.length ? { image_urls: refs } : {}),
-  })
+  }, LIMITE_IMAGEM_MS)
   const origem = r.images?.[0]?.url
   if (!origem) throw new Error(`${m.nome} terminou sem devolver a imagem`)
   // a URL do fal expira: a imagem passa para o nosso bucket antes de entrar nos slides
-  const baixada = await fetch(origem)
+  const baixada = await fetch(origem, { signal: AbortSignal.timeout(20_000) })
   if (!baixada.ok) throw new Error(`Não deu para baixar a imagem do ${m.nome} (HTTP ${baixada.status})`)
   const tipo = baixada.headers.get('content-type') ?? r.images?.[0]?.content_type ?? 'image/png'
   const ext = tipo.includes('jpeg') || tipo.includes('jpg') ? 'jpg' : tipo.includes('webp') ? 'webp' : 'png'
