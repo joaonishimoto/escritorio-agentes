@@ -491,7 +491,11 @@ const REGRAS_ANIMACAO = `## Como escrever a animação
 - Use animation-fill-mode: both e tempos (delay + duração) que caibam na duração total. O último quadro precisa ficar bonito parado.
 - Pode ter texto na tela: frases curtas, grandes e legíveis no celular (título com 90 px ou mais), longe das bordas (120 px de margem embaixo e 200 px em cima, por causa dos botões do Instagram).
 - Fontes do Google Fonts via <link> e imagens só por URL https das referências; nada de outro recurso externo.
-- Movimento com intenção: entradas em sequência, um elemento principal por vez, ritmo de Reel. Use as cores e a fonte da identidade visual.`
+- Movimento com intenção: entradas em sequência, um elemento principal por vez, ritmo de Reel. Use as cores e a fonte da identidade visual.
+- Ritmo que dá para ler: cada cena ou frase fica pelo menos 2 s parada na tela antes de trocar; no máximo 3 cenas em 8 s.
+- O fundo cobre os 1080x1920 inteiros, sem barra preta nas laterais nem em cima e embaixo. O que importa fica no centro, longe das bordas.
+- A marca entra pela imagem do logo ou ícone da lista abaixo (<img> com a URL), nunca por uma letra ou inicial desenhada.
+- O produto (drink, app, peça) entra pela foto real da lista. Não desenhe o produto com CSS: fica artificial. Sem foto dele, use tipografia, cor e formas abstratas.`
 
 const ESPERA_POR_PASSO_MS = 100_000
 const MAX_ESPERAS = 6
@@ -547,13 +551,17 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   ]
 
   if (motor === 'claude') {
+    const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
+    const textoMidias = midias.length
+      ? `## Logo e fotos da marca (só estas URLs podem entrar na animação)\n${midias.map((m) => `- ${m.url} (${m.descricao ?? m.tags.join(', ')})`).join('\n')}`
+      : '## A marca não tem logo nem fotos na biblioteca: use só tipografia, cor e formas.'
     const r = await gerarJson({
       modelo: 'claude-opus-5-5',
       effort: 'medium',
       sistema: sistemaDoAgente(ctx, 'cinegrafista', 'Você faz o vídeo do Reel como motion designer: escreve uma animação em HTML e CSS que o app grava em vídeo.'),
       conteudo: [
         ...refs.blocos,
-        { type: 'text' as const, text: [...contexto, refs.tem ? refs.texto : '', REGRAS_ANIMACAO].filter(Boolean).join('\n\n') },
+        { type: 'text' as const, text: [...contexto, refs.tem ? refs.texto : '', textoMidias, REGRAS_ANIMACAO].filter(Boolean).join('\n\n') },
       ],
       schema: Animacao,
     })
@@ -575,7 +583,7 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   const r = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo.`),
+    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado.`),
     conteudo: [
       ...refs.blocos,
       {
