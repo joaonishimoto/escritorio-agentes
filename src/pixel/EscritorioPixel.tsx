@@ -4,9 +4,9 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Direcao, type Visual } from './sprites'
 import {
-  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
-  PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
-  desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, PLACA_EQUIPE, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, LINHA_MARCA, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y,
+  PORTA_VOCE_X, PORTA_X, PORTA_MARCA, SALA_W, MARCA_W, PASSO_MARCA, PASSO_EQUIPE, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
+  desenharParedeEntre, desenharEquipe, desenharMarca, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
   COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, PAREDE_EXTERNA, desenharParedeExterna, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
@@ -143,7 +143,9 @@ export function EscritorioPixel({
   const foco = useEscritorio((s) => s.foco)
 
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
-  const xVoce = marcas.length * PASSO_SALA
+  // a equipe é uma só (sala 0 dos bonecos, no começo do andar); depois vêm as salas das marcas
+  const xMarca = (i: number) => PASSO_EQUIPE + i * PASSO_MARCA
+  const xVoce = xMarca(marcas.length)
   // sala do Financeiro depois da sua, separada por uma parede
   const xFin = xVoce + VOCE_W + 16
   const largura = xFin + FIN_W
@@ -177,10 +179,12 @@ export function EscritorioPixel({
     const g = c.getContext('2d')!
     desenharCorredor(g, largura)
     const hoje = new Date().getDate()
+    desenharEquipe(g, 0, false)
+    desenharParedeEntre(g, SALA_W)
     marcas.forEach((m, i) => {
       const q = quadros?.[m.id]
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram })
-      desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
+      desenharMarca(g, xMarca(i), estiloDe(m, i), { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram })
+      desenharParedeEntre(g, xMarca(i) + MARCA_W)
     })
     desenharSuaSala(g, xVoce)
     desenharParedeEntre(g, xVoce + VOCE_W)
@@ -232,7 +236,7 @@ export function EscritorioPixel({
       const d = new Date(a.data)
       if (d.getMonth() !== hoje.getMonth() || d.getFullYear() !== hoje.getFullYear()) continue
       const i = marcas.findIndex((m) => m.id === a.marcaId)
-      const de: Ponto = i >= 0 ? [i * PASSO_SALA + PLACA.x, PLACA.y - 10] : [xVoce + MESA_VOCE.x + 17, MESA_VOCE.y]
+      const de: Ponto = i >= 0 ? [xMarca(i) + PLACA.x, PLACA.y - 10] : [xVoce + MESA_VOCE.x + 17, MESA_VOCE.y]
       folhas.current.push({ de, dia: d.getDate(), cor: a.cor ?? (a.status === 'publicado' ? '#3f7650' : '#f2b233'), inicio: performance.now() + folhas.current.length * 250 })
     }
     vistos.current = chaves
@@ -262,12 +266,13 @@ export function EscritorioPixel({
   const geom = useRef({ escala: 3, offY: 0, larguraVista: 0 })
 
   // ── caminhos ──
-  const pes = (sala: number, quem: AgenteId | 'voce'): Ponto => {
+  const pes = (_sala: number, quem: AgenteId | 'voce'): Ponto => {
     if (quem === 'voce') return [xVoce + MESA_VOCE.x + MESA_VOCE.w / 2, MESA_VOCE.y - 2]
     const a = assento(MESAS[quem])
-    return [sala * PASSO_SALA + a.x, a.y]
+    return [a.x, a.y]
   }
-  const naSala = (sala: number, pontos: Ponto[]): Ponto[] => pontos.map(([x, y]) => [sala * PASSO_SALA + x, y])
+  // os bonecos são todos da sala da equipe, que começa no x 0
+  const naSala = (_sala: number, pontos: Ponto[]): Ponto[] => pontos
   const daSuaMesaAtePorta = (): Ponto[] => {
     const [x, y] = pes(-1, 'voce')
     return [[x, y], [xVoce + 50, y], [xVoce + 50, 124], [xVoce + PORTA_VOCE_X, 124], [xVoce + PORTA_VOCE_X, CORREDOR_PES]]
@@ -361,13 +366,29 @@ export function EscritorioPixel({
         : Math.round((c.height / escala - ANDAR_H) / 2)
       geom.current = { escala, offY, larguraVista: vistaW }
 
+      // uma equipe para todas as marcas: o que o boneco faz é o do post aberto e, se ele estiver livre ali,
+      // o do post de outra marca em que esteja trabalhando
+      const marcaAberta = marcas[v.indiceAtivo]?.id
+      const outrosTrabalhos = (id: AgenteId) =>
+        marcas.filter((m) => m.id !== marcaAberta && ['trabalhando', 'na_fila', 'esperando_voce'].includes(v.porSala?.[m.id]?.[id] ?? ''))
+      const estadoNaTela = (_i: number, id: AgenteId): Estado => {
+        if (chegandoAgora.has(id) || pendentes.current.some((e) => e.de === id || e.para === id)) return 'na_fila'
+        let melhor: Estado = v.estados[id] ?? 'ocioso'
+        for (const m of marcas) {
+          if (m.id === marcaAberta) continue
+          const e = v.porSala?.[m.id]?.[id]
+          if (e && e !== 'concluido' && PRIORIDADE.indexOf(e) < PRIORIDADE.indexOf(melhor)) melhor = e
+        }
+        return melhor
+      }
+      const chegandoAgora = aCaminhoDe()
+
       // passeio até o café de vez em quando, para o andar não ficar parado
       // raro, um por vez, e nunca na sala que está com post em produção
-      const salaOcupada = AGENTES.some((a) => ['trabalhando', 'na_fila', 'esperando_voce'].includes(v.estados[a.id]))
       if (agora > proximoPasseio && !andantes.current.some((a) => !a.pasta)) {
         proximoPasseio = agora + 40000 + Math.random() * 40000
-        const sala = Math.floor(Math.random() * marcas.length)
-        const livres = sala === v.indiceAtivo && salaOcupada ? [] : AGENTES.filter((a) => !andando(a.id, sala))
+        const sala = 0
+        const livres = AGENTES.filter((a) => !andando(a.id, sala) && !['trabalhando', 'na_fila', 'esperando_voce'].includes(estadoNaTela(0, a.id)))
         const a = livres[Math.floor(Math.random() * livres.length)]
         if (a) {
           const ida = naSala(sala, [...ateOHall(MESAS[a.id]), [CAFE.x + 16, LINHA_HALL]])
@@ -379,7 +400,7 @@ export function EscritorioPixel({
       // e estar sentado (se estava no café, volta antes)
       const chegando = aCaminhoDe()
       pendentes.current = pendentes.current.filter((e) => {
-        const sala = v.indiceAtivo
+        const sala = 0
         const de = { sala: e.de === 'voce' ? -1 : sala, quem: e.de }
         if (chegando.has(e.de)) return true
         if (pendentes.current.some((x) => x !== e && x.para === e.de && pendentes.current.indexOf(x) < pendentes.current.indexOf(e))) return true
@@ -398,7 +419,7 @@ export function EscritorioPixel({
         if (e.de === 'voce' && e.para !== 'voce') {
           // cartinha em linha reta da sua mesa até a mesa de quem recebe (o arco é desenhado no voo)
           const m = MESAS[e.para]
-          const ida: Ponto[] = [[xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 4], [sala * PASSO_SALA + m.x + 15, m.y + 2]]
+          const ida: Ponto[] = [[xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 4], [m.x + 15, m.y + 2]]
           andantes.current.push({ id: e.id, quem: 'voce', sala: -1, ida, volta: ida, fase: 'ida', dist: 0, parouEm: 0, pasta: false, carta: true, alvo: para })
           chegando.add(e.para)
           return false
@@ -415,9 +436,7 @@ export function EscritorioPixel({
         setPastaChegouEmVoce(pastaEmVoce)
       }
       const voceAguardando = v.aguardando && pastaEmVoce
-      const esperandoPasta = (i: number, id: AgenteId) => i === v.indiceAtivo && (chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id))
-      const estadoNaTela = (i: number, id: AgenteId): Estado =>
-        i !== v.indiceAtivo ? (v.porSala?.[marcas[i]?.id]?.[id] ?? 'ocioso') : esperandoPasta(i, id) ? 'na_fila' : v.estados[id]
+      const esperandoPasta = (_i: number, id: AgenteId) => chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id)
 
       if (DEPURAR) {
         ;(window as unknown as { __pixel: unknown }).__pixel = {
@@ -470,7 +489,7 @@ export function EscritorioPixel({
       const alvoX =
         v.foco === 'calendario' && alvoAntes.current !== null
           ? alvoAntes.current
-          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? v.indiceAtivo * PASSO_SALA + SALA_W / 2
+          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? SALA_W / 2
       alvoAntes.current = alvoX
       const cam = camera.current
       const livre = agora - cam.soltouEm > 8000
@@ -509,10 +528,10 @@ export function EscritorioPixel({
       }
 
       // telas dos monitores
-      marcas.forEach((_, i) => {
+      ;[0].forEach((i) => {
         for (const a of AGENTES) {
           const m = MESAS[a.id]
-          const x = i * PASSO_SALA + m.x + 8
+          const x = m.x + 8
           const y = m.y - 8
           const est = estadoNaTela(i, a.id)
           if (est === 'trabalhando') {
@@ -545,14 +564,21 @@ export function EscritorioPixel({
         }
         const [s, quem] = chave.split(':')
         if (quem === 'voce') pasta(g, xVoce + MESA_VOCE.x + 22, MESA_VOCE.y + 1)
-        else pasta(g, Number(s) * PASSO_SALA + MESAS[quem as AgenteId].x + 1, MESAS[quem as AgenteId].y + 2)
+        else if (s === '0') pasta(g, MESAS[quem as AgenteId].x + 1, MESAS[quem as AgenteId].y + 2)
       }
 
       // bonecos sentados (de costas, olhando o monitor)
       const posicoesEtiqueta: Record<string, [number, number] | null> = {}
       const posicoesNome: Record<string, [number, number] | null> = {}
       const emPe = new Set<string>()
-      marcas.forEach((_, i) => {
+      // pastinhas na cor de cada marca em que o agente está trabalhando além do post aberto: a fila dele
+      for (const a of AGENTES) {
+        const outros = outrosTrabalhos(a.id).slice(0, 4)
+        const m = MESAS[a.id]
+        outros.forEach((mc, k) => pastaDaMarca(g, m.x + MESA_W2 * 2 - 9 - k * 3, m.y + 3 - k * 2, corDe(mc)))
+      }
+
+      ;[0].forEach((i) => {
         for (const a of AGENTES) {
           if (andando(a.id, i)) continue
           const m = MESAS[a.id]
@@ -560,13 +586,13 @@ export function EscritorioPixel({
           const desde = (agora - (v.mudouEm[a.id] ?? 0)) / 1000
           let dy = 0
           if (est === 'trabalhando') dy = Math.floor(t * 8) % 2
-          if (est === 'concluido' && i === v.indiceAtivo && desde < 0.6) dy = -Math.round(Math.sin((desde / 0.6) * Math.PI) * 8)
-          const x = i * PASSO_SALA + m.x + MESA_W2 - BONECO.w / 2
+          if (est === 'concluido' && desde < 0.6) dy = -Math.round(Math.sin((desde / 0.6) * Math.PI) * 8)
+          const x = m.x + MESA_W2 - BONECO.w / 2
           const y = m.y + 10 + dy
           g.drawImage(quadro(VISUAL[a.id], 'cima', 0, true), x, y)
           if (est === 'na_fila') reticencias(g, x + 2, y - 8, t)
           if (est === 'esperando_voce' || est === 'erro') exclamacao(g, x + 5, y - 12 + Math.round(Math.sin(t * 6)), est === 'erro' ? '#e05a4f' : '#f2b233')
-          if (i === v.indiceAtivo) {
+          {
             if (est === 'concluido' && desde < 0.8) faiscas(g, x + 7, y + 4, desde)
             if (v.selecionado === a.id) seta(g, x + 4, y - 10 + Math.round(Math.sin(t * 5) * 1.5))
             posicoesEtiqueta[a.id] = [x + 7, m.y - 11]
@@ -646,7 +672,7 @@ export function EscritorioPixel({
         gAndando.fillRect(x + 2, y + BONECO.h - 2, BONECO.w - 4, 3)
         gAndando.drawImage(quadro(VISUAL[a.quem], dir, passo), x, y)
         if (a.pasta) pasta(gAndando, x + 3, y - 6 + (passo === 1 ? -1 : 0))
-        if (a.sala === v.indiceAtivo || a.quem === 'voce') {
+        if (a.sala === 0 || a.quem === 'voce') {
           posicoesEtiqueta[a.quem] = [x + 7, y - 2]
           posicoesNome[a.quem] = [x + 7, y + BONECO.h + 1]
           emPe.add(a.quem)
@@ -655,23 +681,29 @@ export function EscritorioPixel({
 
       // Maki e Gojo passeiam pelas salas: param um pouco, às vezes cochilam, às vezes mudam de sala pelo corredor
       for (const gt of gatos.current) {
-        if (gt.sala >= marcas.length) gt.sala = 0
+        // sala 0 é a da equipe; 1 em diante, as das marcas
+        if (gt.sala > marcas.length) gt.sala = 0
+        const x0De = (sala: number) => (sala === 0 ? 0 : xMarca(sala - 1))
+        const portaDe = (sala: number) => (sala === 0 ? PORTA_X : PORTA_MARCA)
         if (!gt.rota.length) {
           if (agora < gt.ate) {
             // parado
           } else {
-            const outra = marcas.length > 1 && Math.random() < 0.25
-            const sala = outra ? Math.floor(Math.random() * marcas.length) : gt.sala
-            const noDepto = Math.random() < 0.35
+            const outra = Math.random() < 0.25
+            const sala = outra ? Math.floor(Math.random() * (marcas.length + 1)) : gt.sala
+            const noDepto = sala === 0 && Math.random() < 0.35
             const d = DEPTOS[Math.floor(Math.random() * DEPTOS.length)]
             const alvo: Ponto = noDepto
-              ? [sala * PASSO_SALA + d.x + 10 + Math.random() * (d.w - 20), LINHA_DEPTO - 4 + Math.random() * 6]
-              : [sala * PASSO_SALA + 14 + Math.random() * (SALA_W - 28), LINHA_HALL + Math.random() * 50]
-            const x0 = gt.sala * PASSO_SALA
+              ? [d.x + 10 + Math.random() * (d.w - 20), LINHA_DEPTO - 4 + Math.random() * 6]
+              : sala === 0
+                ? [14 + Math.random() * (SALA_W - 28), LINHA_HALL + Math.random() * 50]
+                : [x0De(sala) + 14 + Math.random() * (MARCA_W - 28), LINHA_MARCA - 10 + Math.random() * 30]
+            const x0 = x0De(gt.sala)
+            const linha = (sala: number) => (sala === 0 ? LINHA_HALL : LINHA_MARCA)
             const rota: Ponto[] = [[gt.x, gt.y]]
-            if (gt.area >= 0) rota.push([x0 + DEPTOS[gt.area].porta, LINHA_DEPTO], [x0 + DEPTOS[gt.area].porta, LINHA_HALL])
-            if (sala !== gt.sala) rota.push([x0 + PORTA_X, LINHA_HALL], [x0 + PORTA_X, CORREDOR_PES], [sala * PASSO_SALA + PORTA_X, CORREDOR_PES], [sala * PASSO_SALA + PORTA_X, LINHA_HALL])
-            if (noDepto) rota.push([sala * PASSO_SALA + d.porta, LINHA_HALL], [sala * PASSO_SALA + d.porta, LINHA_DEPTO])
+            if (gt.area >= 0) rota.push([DEPTOS[gt.area].porta, LINHA_DEPTO], [DEPTOS[gt.area].porta, LINHA_HALL])
+            if (sala !== gt.sala) rota.push([x0 + portaDe(gt.sala), linha(gt.sala)], [x0 + portaDe(gt.sala), CORREDOR_PES], [x0De(sala) + portaDe(sala), CORREDOR_PES], [x0De(sala) + portaDe(sala), linha(sala)])
+            if (noDepto) rota.push([d.porta, LINHA_HALL], [d.porta, LINHA_DEPTO])
             rota.push(alvo)
             gt.rota = rota
             gt.dist = 0
@@ -728,17 +760,17 @@ export function EscritorioPixel({
       // etiquetas em HTML acompanham os bonecos
       for (const [chave, el] of etiquetas.current) {
         if (chave.startsWith('placa:')) {
-          const i = Number(chave.slice(6))
-          const sx = ((i * PASSO_SALA + PLACA.x - camX) * escala) / dpr
-          const sy = ((PLACA.y + offY) * escala) / dpr
+          const equipe = chave === 'placa:equipe'
+          const sx = ((equipe ? PLACA_EQUIPE.x : xMarca(Number(chave.slice(6))) + PLACA.x) - camX) * escala / dpr
+          const sy = (((equipe ? PLACA_EQUIPE.y : PLACA.y) + offY) * escala) / dpr
           el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -50%)`
           el.style.fontSize = `${(escala / dpr) * 9}px`
           continue
         }
         if (chave.startsWith('depto:')) {
-          const [s, n] = chave.slice(6).split(':').map(Number)
-          // placa de porta: no hall, logo abaixo da porta de cada departamento
-          el.style.transform = `translate(${((s * PASSO_SALA + DEPTOS[n].porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
+          const n = Number(chave.slice(6))
+          // placa de porta: no hall da equipe, logo abaixo da porta de cada departamento
+          el.style.transform = `translate(${((DEPTOS[n].porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
         if (chave.startsWith('cofre:') || chave.startsWith('decorar:') || chave.startsWith('gaveta:') || chave.startsWith('novo:') || chave.startsWith('instagram:')) {
@@ -746,7 +778,7 @@ export function EscritorioPixel({
           const [tipo, n] = chave.split(':')
           const s = Number(n)
           const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : tipo === 'novo' ? NOVO_POST : tipo === 'instagram' ? INSTAGRAM : DECORAR
-          el.style.transform = `translate(${((s * PASSO_SALA + ref.x + ref.w / 2 - camX) * escala) / dpr}px, ${((ref.y + ref.h + offY) * escala) / dpr}px) translate(-50%, 0)`
+          el.style.transform = `translate(${((xMarca(s) + ref.x + ref.w / 2 - camX) * escala) / dpr}px, ${((ref.y + ref.h + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
         const nome = chave.startsWith('nome:')
@@ -802,63 +834,54 @@ export function EscritorioPixel({
       if (x >= mx - 6 && x <= mx + MESA_VOCE.w + 6 && y >= MESA_VOCE.y - 24 && y <= MESA_VOCE.y + 20) return focar('voce')
       return focar(null) // clicou fora: fecha o painel aberto
     }
-    const sala = Math.floor(x / PASSO_SALA)
-    const lxQ = x - sala * PASSO_SALA
-    vivo.current.irPara = null
-    const dentro = (r: { x: number; y: number; w: number; h: number }, folga = 3) => lxQ >= r.x - folga && lxQ <= r.x + r.w + folga && y >= r.y - folga && y <= r.y + r.h + 8
-    // cofrinho do hall: abre os gastos daquela sala
-    if (marcas[sala] && dentro(COFRINHO)) {
-      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
-      return focar('cofre')
+    // sala da equipe: clicar numa mesa abre o agente
+    if (x < PASSO_EQUIPE) {
+      vivo.current.irPara = null
+      for (const a of AGENTES) {
+        const m = MESAS[a.id]
+        if (x >= m.x && x <= m.x + MESA_W2 * 2 && y >= m.y - 10 && y <= m.y + 28) return selecionar(a.id)
+      }
+      return selecionar(null)
     }
+    const sala = Math.floor((x - PASSO_EQUIPE) / PASSO_MARCA)
+    if (!marcas[sala]) return selecionar(null)
+    const lx = x - xMarca(sala)
+    // a câmera fica na sala da marca em que você clicou
+    vivo.current.irPara = xMarca(sala) + MARCA_W / 2
+    const dentro = (r: { x: number; y: number; w: number; h: number }, folga = 3) => lx >= r.x - folga && lx <= r.x + r.w + folga && y >= r.y - folga && y <= r.y + r.h + 8
+    if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
+    // cofrinho: abre os gastos daquela marca
+    if (dentro(COFRINHO)) return focar('cofre')
     // kit de decoração: edita aquela sala
-    if (marcas[sala] && dentro(DECORAR) && aoEditarSala) return aoEditarSala(marcas[sala].id)
-    // balcão de pedidos: post novo naquela sala
-    if (marcas[sala] && dentro(NOVO_POST) && aoNovoPost) {
-      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
-      return aoNovoPost(marcas[sala].id)
-    }
-    // celular do hall: Instagram daquela sala
-    if (marcas[sala] && dentro(INSTAGRAM) && aoConectarInstagram) {
-      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
-      return aoConectarInstagram(marcas[sala].id)
-    }
-    // gaveta de posts guardados daquela sala
-    if (marcas[sala] && dentro(GAVETA)) {
-      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
-      return focar('gaveta')
-    }
-    const noQuadro = Object.values(QUADROS).some((r) => lxQ >= r.x - 2 && lxQ <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2)
-    // outra sala: só leva a câmera até ela
-    if (sala !== indiceAtivo && marcas[sala] && !noQuadro) {
-      focar(null)
-      return aoEscolherMarca(marcas[sala].id)
-    }
-    const lx = x - sala * PASSO_SALA
-    // quadros da parede: referências, calendário, branding e regras desta sala
+    if (dentro(DECORAR) && aoEditarSala) return aoEditarSala(marcas[sala].id)
+    // escrivaninha de pedidos: post novo para a marca
+    if (dentro(NOVO_POST) && aoNovoPost) return aoNovoPost(marcas[sala].id)
+    // celular: Instagram da marca
+    if (dentro(INSTAGRAM) && aoConectarInstagram) return aoConectarInstagram(marcas[sala].id)
+    // gaveta de posts guardados da marca
+    if (dentro(GAVETA)) return focar('gaveta')
+    // quadros da parede: referências, calendário, branding e regras desta marca
     for (const [q, r] of Object.entries(QUADROS) as [Quadro, (typeof QUADROS)[Quadro]][]) {
       if (lx >= r.x - 2 && lx <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2) {
         selecionar(null)
         return aoAbrirQuadro?.(marcas[sala].id, q)
       }
     }
-    for (const a of AGENTES) {
-      const m = MESAS[a.id]
-      if (lx >= m.x && lx <= m.x + MESA_W2 * 2 && y >= m.y - 10 && y <= m.y + 28) return selecionar(a.id)
-    }
+    focar(null)
     selecionar(null)
   }
 
   // barra das salas: leva a câmera até a sala, sem abrir nada
-  const irPara = (alvo: { marca: string } | 'voce' | 'financeiro') => {
+  const irPara = (alvo: { marca: string } | 'equipe' | 'voce' | 'financeiro') => {
     focar(null)
     camera.current.arrasto = 0
     camera.current.soltouEm = 0
     if (typeof alvo === 'object') {
-      vivo.current.irPara = null
+      const i = marcas.findIndex((m) => m.id === alvo.marca)
+      vivo.current.irPara = i >= 0 ? xMarca(i) + MARCA_W / 2 : null
       return aoEscolherMarca(alvo.marca)
     }
-    vivo.current.irPara = alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
+    vivo.current.irPara = alvo === 'equipe' ? SALA_W / 2 : alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
   }
   // arrastar um nome da barra para o lado troca a sala de lugar
   const [arrastandoSala, setArrastandoSala] = useState<{ id: string; ids: string[]; x: number; moveu: boolean } | null>(null)
@@ -900,6 +923,13 @@ export function EscritorioPixel({
   return (
     <div className="pixel" ref={caixa}>
       <nav className="pixel-salas" aria-label="Ir para a sala">
+        <button style={{ ['--cor' as string]: '#2a5288' }} onClick={() => irPara('equipe')}>
+          <i aria-hidden />
+          Equipe
+          {AGENTES.some((a) => estados[a.id] === 'trabalhando' || Object.values(porSala ?? {}).some((p) => p[a.id] === 'trabalhando')) && (
+            <span className="pixel-salas-sit trabalhando" title="Trabalhando agora" />
+          )}
+        </button>
         {naBarra.map((m) => {
           const i = marcas.indexOf(m)
           const sit = situacao(m, i)
@@ -907,7 +937,7 @@ export function EscritorioPixel({
             <button
               key={m.id}
               data-sala={m.id}
-              className={`${i === indiceAtivo && !foco ? 'ativo' : ''}${arrastandoSala?.moveu && arrastandoSala.id === m.id ? ' arrastando' : ''}`}
+              className={`${i === indiceAtivo ? 'ativo' : ''}${arrastandoSala?.moveu && arrastandoSala.id === m.id ? ' arrastando' : ''}`}
               style={{ ['--cor' as string]: corDe(m) }}
               title={aoReordenar ? 'Clique para ir até a sala. Arraste para mudar a ordem.' : undefined}
               onPointerDown={(e) => {
@@ -956,8 +986,8 @@ export function EscritorioPixel({
           if (!a) {
             if (e.pointerType !== 'mouse') return
             const p = paraMundo(e)
-            const s = Math.floor(p.x / PASSO_SALA)
-            const lx = p.x - s * PASSO_SALA
+            const s = p.x < PASSO_EQUIPE ? -1 : Math.floor((p.x - PASSO_EQUIPE) / PASSO_MARCA)
+            const lx = p.x - xMarca(s)
             const em = (r: { x: number; y: number; w: number; h: number }) => lx >= r.x - 3 && lx <= r.x + r.w + 3 && p.y >= r.y - 3 && p.y <= r.y + r.h + 4
             const alvo = !marcas[s] || p.x >= xVoce ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
             if (alvo !== sobre) setSobre(alvo)
@@ -1040,20 +1070,30 @@ export function EscritorioPixel({
         <div className={`pixel-nome${foco === 'financeiro' ? ' ativo' : ''}`}>Financeiro</div>
       </div>
       <canvas ref={frente} className="pixel-tela pixel-frente" aria-hidden />
+      {DEPTOS.map((d, n) => (
+        <div
+          key={d.id}
+          className="pixel-depto"
+          ref={(el) => {
+            if (el) etiquetas.current.set(`depto:${n}`, el)
+            else etiquetas.current.delete(`depto:${n}`)
+          }}
+        >
+          {d.nome}
+        </div>
+      ))}
+      <div
+        className="pixel-placa equipe"
+        style={{ background: '#2a5288' }}
+        ref={(el) => {
+          if (el) etiquetas.current.set('placa:equipe', el)
+          else etiquetas.current.delete('placa:equipe')
+        }}
+      >
+        Equipe
+      </div>
       {marcas.map((m, s) => (
         <Fragment key={m.id}>
-          {DEPTOS.map((d, n) => (
-            <div
-              key={d.id}
-              className="pixel-depto"
-              ref={(el) => {
-                if (el) etiquetas.current.set(`depto:${s}:${n}`, el)
-                else etiquetas.current.delete(`depto:${s}:${n}`)
-              }}
-            >
-              {d.nome}
-            </div>
-          ))}
           <div
             className="pixel-etiqueta pixel-objeto"
             ref={(el) => {
@@ -1133,6 +1173,17 @@ export function EscritorioPixel({
 }
 
 const MESA_W2 = 15
+const PRIORIDADE: Estado[] = ['erro', 'esperando_voce', 'trabalhando', 'na_fila', 'concluido', 'ocioso']
+
+/** Pastinha na cor da marca em cima da mesa: um post daquela marca na fila deste agente. */
+function pastaDaMarca(g: CanvasRenderingContext2D, x: number, y: number, cor: string) {
+  g.fillStyle = '#1f2330'
+  g.fillRect(x - 1, y - 1, 8, 6)
+  g.fillStyle = cor
+  g.fillRect(x, y, 6, 4)
+  g.fillStyle = 'rgba(255,255,255,.45)'
+  g.fillRect(x, y, 3, 1)
+}
 
 function pasta(g: CanvasRenderingContext2D, x: number, y: number) {
   g.fillStyle = '#1f2330'

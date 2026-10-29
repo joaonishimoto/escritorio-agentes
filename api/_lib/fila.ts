@@ -6,6 +6,7 @@ import type { Agente } from './agentes/tipos.js'
 import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
+import { passouDoTeto, tetoDaMarca } from './teto.js'
 import { eErroTransitorio, MAX_TENTATIVAS } from './transitorio.js'
 
 const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
@@ -52,7 +53,8 @@ export async function rodarUmPasso(): Promise<boolean> {
         terminado_em: new Date().toISOString(),
       })
       .eq('id', passo.id)
-    await db.from('posts').update({ custo_usd: Number(ctx.post.custo_usd) + r.uso.custo_usd }).eq('id', ctx.post.id)
+    const custoDoPost = Number(ctx.post.custo_usd) + r.uso.custo_usd
+    await db.from('posts').update({ custo_usd: custoDoPost }).eq('id', ctx.post.id)
 
     let proximos = r.proximos
     if (proximos === undefined) {
@@ -64,6 +66,17 @@ export async function rodarUmPasso(): Promise<boolean> {
       if (correcao) entrada.correcao = correcao
       if (feedback && seguinte !== 'revisor') entrada.feedback = feedback
       proximos = seguinte ? [{ agente: seguinte, entrada }] : null
+    }
+    const teto = tetoDaMarca(ctx.marca.identidade)
+    if (passouDoTeto({ agente: passo.agente, proximo: proximos?.[0]?.agente, custoDoPost, teto })) {
+      // para a produção e manda o que tiver para você decidir, em vez de seguir gastando
+      const temSlides = (ctx.post.slides ?? []).length > 0 || Array.isArray((r.saida as { slides?: unknown[] })?.slides)
+      await db.from('posts').update({ status: temSlides ? 'aguardando_aprovacao' : 'erro' }).eq('id', ctx.post.id)
+      await em.entrega(r.para ?? proximos?.[0]?.agente ?? 'voce', r.entrega, r.uso.custo_usd)
+      const msg = `Parei: o post chegou a US$ ${custoDoPost.toFixed(2)} e o teto por post desta marca é US$ ${teto.post!.toFixed(2)}. ${temSlides ? 'Mandei como está para você decidir.' : 'Ainda não tem slides; aumente o teto no perfil da marca e peça de novo.'}`
+      if (temSlides) await new Emissor(passo.post_id, 'revisor').entrega('voce', msg)
+      else await em.erro(msg)
+      return true
     }
     for (const p of proximos ?? []) await enfileirar(passo.post_id, p.agente, p.entrada)
     await em.entrega(r.para ?? proximos?.[0]?.agente ?? 'voce', r.entrega, r.uso.custo_usd)

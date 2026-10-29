@@ -31,3 +31,15 @@ describe('um slide por página', () => {
     expect(separarSlides('<body><p>nada</p></body>')).toHaveLength(0)
   })
 })
+
+describe('reconferência só com os slides que mudaram', async () => {
+  const { marcasDosSlides } = await import('../api/_lib/agentes/producao')
+  it('a marca de um slide só muda quando o HTML dele muda', () => {
+    const antes = marcasDosSlides('<body><section class="slide">A</section><section class="slide">B</section></body>')
+    const depois = marcasDosSlides('<body><section class="slide">A</section><section class="slide">B2</section></body>')
+    expect(antes).toHaveLength(2)
+    expect(depois[0]).toBe(antes[0])
+    expect(depois[1]).not.toBe(antes[1])
+    expect(marcasDosSlides(undefined)).toEqual([])
+  })
+})

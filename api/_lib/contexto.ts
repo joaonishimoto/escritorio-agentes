@@ -126,7 +126,7 @@ const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: b
 }
 
 /** O que o app guarda na identidade e não é identidade visual (decoração da sala, ordem no andar, ideias guardadas): fica fora do prompt. */
-const CAMPOS_DO_APP = ['sala', 'posicao', 'cor_sala', 'tom_editado', 'ideias_guardadas']
+const CAMPOS_DO_APP = ['sala', 'posicao', 'cor_sala', 'tom_editado', 'ideias_guardadas', 'teto']
 export function identidadeVisual(identidade: Record<string, unknown> | null | undefined) {
   return Object.fromEntries(Object.entries(identidade ?? {}).filter(([k]) => !CAMPOS_DO_APP.includes(k)))
 }
