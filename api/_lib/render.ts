@@ -57,9 +57,14 @@ export async function renderizarSlides(html: string, largura = 1080, altura = 13
 }
 
 /** Renderiza e confere cada slide (texto cortado, sobreposto ou pequeno demais). */
-export async function renderizarSlidesConferindo(html: string, largura = 1080, altura = 1350): Promise<Render> {
-  return umNavegadorPorVez(() => renderizarSlidesAgora(desenharSetas(html), largura, altura))
+export async function renderizarSlidesConferindo(html: string, largura = 1080, altura = 1350, prazoMs = PRAZO_DO_RENDER_MS): Promise<Render> {
+  // o prazo conta desde já, incluindo a espera na fila de um navegador por vez
+  const prazo = Date.now() + prazoMs
+  return umNavegadorPorVez(() => renderizarSlidesAgora(desenharSetas(html), largura, altura, prazo))
 }
+
+/** Tempo total de um render, da fila à última foto: cabe com folga nos 300 s de uma função da Vercel. */
+export const PRAZO_DO_RENDER_MS = 110_000
 
 /**
  * Na Vercel, uma mesma instância atende vários pedidos ao mesmo tempo. Dois posts no designer ao mesmo tempo
@@ -214,8 +219,8 @@ const MODOS: Modo[] = [
   { espera: 'load', leve: true },
 ]
 
-/** Tempo máximo de um slide, do setContent à foto: passou disso, o navegador é considerado travado. */
-const LIMITE_POR_SLIDE_MS = 90_000
+/** Tempo máximo de um slide, do setContent à foto (normal: 1 a 3 s): passou disso, o navegador é considerado travado. */
+const LIMITE_POR_SLIDE_MS = 30_000
 
 /** Espera `fazer` até `ms`; passou disso, rejeita (quem chamou fecha o navegador, não fica pendurado). */
 export function comLimite<T>(fazer: Promise<T>, ms: number, oQue: string): Promise<T> {
@@ -235,7 +240,7 @@ export async function fecharNavegador(navegador: Navegador | null) {
   await comLimite(navegador.close(), 5_000, 'fechar o navegador').catch((e) => console.warn(e instanceof Error ? e.message : e))
 }
 
-async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Render> {
+async function renderizarSlidesAgora(html: string, largura: number, altura: number, prazo: number): Promise<Render> {
   const partes = separarSlides(html)
   if (partes.length === 0) throw new Error('O HTML não tem nenhum <section class="slide">')
   const imagens: Buffer[] = []
@@ -246,13 +251,22 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
       let ultimo: unknown
       let feito = false
       for (const [n, modo] of MODOS.entries()) {
+        const resta = prazo - Date.now()
+        if (resta < 5_000) {
+          ultimo ??= new Error('o render passou do prazo')
+          break
+        }
         const livre = await limparTmp()
         try {
-          navegador ??= await abrirNavegador()
-          const r = await comLimite(renderizarUmSlide(navegador, parte, largura, altura, modo), LIMITE_POR_SLIDE_MS, `render do slide ${i + 1}`)
+          // um navegador novo por slide: com --single-process (o Chromium da Vercel), fechar a última página
+          // derruba o navegador, e o slide seguinte caía em "browser.newPage: Target ... has been closed"
+          navegador = await abrirNavegador()
+          const r = await comLimite(renderizarUmSlide(navegador, parte, largura, altura, modo), Math.min(LIMITE_POR_SLIDE_MS, resta), `render do slide ${i + 1}`)
           imagens.push(r.imagem)
           problemas.push(...r.problemas.map((problema) => ({ slide: i + 1, problema })))
           feito = true
+          await fecharNavegador(navegador)
+          navegador = null
           break
         } catch (e) {
           ultimo = e

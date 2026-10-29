@@ -1,5 +1,5 @@
 import { BUCKET_POSTS, db, urlPublica } from './db.js'
-import { renderizarSlidesConferindo, type ProblemaDoSlide } from './render.js'
+import { PRAZO_DO_RENDER_MS, renderizarSlidesConferindo, type ProblemaDoSlide } from './render.js'
 
 // O render dos slides roda numa função própria da Vercel (/api/render): o Chromium fica sozinho com a memória
 // dela, longe do executor, que carrega os agentes, o SDK e a fila. Fora da Vercel (ou sem saber a própria URL),
@@ -47,8 +47,8 @@ export async function renderizarESalvar(html: string, pasta: string): Promise<Re
   return { slides: await salvarImagens(r.imagens, pasta), problemas: r.problemas }
 }
 
-/** Quanto o executor espera pela função de render: um post de 10 slides leva perto de um minuto. */
-const ESPERA_RENDER_MS = 150_000
+/** Quanto o executor espera pela função de render: um pouco mais que o prazo que ela tem para desenhar. */
+const ESPERA_RENDER_MS = PRAZO_DO_RENDER_MS + 15_000
 
 class ErroDeRender extends Error {
   constructor(
