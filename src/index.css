@@ -659,6 +659,9 @@ i.falhou { background: var(--danger, #b42318) }
 .pm-regras textarea { font-size: 13px }
 .pm-tags { display: flex; flex-wrap: wrap; gap: 4px }
 .pm-linha { display: flex; align-items: center; gap: 10px }
+.pm-subtitulo { margin-top: 18px }
+.pm-tetos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+.pm-tetos label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted-foreground) }
 .pm-rodape { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface) }
 .pm-estado { flex: 1; min-width: 0; font-size: 13px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .pm-estado.ok { color: var(--success-strong, #2f8a4c) }
