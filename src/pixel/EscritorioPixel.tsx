@@ -21,6 +21,8 @@ export interface MarcaNoAndar {
   sala?: SalaCustom | null
   /** a sala está ligada a uma conta do Instagram (o celular do hall acende nas cores dele) */
   instagram?: boolean
+  /** o token do Instagram vence logo ou a renovação falhou: o celular fica amarelo e diz o que fazer */
+  instagramAviso?: string | null
 }
 
 const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
@@ -183,7 +185,7 @@ export function EscritorioPixel({
     desenharParedeEntre(g, SALA_W)
     marcas.forEach((m, i) => {
       const q = quadros?.[m.id]
-      desenharMarca(g, xMarca(i), estiloDe(m, i), { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram })
+      desenharMarca(g, xMarca(i), estiloDe(m, i), { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram ? (m.instagramAviso ? 'atencao' : 'ok') : 'desligado' })
       desenharParedeEntre(g, xMarca(i) + MARCA_W)
     })
     desenharSuaSala(g, xVoce)
@@ -1137,7 +1139,7 @@ export function EscritorioPixel({
                 else etiquetas.current.delete(`instagram:${s}`)
               }}
             >
-              {sobre === `instagram:${s}` && <div className={`pixel-nome cofre${m.instagram ? ' instagram' : ''}`}>{m.instagram ? 'Instagram conectado' : 'Conectar Instagram'}</div>}
+              {sobre === `instagram:${s}` && <div className={`pixel-nome cofre${m.instagram ? (m.instagramAviso ? ' instagram-aviso' : ' instagram') : ''}`}>{m.instagram ? (m.instagramAviso ?? 'Instagram conectado') : 'Conectar Instagram'}</div>}
             </div>
           )}
           {aoEditarSala && (

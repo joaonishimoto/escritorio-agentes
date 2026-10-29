@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { avisoDoToken } from './lib/token'
 import { agentePorId, type AgenteId } from './agents/catalogo'
 import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
@@ -125,7 +126,7 @@ function Painel() {
   const marcasNoAndar = marcas
     .map((m, ordem) => ({ m, ordem, pos: posicaoDe(m, ordem) }))
     .sort((a, b) => a.pos - b.pos)
-    .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id }, m.identidade?.sala as SalaCustom | undefined))
+    .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id, instagramAviso: avisoDoToken(m.identidade, !!m.instagram_conta_id) }, m.identidade?.sala as SalaCustom | undefined))
   const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
   // estilo da sala quando ninguém escolheu: o que ficou neste navegador, senão o da ordem de criação
   const estiloPadrao = (id: string, ordem: number) => {

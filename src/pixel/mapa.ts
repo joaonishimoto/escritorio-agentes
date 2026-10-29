@@ -36,23 +36,27 @@ export const CAFE = { x: 262, y: 188 }
 // ───────── sala de cada marca: recepção da marca, sem funcionários ─────────
 // A equipe é uma só, para todas as marcas (mesmo código, a marca entra como contexto). Cada marca tem a sua sala
 // com o que é dela: quadros da parede, pedidos, Instagram, cofrinho, gaveta e decoração.
-export const MARCA_W = 208
+export const MARCA_W = 176
 export const PASSO_MARCA = MARCA_W + 16
 /** a sala da equipe vem primeiro no andar, depois as das marcas */
 export const PASSO_EQUIPE = SALA_W + 16
 export const PORTA_MARCA = MARCA_W / 2
 /** onde se anda na sala da marca */
 export const LINHA_MARCA = 196
-/** Cofrinho: clicar mostra quanto a marca está gastando. */
-export const COFRINHO = { x: 134, y: 154, w: 24, h: 22 }
-/** Gaveta de posts: cômoda com uma gaveta aberta cheia de pastas. */
-export const GAVETA = { x: 168, y: 148, w: 30, h: 28 }
-/** Kit de decoração (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
-export const DECORAR = { x: 172, y: 48, w: 30, h: 28 }
+// A sala é enxuta e dividida em cantos: em cima à esquerda, criar e publicar (pedidos e Instagram);
+// em cima à direita, guardar e gastar (gaveta e cofrinho); no meio, o tapete com o nome; embaixo, decorar.
+/** Canto de criar e publicar, e canto de guardar: um tapetinho embaixo de cada um. */
+export const CANTOS = { criar: { x: 6, y: 46, w: 72, h: 40 }, guardar: { x: 98, y: 46, w: 72, h: 40 } }
 /** Escrivaninha de pedidos (máquina de escrever com a folha do pedido): clicar abre um post novo para a marca. */
-export const NOVO_POST = { x: 10, y: 148, w: 34, h: 30 }
+export const NOVO_POST = { x: 12, y: 50, w: 34, h: 30 }
 /** Celular no suporte: a tela fica nas cores do Instagram quando a marca está conectada. */
-export const INSTAGRAM = { x: 54, y: 144, w: 18, h: 34 }
+export const INSTAGRAM = { x: 52, y: 46, w: 18, h: 34 }
+/** Cofrinho: clicar mostra quanto a marca está gastando. */
+export const COFRINHO = { x: 106, y: 58, w: 24, h: 22 }
+/** Gaveta de posts: cômoda com uma gaveta aberta cheia de pastas. */
+export const GAVETA = { x: 136, y: 52, w: 30, h: 28 }
+/** Kit de decoração (cavalete com a sala pintada): clicar abre a edição da sala. */
+export const DECORAR = { x: 12, y: 146, w: 30, h: 28 }
 
 /** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
@@ -70,10 +74,11 @@ export const MESA_W = 30
 
 /** Quadros da parede da sala da marca que abrem algo ao clicar: referências, calendário, branding e regras. */
 export const QUADROS = {
-  referencias: { x: 6, y: 3, w: 42, h: 28 },
-  calendario: { x: 56, y: 5, w: 38, h: 26 },
-  branding: { x: 102, y: 3, w: 44, h: 28 },
-  regras: { x: 156, y: 3, w: 44, h: 28 },
+  // quatro quadros iguais e com o mesmo espaço entre eles
+  referencias: { x: 7, y: 4, w: 36, h: 26 },
+  calendario: { x: 49, y: 4, w: 36, h: 26 },
+  branding: { x: 91, y: 4, w: 36, h: 26 },
+  regras: { x: 133, y: 4, w: 36, h: 26 },
 } as const
 export type Quadro = keyof typeof QUADROS
 
@@ -154,7 +159,7 @@ export const ESTILOS: Record<string, Estilo> = {
 export const ORDEM_ESTILOS = ['d', 'e', 'f']
 
 /** Onde fica a placa com o nome da marca, no tapete da sala dela (o texto é HTML por cima, para ficar nítido). */
-export const PLACA = { x: MARCA_W / 2, y: 112 }
+export const PLACA = { x: MARCA_W / 2, y: 114 }
 /** Placa da sala da equipe, no tapete do hall. */
 export const PLACA_EQUIPE = { x: 160, y: 197 }
 /** A sala da equipe tem estilo fixo: é de todas as marcas. */
@@ -449,7 +454,11 @@ function escrivaninhaNovoPost(g: Ctx, x: number, y: number) {
 }
 
 /** Celular num suporte: a tela mostra o degradê e o ícone do Instagram quando conectado, cinza quando não. */
-function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
+/** desligado: sem conta; ok: nas cores do Instagram; atencao: amarelo, o token vence logo ou a renovação falhou */
+export type EstadoInstagram = 'desligado' | 'ok' | 'atencao'
+
+function celularInstagram(g: Ctx, x: number, y: number, estado: EstadoInstagram) {
+  const conectado = estado !== 'desligado'
   const c = '#1f2330'
   r(g, 'rgba(0,0,0,.15)', x + 2, y + 32, 16, 2)
   // suporte
@@ -461,7 +470,8 @@ function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
   r(g, '#2a2d36', x + 3, y + 1, 14, 26)
   r(g, c, x + 8, y + 1, 4, 1)
   // tela: degradê do Instagram em faixas diagonais, ou cinza
-  const faixas = conectado ? ['#f9ce34', '#fd8d32', '#fa5c48', '#ee2a7b', '#b02ba5', '#6228d7'] : ['#c2c6d0', '#b6bac6', '#aab0bd', '#9ea4b3', '#949aa9', '#8a909f']
+  const faixas =
+    estado === 'atencao' ? ['#fff1a8', '#ffe57a', '#ffd84d', '#f7c824', '#ecb80c', '#dca600'] : conectado ? ['#f9ce34', '#fd8d32', '#fa5c48', '#ee2a7b', '#b02ba5', '#6228d7'] : ['#c2c6d0', '#b6bac6', '#aab0bd', '#9ea4b3', '#949aa9', '#8a909f']
   for (let i = 0; i < 24; i++) {
     for (let j = 0; j < 12; j++) {
       const k = Math.min(faixas.length - 1, Math.floor((i + j) / 6))
@@ -469,7 +479,7 @@ function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
     }
   }
   // ícone: quadrado arredondado com a lente no meio e o pontinho do flash
-  const traco = conectado ? '#ffffff' : '#f0f2f6'
+  const traco = estado === 'atencao' ? '#5a4300' : conectado ? '#ffffff' : '#f0f2f6'
   r(g, traco, x + 6, y + 9, 8, 1)
   r(g, traco, x + 6, y + 16, 8, 1)
   r(g, traco, x + 5, y + 10, 1, 6)
@@ -573,7 +583,7 @@ function quadroBranding(g: Ctx, e: Estilo, x: number, y: number, w: number, h: n
   r(g, '#ffffff', x + 6, y + 7, 8, 2)
   r(g, '#ffffff', x + 6, y + 11, 5, 2)
   const paleta = [e.rodape, misturar(e.rodape, '#ffffff', 0.5), misturar(e.rodape, '#1f2330', 0.45), e.tapete]
-  paleta.forEach((c, i) => r(g, c, x + 20 + i * 5.5, y + 4, 5, 5))
+  paleta.forEach((c, i) => r(g, c, x + 19 + i * 4, y + 4, 3, 5))
   // "Aa" em pixel
   r(g, '#1f2330', x + 21, y + 12, 2, 6)
   r(g, '#1f2330', x + 25, y + 12, 2, 6)
@@ -582,8 +592,8 @@ function quadroBranding(g: Ctx, e: Estilo, x: number, y: number, w: number, h: n
   r(g, '#1f2330', x + 30, y + 14, 4, 4)
   r(g, '#ffffff', x + 31, y + 15, 2, 2)
   r(g, '#1f2330', x + 34, y + 14, 1, 4)
-  r(g, '#d9dde6', x + 3, y + 21, w - 6, 2)
-  r(g, '#d9dde6', x + 3, y + 24, w - 16, 1)
+  r(g, '#d9dde6', x + 3, y + 20, w - 6, 2)
+  r(g, '#d9dde6', x + 3, y + 23, w - 16, 1)
 }
 
 /** Painel de referências: fotos presas num quadro, uma por referência da marca (até caber). */
@@ -594,11 +604,11 @@ function quadroReferencias(g: Ctx, e: Estilo, x: number, y: number, w: number, h
   const n = Math.min(refs, 6)
   const tons = [e.rodape, misturar(e.rodape, '#ffffff', 0.45), e.tapete, '#52738a', '#976822', misturar(e.rodape, '#1f2330', 0.4)]
   for (let i = 0; i < Math.max(n, 2); i++) {
-    const fx = x + 3 + (i % 3) * 13
-    const fy = y + 4 + Math.floor(i / 3) * 12
+    const fx = x + 2 + (i % 3) * 11.5
+    const fy = y + 4 + Math.floor(i / 3) * 11
     const vazia = i >= n
-    r(g, 'rgba(0,0,0,.18)', fx + 1, fy + 1, 11, 10)
-    r(g, vazia ? '#ffffff' : '#ffffff', fx, fy, 11, 10)
+    r(g, 'rgba(0,0,0,.18)', fx + 1, fy + 1, 10, 9)
+    r(g, '#ffffff', fx, fy, 10, 9)
     if (vazia) {
       r(g, '#d9dde6', fx + 2, fy + 2, 7, 5)
       r(g, '#ffffff', fx + 5, fy + 3, 1, 3)
@@ -617,19 +627,19 @@ function quadroRegras(g: Ctx, x: number, y: number, w: number, h: number, regras
   r(g, '#b98a5a', x, y, w, h)
   for (let i = 0; i < 18; i++) r(g, '#a77a4c', x + ((i * 7) % (w - 2)) + 1, y + ((i * 5) % (h - 2)) + 1, 2, 1)
   const notas = ['#fff3b0', '#ffd6a5', '#cdeac0', '#bde0fe', '#ffc8dd']
-  const n = Math.min(regras, 10)
+  const n = Math.min(regras, 8)
   for (let i = 0; i < n; i++) {
-    const nx = x + 3 + (i % 5) * 8
-    const ny = y + 3 + Math.floor(i / 5) * 12
+    const nx = x + 3 + (i % 4) * 8
+    const ny = y + 3 + Math.floor(i / 4) * 11
     r(g, notas[i % notas.length], nx, ny, 6, 9)
     r(g, '#e05a4f', nx + 2, ny, 2, 1)
     r(g, 'rgba(0,0,0,.25)', nx + 1, ny + 3, 4, 1)
     r(g, 'rgba(0,0,0,.25)', nx + 1, ny + 5, 3, 1)
   }
   if (!n) {
-    r(g, '#ffffff', x + 14, y + 9, 16, 10)
-    r(g, '#d9dde6', x + 16, y + 12, 12, 1)
-    r(g, '#d9dde6', x + 16, y + 15, 8, 1)
+    r(g, '#ffffff', x + 10, y + 8, 16, 10)
+    r(g, '#d9dde6', x + 12, y + 11, 12, 1)
+    r(g, '#d9dde6', x + 12, y + 14, 8, 1)
   }
 }
 
@@ -693,7 +703,7 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
 }
 
 /** A sala de uma marca: quadros na parede, tapete com o nome, pedidos, Instagram, cofrinho, gaveta e decoração. */
-export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: boolean }) {
+export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: EstadoInstagram }) {
   const p = pisos(estilo)
   piso(g, p.hall.estilo, x0, MARCA_W, PAREDE_H, SALA_H - PAREDE_H, p.hall.padrao)
   parede(g, estilo, x0, MARCA_W)
@@ -705,20 +715,27 @@ export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dia
   const q = QUADROS.regras
   quadroRegras(g, x0 + q.x, q.y, q.w, q.h, quadros.regras)
 
-  // tapete da marca no meio (o nome vai por cima), com a cor dela
-  r(g, '#1f2330', x0 + 47, 93, 114, 38)
-  r(g, estilo.rodape, x0 + 48, 94, 112, 36)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 51, 97, 106, 1)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 51, 126, 106, 1)
-  mesinha(g, estilo, x0 + 14, 52)
-  kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
+  // cantos: um tapetinho claro embaixo de cada grupo de móveis
+  for (const c of Object.values(CANTOS)) {
+    r(g, misturar(estilo.tapete, '#000000', 0.12), x0 + c.x, c.y + 2, c.w, c.h)
+    r(g, estilo.tapete, x0 + c.x, c.y, c.w, c.h)
+    r(g, misturar(estilo.tapete, '#ffffff', 0.35), x0 + c.x + 2, c.y + 2, c.w - 4, 1)
+  }
   escrivaninhaNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y)
-  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
+  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, quadros.instagram ?? 'desligado')
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
-  planta(g, x0 + 92, 150)
-  planta(g, x0 + 4, 216)
-  planta(g, x0 + MARCA_W - 14, 216)
+
+  // tapete da marca no meio (o nome vai por cima), com a cor dela
+  const tw = 120
+  const tx = x0 + (MARCA_W - tw) / 2
+  r(g, '#1f2330', tx - 1, PLACA.y - 18, tw + 2, 36)
+  r(g, estilo.rodape, tx, PLACA.y - 17, tw, 34)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), tx + 3, PLACA.y - 14, tw - 6, 1)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), tx + 3, PLACA.y + 13, tw - 6, 1)
+
+  kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
+  planta(g, x0 + MARCA_W - 20, 150)
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_MARCA - 18, 5)
   r(g, '#1f2330', x0 + PORTA_MARCA + 18, SALA_H - 5, MARCA_W - PORTA_MARCA - 18, 5)
   r(g, estilo.rodape, x0 + PORTA_MARCA - 18, SALA_H - 2, 36, 2)

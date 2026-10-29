@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { horariosLivres, mudarDia, noMesmoDia, paraCampo, rotuloHorario } from '../lib/agenda'
 import { chamarApi } from '../lib/api'
 import type { Ideia } from '../lib/ideias'
+import { numero, useMetricas, type Metricas } from '../lib/metricas'
 import { useEscritorio, type ItemAgenda } from '../store/escritorio'
 import { VerSlides } from './VerSlides'
 import { MESES, chaveDia, diasDoMes } from '../lib/datas'
@@ -32,6 +33,7 @@ export function Calendario({
   const agenda = carregando ? SEM_ITENS : marcaId ? agendaGeral.filter((i) => !i.marcaId || i.marcaId === marcaId) : agendaGeral
   const geral = !marcaId && agendaGeral.some((i) => i.marca)
   const focar = useEscritorio((s) => s.focar)
+  const metricas = useMetricas(agenda.filter((i) => i.status === 'publicado').map((i) => i.id))
   const hoje = new Date()
   const [mes, setMes] = useState({ ano: hoje.getFullYear(), mes: hoje.getMonth() })
   const [dia, setDia] = useState<string>(chaveDia(hoje))
@@ -184,6 +186,7 @@ export function Calendario({
                   aoAbrirPost={() => { focar(null); aoAbrirPost(it.id) }}
                   aoMudar={aoMudar}
                   mesmoDia={noMesmoDia(agenda, it.marcaId, new Date(it.data), it.id).length}
+                  metricas={metricas[it.id]}
                 />
               ))
             )}
@@ -201,6 +204,7 @@ function PostDoDia({
   aoAbrirPost,
   aoMudar,
   mesmoDia = 0,
+  metricas,
 }: {
   item: ItemAgenda
   aberto: boolean
@@ -209,6 +213,7 @@ function PostDoDia({
   aoMudar?: () => void
   /** quantos outros posts da mesma marca saem no mesmo dia */
   mesmoDia?: number
+  metricas?: Metricas
 }) {
   const [vendo, setVendo] = useState<number | null>(null)
   const [cancelando, setCancelando] = useState(false)
@@ -279,6 +284,24 @@ function PostDoDia({
                 </button>
               )}
             </div>
+          )}
+          {metricas && (
+            <dl className="cal-metricas">
+              {(
+                [
+                  ['Alcance', metricas.alcance],
+                  ['Salvos', metricas.salvos],
+                  ['Compart.', metricas.compartilhamentos],
+                  ['Coment.', metricas.comentarios],
+                  ['Curtidas', metricas.curtidas],
+                ] as const
+              ).map(([nome, v]) => (
+                <div key={nome}>
+                  <dt>{nome}</dt>
+                  <dd>{numero(v)}</dd>
+                </div>
+              ))}
+            </dl>
           )}
           {item.status === 'falhou' && <p className="aviso">Chegou a hora, mas não deu para publicar. Veja o motivo no histórico do post.</p>}
           {item.legenda && <pre className="rascunho cal-post-legenda">{item.legenda}</pre>}
