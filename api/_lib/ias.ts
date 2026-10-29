@@ -56,6 +56,15 @@ export function modeloDe(ctx: Contexto, agente: AgenteDeTexto): ModeloTexto {
   return eModeloTexto(escolhido) ? escolhido : PADRAO_TEXTO[agente]
 }
 
+/**
+ * Modelo numa volta (devolução do revisor ou correção sua): se o post não escolheu uma IA para o agente,
+ * usa o modelo mais leve indicado, porque a volta só mexe no que foi apontado.
+ */
+export function modeloNaVolta(ctx: Contexto, agente: AgenteDeTexto, leve: ModeloTexto): ModeloTexto {
+  const escolhido = ctx.post.preferencias?.ias?.[agente]
+  return eModeloTexto(escolhido) ? escolhido : leve
+}
+
 /** Motor de vídeo do cinegrafista neste post. */
 export function motorDeVideo(ctx: Contexto): MotorVideo {
   const escolhido = ctx.post.preferencias?.ias?.cinegrafista
