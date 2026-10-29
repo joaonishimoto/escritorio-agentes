@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { gerarJson } from './_lib/claude.js'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
+import { validarIdentidade } from './_lib/identidade.js'
 import { completarMarca } from './_lib/marcas/index.js'
+import { AGENTES_DE_REGRA, Juntadas, montarProposta, pedidoDeJuntar, SISTEMA_JUNTAR, type RegraAntiga } from './_lib/regras.js'
 import { gastoDoMes } from './_lib/teto.js'
 
 const CHECKLIST_PADRAO = `- Português correto, sem erro de digitação
@@ -19,6 +22,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
 
   const corpo = (req.body ?? {}) as { acao?: string; id?: string; campos?: Record<string, unknown> }
   if (corpo.acao === 'ler' || corpo.acao === 'salvar') return perfil(res, usuario, corpo)
+  if (corpo.acao === 'juntar_regras' || corpo.acao === 'aplicar_regras') return juntarRegras(res, usuario, req.body)
 
   const { nome, instagram, cor, tom_de_voz, neutra } = (req.body ?? {}) as {
     nome?: string
@@ -49,7 +53,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
 
 const CAMPOS_PERFIL = 'id, nome, instagram_usuario, instagram_conta_id, tom_de_voz, identidade, hashtags_fixas, aviso_final, checklist_revisor, modelo_slides_html'
 // chaves da identidade que o app mantém sozinho: o formulário não apaga nem troca
-const PROTEGIDAS = ['instagram', 'instagram_conectado_em', 'neutra', 'tom_editado', 'sala', 'posicao']
+const PROTEGIDAS = ['instagram', 'instagram_conectado_em', 'instagram_token', 'neutra', 'tom_editado', 'sala', 'posicao']
 
 /** Perfil da marca para editar no app: lê o que os agentes usam de verdade e salva o que o dono mudou. */
 async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: string; id?: string; campos?: Record<string, unknown> }) {
@@ -70,8 +74,10 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
     else delete identidade[k]
   }
   if (novoTom !== undefined && novoTom !== efetivo.tom_de_voz) identidade.tom_editado = true
+  const valida = validarIdentidade(identidade)
+  if (!valida.ok) return res.status(400).json({ erro: valida.erro })
 
-  const mudancas: Record<string, unknown> = { identidade }
+  const mudancas: Record<string, unknown> = { identidade: valida.identidade }
   const nome = texto(c.nome, 40)
   if (nome) mudancas.nome = nome
   if (c.instagram_usuario !== undefined) mudancas.instagram_usuario = texto(c.instagram_usuario, 60)?.replace(/^@/, '') || null
@@ -90,4 +96,56 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
   const { data, error } = await db.from('marcas').update(mudancas).eq('id', atual.id).select(CAMPOS_PERFIL).single()
   if (error || !data) throw new Error(error?.message ?? 'Não consegui salvar a marca')
   return res.json({ marca: sem(completarMarca(data)) })
+}
+
+/** Regras ativas de um agente da marca, da mais antiga para a mais recente. */
+async function regrasAtivas(marcaId: string, agente: string) {
+  const { data, error } = await db.from('regras').select('id, regra, motivo').eq('marca_id', marcaId).eq('agente', agente).eq('status', 'ativa').order('criado_em')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as RegraAntiga[]
+}
+
+/**
+ * Mural de regras: `juntar_regras` pede ao modelo uma lista menor (não muda nada no banco);
+ * `aplicar_regras` grava o que o dono confirmou: as novas entram ativas e as substituídas vão para o arquivo.
+ */
+async function juntarRegras(res: VercelResponse, usuario: string, corpo: { acao?: string; id?: string; agente?: string; novas?: unknown }) {
+  const { data: marca } = await db.from('marcas').select('id').eq('id', corpo.id ?? '').eq('dono_id', usuario).maybeSingle()
+  if (!marca) return res.status(404).json({ erro: 'Marca não encontrada' })
+  const agente = corpo.agente ?? ''
+  if (!(AGENTES_DE_REGRA as readonly string[]).includes(agente)) return res.status(400).json({ erro: 'Agente desconhecido' })
+  const atuais = await regrasAtivas(marca.id, agente)
+
+  if (corpo.acao === 'juntar_regras') {
+    if (atuais.length < 2) return res.json({ proposta: { novas: [], ficam: atuais.map((r) => r.id) }, custo_usd: 0 })
+    const { dados, uso } = await gerarJson({
+      modelo: 'claude-sonnet-5-5',
+      effort: 'low',
+      sistema: SISTEMA_JUNTAR,
+      conteudo: pedidoDeJuntar(agente, atuais),
+      schema: Juntadas,
+    })
+    return res.json({ proposta: montarProposta(atuais, dados), custo_usd: uso.custo_usd })
+  }
+
+  const ids = new Set(atuais.map((r) => r.id))
+  const novas = (Array.isArray(corpo.novas) ? corpo.novas : [])
+    .map((n) => n as { regra?: unknown; motivo?: unknown; substitui?: unknown })
+    .map((n) => ({
+      regra: typeof n.regra === 'string' ? n.regra.trim().slice(0, 600) : '',
+      motivo: typeof n.motivo === 'string' ? n.motivo.trim().slice(0, 300) : '',
+      substitui: Array.isArray(n.substitui) ? n.substitui.filter((id): id is string => typeof id === 'string' && ids.has(id)) : [],
+    }))
+    .filter((n) => n.regra && n.substitui.length)
+  // alguma regra mudou no meio do caminho (arquivada em outra aba): melhor pedir de novo
+  if (!novas.length) return res.status(409).json({ erro: 'As regras mudaram. Peça para juntar de novo.' })
+
+  const { error: erroNovas } = await db
+    .from('regras')
+    .insert(novas.map((n) => ({ marca_id: marca.id, agente, regra: n.regra, motivo: n.motivo || null, origem_correcao: 'Juntada no mural de regras', status: 'ativa' })))
+  if (erroNovas) throw new Error(erroNovas.message)
+  const arquivar = [...new Set(novas.flatMap((n) => n.substitui))]
+  const { error } = await db.from('regras').update({ status: 'arquivada' }).in('id', arquivar)
+  if (error) throw new Error(error.message)
+  return res.json({ criadas: novas.length, arquivadas: arquivar.length })
 }

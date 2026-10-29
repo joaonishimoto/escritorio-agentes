@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { avisoDoToken } from './lib/token'
 import { agentePorId, type AgenteId } from './agents/catalogo'
 import type { Estado } from './store/escritorio'
 import type { Session } from '@supabase/supabase-js'
@@ -89,7 +90,7 @@ function Painel() {
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
   // ideia do pesquisador que abre o Novo post já preenchido (e qual ideia guardada era, para sair da lista ao criar)
-  const [ideiaInicial, setIdeiaInicial] = useState<{ ideia: Ideia; guardadaId?: string } | undefined>()
+  const [ideiaInicial, setIdeiaInicial] = useState<{ ideia: Ideia; guardadaId?: string; quando?: Date } | undefined>()
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [perfilMarca, setPerfilMarca] = useState(false)
@@ -125,7 +126,7 @@ function Painel() {
   const marcasNoAndar = marcas
     .map((m, ordem) => ({ m, ordem, pos: posicaoDe(m, ordem) }))
     .sort((a, b) => a.pos - b.pos)
-    .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id }, m.identidade?.sala as SalaCustom | undefined))
+    .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id, instagramAviso: avisoDoToken(m.identidade, !!m.instagram_conta_id) }, m.identidade?.sala as SalaCustom | undefined))
   const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
   // estilo da sala quando ninguém escolheu: o que ficou neste navegador, senão o da ordem de criação
   const estiloPadrao = (id: string, ordem: number) => {
@@ -432,6 +433,16 @@ function Painel() {
           marcaId={calendarioDe}
           marcaNome={calendarioDe ? marcasNoAndar.find((m) => m.id === calendarioDe)?.nome : undefined}
           carregando={geral ? !andar.carregado : !postsCarregados}
+          aoPlanejar={
+            calendarioDe
+              ? (ideia, quando) => {
+                  escolherMarca(calendarioDe)
+                  selecionar(null)
+                  setIdeiaInicial({ ideia, quando })
+                  setNovo(true)
+                }
+              : undefined
+          }
         />
       )}
       {biblioteca && marcaId && <Biblioteca marcaId={marcaId} marcaNome={marca?.nome} marcaCor={marca ? corDaMarca(marca) : undefined} aoFechar={() => setBiblioteca(false)} />}
@@ -458,6 +469,7 @@ function Painel() {
           neutra={!!marca?.identidade?.neutra}
           inicial={ideiaInicial?.ideia}
           ideiaGuardadaId={ideiaInicial?.guardadaId}
+          agendarPara={ideiaInicial?.quando}
           aoFechar={() => { setNovo(false); setIdeiaInicial(undefined) }}
           aoCriar={(p) => {
             setNovo(false)

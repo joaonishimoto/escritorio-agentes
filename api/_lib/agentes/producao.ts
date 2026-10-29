@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { layoutAprovado } from '../aprovados.js'
+import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
@@ -38,7 +39,8 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   await em.inicio(`Lendo o pedido: ${ctx.post.briefing.slice(0, 90)}`)
   if (refs.tem) await em.acao(`Olhando as ${ctx.post.referencias!.length} referências que você mandou`)
   await em.acao(`Carregando o roteiro e ${ctx.regras.length} regras aprendidas de ${ctx.marca.nome}`)
-  const recentes = await postsRecentes(ctx)
+  const [recentes, funcionou] = await Promise.all([postsRecentes(ctx), oQueFuncionou(ctx)])
+  if (funcionou) await em.acao('Olhando o que mais funcionou no Instagram da marca')
   const caminhos = sugerirCaminhos(recentes)
   const angulos = recentes.map((r) => r.angulo).filter(Boolean)
   const pref = ctx.post.preferencias ?? {}
@@ -58,7 +60,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,

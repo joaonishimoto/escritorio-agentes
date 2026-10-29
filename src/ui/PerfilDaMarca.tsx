@@ -17,7 +17,7 @@ type Aba = 'voz' | 'visual' | 'legenda' | 'revisao' | 'narracao' | 'servicos' | 
 
 const HEX = /^#[0-9a-f]{6}$/i
 // chaves que têm campo próprio ou que o app cuida sozinho
-const FORA_DAS_REGRAS = ['cores', 'fonte', 'cor_sala', 'instagram', 'instagram_conectado_em', 'neutra', 'tom_editado']
+const FORA_DAS_REGRAS = ['cores', 'fonte', 'cor_sala', 'instagram', 'instagram_conectado_em', 'instagram_token', 'neutra', 'tom_editado']
 const ABAS: { id: Aba; nome: string; quem: string }[] = [
   { id: 'voz', nome: 'Tom de voz', quem: 'Chefe de pauta, redator e revisor' },
   { id: 'visual', nome: 'Visual', quem: 'Designer e revisor' },
@@ -69,6 +69,18 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [servicos, setServicos] = useState<Servico[] | null>(null)
   const [testando, setTestando] = useState(false)
   const [erroTeste, setErroTeste] = useState<string | null>(null)
+  const [saude, setSaude] = useState<Servico[] | null>(null)
+  // a saúde da produção vem do banco (não chama serviço nenhum): carrega sozinha ao abrir a aba
+  useEffect(() => {
+    if (aba !== 'servicos') return
+    let vivo = true
+    lerApi<{ saude: Servico[] }>('servicos?so=saude')
+      .then((r) => vivo && setSaude(r.saude))
+      .catch(() => vivo && setSaude(null))
+    return () => {
+      vivo = false
+    }
+  }, [aba])
 
   const testarServicos = async () => {
     setTestando(true)
@@ -401,6 +413,23 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                           <span className="pm-servico-ponto" aria-hidden />
                           <div>
                             <strong>{s.nome}</strong> <span className="chip">{ESTADO[s.estado]}</span>
+                            <p className="muted">{s.detalhe}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <h3>Saúde da produção</h3>
+                  <p className="pm-dica">Posts parados, falhas da semana por agente e a faxina diária, de todas as salas.</p>
+                  {saude === null ? (
+                    <p className="muted">Carregando…</p>
+                  ) : (
+                    <ul className="pm-servicos">
+                      {saude.map((s) => (
+                        <li key={s.id} className={s.estado}>
+                          <span className="pm-servico-ponto" aria-hidden />
+                          <div>
+                            <strong>{s.nome}</strong>
                             <p className="muted">{s.detalhe}</p>
                           </div>
                         </li>

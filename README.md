@@ -23,6 +23,7 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
    - `SUPABASE_URL` (igual ao de cima) e `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API Keys → service_role / secret)
    - `ANTHROPIC_API_KEY` (console da Anthropic)
    - `EXECUTOR_SECRET` (qualquer texto longo e aleatório; protege a rota que roda os agentes)
+   - `APP_URL` (opcional, ex.: `https://agents-instagram.nishistack.com`; sem ela o app usa o domínio de produção que a Vercel informa, nunca o cabeçalho da requisição)
    - `FAL_KEY` (recomendada para Reels; fal.ai → API Keys). Libera Kling 3.0, Hailuo e Seedance como IA de vídeo, cobrados por uso. Com ela, o cinegrafista usa o Kling 3.0 por padrão.
    - `KLING_API_KEY` (opcional; console da Kling AI em kling.ai, área de API). Vira o padrão só quando não há `FAL_KEY`. Sem nenhuma das duas, o Claude faz uma animação gravada no próprio app.
    - Depois de configurar, abra o perfil de uma sala → aba **Serviços** → **Testar agora**: ele confere cada chave e o Instagram de cada sala sem gerar nada.

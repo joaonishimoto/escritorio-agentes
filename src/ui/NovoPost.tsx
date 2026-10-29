@@ -99,6 +99,7 @@ export function NovoPost({
   marcaCor,
   neutra,
   inicial,
+  agendarPara,
   ideiaGuardadaId,
   aoCriar,
   aoFechar,
@@ -110,6 +111,8 @@ export function NovoPost({
   /** o pedido já preenchido (vindo de uma ideia do pesquisador) e, se era uma ideia guardada, qual, para sair da lista quando o post for criado */
   inicial?: string | Ideia
   ideiaGuardadaId?: string
+  /** vindo do "Planejar a semana": já marca para agendar neste horário */
+  agendarPara?: Date
   aoCriar: (p: Post) => void
   aoFechar: () => void
 }) {
@@ -127,8 +130,8 @@ export function NovoPost({
   const [estrutura, setEstrutura] = useState('')
   const [layout, setLayout] = useState('')
   const [voz, setVoz] = useState('')
-  const [agendar, setAgendar] = useState(false)
-  const [quando, setQuando] = useState(amanhaAs19)
+  const [agendar, setAgendar] = useState(!!agendarPara)
+  const [quando, setQuando] = useState(() => (agendarPara ? paraCampo(agendarPara) : amanhaAs19()))
   const [linha, setLinha] = useState('')
   const [ideias, setIdeias] = useState<Ideia[]>([])
   const [pensando, setPensando] = useState(false)
