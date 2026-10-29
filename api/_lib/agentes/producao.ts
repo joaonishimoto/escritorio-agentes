@@ -303,6 +303,17 @@ const COMPOSICAO = `## Composição (todas as marcas)
 - Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide.
 - Post com objetivo "marca": pouco texto na arte, a marca em destaque.`
 
+// favicon e ícone em vários tamanhos são o mesmo desenho: no prompt eles só gastam token e confundem a escolha
+const VARIANTE_PEQUENA = /favicon|apple-touch|maskable|[-_](16|32|48|64|128|180|192|256|1024)(x\d+)?\.(png|svg|jpe?g|webp)$/i
+
+/** Mídias aprovadas da marca, sem as variantes de tamanho do ícone (fica a de 512 ou o arquivo principal). */
+export async function midiasDaMarca(ctx: Parameters<Agente>[0]) {
+  const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
+  return (midias ?? [])
+    .filter((m) => !VARIANTE_PEQUENA.test(m.caminho as string))
+    .map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao as string | null, tags: m.tags as string[] }))
+}
+
 const PlanoDeImagens = z.object({
   imagens: z
     .array(
@@ -387,8 +398,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     await em.acao('Não deu para editar direto, refazendo os slides')
   }
   await em.inicio('Escolhendo as fotos aprovadas')
-  const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
-  const todas = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags as string[] }))
+  const todas = await midiasDaMarca(ctx)
   // "inspiração" é só estilo: o designer vê as imagens, mas elas não entram nos slides
   const fotos = todas.filter((m) => !m.tags.includes('inspiracao'))
   const inspiracoes = todas.filter((m) => m.tags.includes('inspiracao')).slice(-3)
