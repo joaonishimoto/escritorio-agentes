@@ -3,6 +3,7 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { COR_ESTADO, useEscritorio } from '../store/escritorio'
 import { AcoesDeErro } from './PostComErro'
 import { PedirIdeias } from './PedirIdeias'
+import type { Ideia } from '../lib/ideias'
 import type { Post } from '../lib/dados'
 
 const ROTULO_ESTADO = {
@@ -72,7 +73,7 @@ export function PainelAgente({
   post?: Post | null
   aoMudar?: () => void
   marcaId?: string | null
-  aoUsarIdeia?: (briefing: string) => void
+  aoUsarIdeia?: (ideia: Ideia, guardadaId?: string) => void
   porAgente?: { agente: string; custo: number; segundos: number }[]
 }) {
   const id = useEscritorio((s) => s.selecionado)

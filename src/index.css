@@ -520,6 +520,8 @@ i.falhou { background: var(--danger, #b42318) }
 .ideias-lista li { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 14px }
 .ideias-lista li p { font-size: 13px }
 .ideias-lista li .primario { align-self: flex-start }
+.ideia-acoes { display: flex; gap: 6px; flex-wrap: wrap }
+.ideia-acoes .secundario { font-size: 13px }
 
 
 /* ───────── celular ───────── */
@@ -819,6 +821,14 @@ i.falhou { background: var(--danger, #b42318) }
 .np-ideias-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
 .np-ideias-lista button { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 10px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground); font: inherit; cursor: pointer }
 .np-ideias-lista button:hover { border-color: var(--primary) }
+.np-ideias-lista li { position: relative }
+.np-ideias-lista .np-ideia-guardar { position: absolute; top: 8px; right: 8px; width: auto; display: inline-flex; flex-direction: row; align-items: center; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; line-height: 16px; color: var(--muted-foreground); background: var(--surface); border: 1px solid var(--border) }
+.np-ideias-lista .np-ideia-guardar:hover, .np-ideias-lista .np-ideia-guardar.guardada { color: var(--primary); border-color: var(--primary) }
+.np-ideias-lista .np-ideia-guardar.guardada { background: color-mix(in srgb, var(--primary) 8%, var(--surface)) }
+.np-ideias-lista li:has(.np-ideia-guardar) > button:first-child { padding-right: 88px }
+.np-guardadas { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border) }
+.np-guardadas > strong { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground) }
 .np-ideias-lista strong { font-size: 13px; font-weight: 600; line-height: 1.35 }
 .np-ideia-formato { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground) }
 .np-ideia-gancho { font-size: 12px; color: var(--muted-foreground); line-height: 1.4 }

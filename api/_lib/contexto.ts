@@ -125,6 +125,12 @@ const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: b
   curador: { outrasRegras: true },
 }
 
+/** O que o app guarda na identidade e não é identidade visual (decoração da sala, ordem no andar, ideias guardadas): fica fora do prompt. */
+const CAMPOS_DO_APP = ['sala', 'posicao', 'cor_sala', 'tom_editado', 'ideias_guardadas']
+export function identidadeVisual(identidade: Record<string, unknown> | null | undefined) {
+  return Object.fromEntries(Object.entries(identidade ?? {}).filter(([k]) => !CAMPOS_DO_APP.includes(k)))
+}
+
 /** Monta o prompt de sistema de um agente a partir do roteiro, da marca e das regras aprendidas. */
 export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
   const etapa = ctx.etapas.find((e) => e.agente === agente)
@@ -144,7 +150,7 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
       : '',
     outrasRegras.length ? `## Regras dos outros agentes (para contexto)\n${outrasRegras.map((r) => `- [${r.agente}] ${r.regra}`).join('\n')}` : '',
     precisa.tom && m.tom_de_voz ? `## Tom de voz da marca\n${m.tom_de_voz}` : '',
-    precisa.identidade && Object.keys(m.identidade ?? {}).length ? `## Identidade visual\n${JSON.stringify(m.identidade)}` : '',
+    precisa.identidade && Object.keys(identidadeVisual(m.identidade)).length ? `## Identidade visual\n${JSON.stringify(identidadeVisual(m.identidade))}` : '',
     precisa.legenda && m.hashtags_fixas?.length ? `## Hashtags fixas\n${m.hashtags_fixas.join(' ')}` : '',
     precisa.legenda && m.aviso_final ? `## Aviso obrigatório no fim da legenda\n${m.aviso_final}` : '',
   ]

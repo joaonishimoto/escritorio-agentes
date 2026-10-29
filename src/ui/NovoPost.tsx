@@ -1,5 +1,6 @@
 import { useEffect, useState, type ClipboardEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { chamarApi, lerApi } from '../lib/api'
+import { useIdeiasGuardadas, type Ideia } from '../lib/ideias'
 import { CHAVE_DO_SERVICO, FUNCIONARIOS_IA, nomeDaIA, opcoesDe, type Servicos } from '../lib/ias'
 import { supabase } from '../lib/supabase'
 import { ESTRUTURAS, LAYOUTS, VOZES, nomeDe } from '../lib/estilos'
@@ -7,12 +8,6 @@ import type { Post } from '../lib/dados'
 
 type Ref = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
 type Formato = '' | 'carrossel' | 'foto' | 'reel'
-interface Ideia {
-  titulo: string
-  formato: string
-  gancho: string
-  briefing: string
-}
 
 const FORMATOS: { id: Formato; nome: string; desc: string }[] = [
   { id: '', nome: 'A equipe decide', desc: 'Escolhe pelo pedido' },
@@ -89,12 +84,22 @@ function Secao({ numero, titulo, extra, children }: { numero: number; titulo: st
   )
 }
 
+/** Formato sugerido na ideia, no vocabulário do formulário. */
+function formatoDaIdeia(i: Ideia): Formato {
+  const f = i.formato.toLowerCase()
+  if (f.includes('reel') || f.includes('vídeo')) return 'reel'
+  if (f.includes('carrossel')) return 'carrossel'
+  if (f.includes('foto')) return 'foto'
+  return ''
+}
+
 export function NovoPost({
   marcaId,
   marcaNome,
   marcaCor,
   neutra,
   inicial,
+  ideiaGuardadaId,
   aoCriar,
   aoFechar,
 }: {
@@ -102,13 +107,18 @@ export function NovoPost({
   marcaNome?: string
   marcaCor?: string
   neutra?: boolean
-  inicial?: string
+  /** o pedido já preenchido (vindo de uma ideia do pesquisador) e, se era uma ideia guardada, qual, para sair da lista quando o post for criado */
+  inicial?: string | Ideia
+  ideiaGuardadaId?: string
   aoCriar: (p: Post) => void
   aoFechar: () => void
 }) {
-  const [formato, setFormato] = useState<Formato>('')
+  const [formato, setFormato] = useState<Formato>(typeof inicial === 'object' && inicial ? formatoDaIdeia(inicial) : '')
   const [slides, setSlides] = useState(0)
-  const [briefing, setBriefing] = useState(inicial ?? '')
+  const [briefing, setBriefing] = useState(typeof inicial === 'string' ? inicial : (inicial?.briefing ?? ''))
+  // ideia guardada que virou este post: sai da lista quando o post é criado
+  const [ideiaUsada, setIdeiaUsada] = useState<string | undefined>(ideiaGuardadaId)
+  const guardadas = useIdeiasGuardadas(marcaId)
   const [refs, setRefs] = useState<Ref[]>([])
   const [link, setLink] = useState('')
   const [subindo, setSubindo] = useState(0)
@@ -186,12 +196,11 @@ export function NovoPost({
       setPensando(false)
     }
   }
-  const usarIdeia = (i: Ideia) => {
+  const usarIdeia = (i: Ideia, guardadaId?: string) => {
     setBriefing(i.briefing)
-    const f = i.formato.toLowerCase()
-    if (f.includes('reel') || f.includes('vídeo')) setFormato('reel')
-    else if (f.includes('carrossel')) setFormato('carrossel')
-    else if (f.includes('foto')) setFormato('foto')
+    const f = formatoDaIdeia(i)
+    if (f) setFormato(f)
+    setIdeiaUsada(guardadaId)
     setIdeiasAbertas(false)
     document.getElementById('np-pedido')?.focus()
   }
@@ -218,6 +227,7 @@ export function NovoPost({
           ias: Object.keys(iasDoPost).length ? iasDoPost : undefined,
         },
       })
+      if (ideiaUsada) void guardadas.tirar(ideiaUsada)
       aoCriar(post)
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Não deu para criar o post')
@@ -265,17 +275,42 @@ export function NovoPost({
       )}
       {ideias.length > 0 && (
         <ul className="np-ideias-lista">
-          {ideias.map((i) => (
-            <li key={i.titulo}>
-              <button type="button" onClick={() => usarIdeia(i)}>
-                <span className="np-ideia-formato">{i.formato}</span>
-                <strong>{i.titulo}</strong>
-                <span className="np-ideia-gancho">“{i.gancho}”</span>
-                <span className="np-ideia-usar">Usar esta ideia →</span>
-              </button>
-            </li>
-          ))}
+          {ideias.map((i) => {
+            const g = guardadas.guardada(i)
+            return (
+              <li key={i.titulo}>
+                <button type="button" onClick={() => usarIdeia(i, g?.id)}>
+                  <span className="np-ideia-formato">{i.formato}</span>
+                  <strong>{i.titulo}</strong>
+                  <span className="np-ideia-gancho">“{i.gancho}”</span>
+                  <span className="np-ideia-usar">Usar esta ideia →</span>
+                </button>
+                <button type="button" className={`np-ideia-guardar${g ? ' guardada' : ''}`} onClick={() => (g ? guardadas.tirar(g.id) : guardadas.guardar(i))} aria-pressed={!!g} title={g ? 'Tirar das guardadas' : 'Guardar para depois'}>
+                  {g ? 'Guardada ✓' : 'Guardar'}
+                </button>
+              </li>
+            )
+          })}
         </ul>
+      )}
+      {guardadas.erro && <p className="aviso">{guardadas.erro}</p>}
+      {guardadas.ideias.length > 0 && (
+        <div className="np-guardadas">
+          <strong>Guardadas para depois</strong>
+          <ul className="np-ideias-lista">
+            {guardadas.ideias.map((i) => (
+              <li key={i.id}>
+                <button type="button" onClick={() => usarIdeia(i, i.id)}>
+                  <span className="np-ideia-formato">{i.formato}</span>
+                  <strong>{i.titulo}</strong>
+                  <span className="np-ideia-gancho">“{i.gancho}”</span>
+                  <span className="np-ideia-usar">Usar esta ideia →</span>
+                </button>
+                <button type="button" className="np-ideia-guardar" onClick={() => guardadas.tirar(i.id)} title="Tirar das guardadas">Tirar</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )
