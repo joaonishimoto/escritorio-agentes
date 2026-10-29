@@ -836,11 +836,14 @@ export const revisor: Agente = async (ctx, passo, em) => {
           semBusca
             ? '## A busca na web não funcionou neste post\nNão aponte o pesquisador por falta de fonte: refazer não adianta. Se o texto, a legenda ou a narração afirmam algo específico sem fonte (número, tempo, causa), aponte para o redator (ou o narrador) suavizar para algo geral e seguro. Diga no resumo que os fatos não foram conferidos na web.'
             : '',
-          pauta?.objetivo ? `## Pauta deste post\nFormato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}\nObjetivo: ${pauta.objetivo} (${OBJETIVOS[pauta.objetivo as keyof typeof OBJETIVOS] ?? ''})\nFecho combinado: ${pauta.fecho}` : '',
+          // o formato vale sempre (um post "foto" é 1 imagem, mesmo que o checklist fale de carrossel); objetivo e fecho, quando a pauta tem
+          pauta?.formato
+            ? `## Pauta deste post\nFormato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}${pauta.objetivo ? `\nObjetivo: ${pauta.objetivo} (${OBJETIVOS[pauta.objetivo as keyof typeof OBJETIVOS] ?? ''})\nFecho combinado: ${pauta.fecho}` : ''}`
+            : '',
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
-            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.objetivo ? ' A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta, nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem.' : ''}`,
+            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.formato ? ` A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta${pauta.formato === 'foto' ? ' (post de foto é 1 imagem só; regra de carrossel, como quantidade mínima de slides ou "Arraste pro lado", não vale)' : ''}${pauta.objetivo ? ', nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem' : ''}.` : ''}`,
         ]
           .filter(Boolean)
           .join('\n\n'),

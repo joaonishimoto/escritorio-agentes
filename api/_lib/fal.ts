@@ -50,13 +50,17 @@ export function custoFal(motor: MotorFal, segundos: number) {
   return m.precoPorSegundo ? m.precoPorSegundo * segundos : 0
 }
 
-export async function chamarFal<T>(url: string, corpo?: unknown): Promise<T> {
+export async function chamarFal<T>(url: string, corpo?: unknown, limiteMs?: number): Promise<T> {
   const chave = process.env.FAL_KEY
   if (!chave) throw new Error('Falta configurar FAL_KEY na Vercel para usar o fal.ai')
   const r = await fetch(url, {
     method: corpo ? 'POST' : 'GET',
     headers: { Authorization: `Key ${chave}`, 'Content-Type': 'application/json' },
     body: corpo ? JSON.stringify(corpo) : undefined,
+    signal: limiteMs ? AbortSignal.timeout(limiteMs) : undefined,
+  }).catch((e) => {
+    if (e instanceof Error && e.name === 'TimeoutError') throw new Error(`fal.ai não respondeu em ${Math.round(limiteMs! / 1000)} s`)
+    throw e
   })
   const json = (await r.json().catch(() => null)) as (T & { detail?: unknown }) | null
   if (!r.ok || !json) {
