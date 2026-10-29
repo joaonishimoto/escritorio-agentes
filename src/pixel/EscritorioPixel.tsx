@@ -63,7 +63,7 @@ interface Andante {
 }
 
 /**
- * O andar em pixel art: salas das marcas lado a lado, corredor embaixo e a sua sala no fim.
+ * O andar em pixel art: salas das marcas lado a lado, depois a equipe, a sua sala e o Financeiro, com o corredor embaixo.
  * Quem entrega trabalho levanta e leva a pasta andando até a mesa de quem recebe.
  */
 export function EscritorioPixel({
@@ -129,15 +129,15 @@ export function EscritorioPixel({
   const foco = useEscritorio((s) => s.foco)
 
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
-  // a equipe é uma só (sala 0 dos bonecos, no começo do andar); ao lado dela, a sua sala; depois as das marcas
+  // ordem do andar: salas das marcas, equipe, sua sala e Financeiro. A equipe (sala 0 dos bonecos) fica no x 0,
+  // então as marcas ficam à esquerda dela, em x negativo
+  const xMarca = (i: number) => -(marcas.length - i) * PASSO_MARCA
+  const origem = xMarca(0)
   const xVoce = PASSO_EQUIPE
-  const inicioMarcas = xVoce + VOCE_W + 16
-  const xMarca = (i: number) => inicioMarcas + i * PASSO_MARCA
-  // sala do Financeiro no fim do andar, depois da última marca
-  const xFin = xMarca(marcas.length)
+  const xFin = xVoce + VOCE_W + 16
   const largura = xFin + FIN_W
   // paredes externas nas duas pontas do andar: a câmera pode mostrá-las, para as salas não ficarem coladas no vazio
-  const inicio = -PAREDE_EXTERNA
+  const inicio = origem - PAREDE_EXTERNA
   const fim = largura + PAREDE_EXTERNA
   const corDe = (m: MarcaNoAndar) => m.cor ?? '#2a5288'
   const padraoDe = (m: MarcaNoAndar, i: number) => estilosAntigos[m.id] ?? ORDEM_ESTILOS[(m.ordem ?? i) % ORDEM_ESTILOS.length]
@@ -161,10 +161,11 @@ export function EscritorioPixel({
   // cenário parado, desenhado uma vez por mudança de salas ou estilos
   const cenario = useMemo(() => {
     const c = document.createElement('canvas')
-    c.width = largura
+    c.width = largura - origem
     c.height = ANDAR_H
     const g = c.getContext('2d')!
-    desenharCorredor(g, largura)
+    desenharCorredor(g, largura - origem)
+    g.translate(-origem, 0)
     const hoje = new Date().getDate()
     desenharEquipe(g, 0, false)
     desenharParedeEntre(g, SALA_W)
@@ -178,7 +179,7 @@ export function EscritorioPixel({
     desenharSalaFin(g, xFin)
     desenharGraficoFin(g, xFin, financeiro?.barras ?? [], !!financeiro?.alerta)
     return c
-  }, [marcas, largura, xVoce, quadros, financeiro?.barras.join(','), financeiro?.alerta]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas, largura, origem, xVoce, quadros, financeiro?.barras.join(','), financeiro?.alerta]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -494,7 +495,7 @@ export function EscritorioPixel({
       g.fillStyle = '#1f2330'
       g.fillRect(0, 0, c.width, c.height)
       g.setTransform(escala, 0, 0, escala, -Math.round(camX * escala), offY * escala)
-      g.drawImage(cenario, 0, 0)
+      g.drawImage(cenario, origem, 0)
       desenharParedeExterna(g, inicio, PAREDE_EXTERNA)
       desenharParedeExterna(g, largura, PAREDE_EXTERNA)
       desenharCalendario(g, xVoce, diasRef.current, new Date().getDate(), CALENDARIO)
@@ -815,14 +816,14 @@ export function EscritorioPixel({
       const noGrafico = x >= xFin + GRAFICO_FIN.x - 2 && x <= xFin + GRAFICO_FIN.x + GRAFICO_FIN.w + 2 && y <= GRAFICO_FIN.y + GRAFICO_FIN.h + 2
       return focar(naMesa || noGrafico ? 'financeiro' : null)
     }
-    if (x >= xVoce && x < inicioMarcas) {
+    if (x >= xVoce) {
       const mx = xVoce + MESA_VOCE.x
       if (x >= xVoce + CALENDARIO.x && x <= xVoce + CALENDARIO.x + CALENDARIO.w && y <= CALENDARIO.y + CALENDARIO.h) return focar('calendario')
       if (x >= mx - 6 && x <= mx + MESA_VOCE.w + 6 && y >= MESA_VOCE.y - 24 && y <= MESA_VOCE.y + 20) return focar('voce')
       return focar(null) // clicou fora: fecha o painel aberto
     }
     // sala da equipe: clicar numa mesa abre o agente
-    if (x < PASSO_EQUIPE) {
+    if (x >= 0 && x < PASSO_EQUIPE) {
       vivo.current.irPara = null
       for (const a of AGENTES) {
         const m = MESAS[a.id]
@@ -830,7 +831,7 @@ export function EscritorioPixel({
       }
       return selecionar(null)
     }
-    const sala = Math.floor((x - inicioMarcas) / PASSO_MARCA)
+    const sala = x < 0 ? Math.floor((x - origem) / PASSO_MARCA) : -1
     if (!marcas[sala]) return selecionar(null)
     const lx = x - xMarca(sala)
     // a câmera fica na sala da marca em que você clicou
@@ -910,18 +911,6 @@ export function EscritorioPixel({
   return (
     <div className="pixel" ref={caixa}>
       <nav className="pixel-salas" aria-label="Ir para a sala">
-        <button style={{ ['--cor' as string]: '#2a5288' }} onClick={() => irPara('equipe')}>
-          <i aria-hidden />
-          Equipe
-          {AGENTES.some((a) => estados[a.id] === 'trabalhando' || Object.values(porSala ?? {}).some((p) => p[a.id] === 'trabalhando')) && (
-            <span className="pixel-salas-sit trabalhando" title="Trabalhando agora" />
-          )}
-        </button>
-        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
-          <i aria-hidden />
-          Sua sala
-          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
-        </button>
         {naBarra.map((m) => {
           const i = marcas.indexOf(m)
           const sit = situacao(m, i)
@@ -956,6 +945,18 @@ export function EscritorioPixel({
             </button>
           )
         })}
+        <button style={{ ['--cor' as string]: '#2a5288' }} onClick={() => irPara('equipe')}>
+          <i aria-hidden />
+          Equipe
+          {AGENTES.some((a) => estados[a.id] === 'trabalhando' || Object.values(porSala ?? {}).some((p) => p[a.id] === 'trabalhando')) && (
+            <span className="pixel-salas-sit trabalhando" title="Trabalhando agora" />
+          )}
+        </button>
+        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
+          <i aria-hidden />
+          Sua sala
+          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
+        </button>
         <button style={{ ['--cor' as string]: '#3f8f5b' }} onClick={() => irPara('financeiro')}>
           <i aria-hidden />
           Financeiro
@@ -973,10 +974,10 @@ export function EscritorioPixel({
           if (!a) {
             if (e.pointerType !== 'mouse') return
             const p = paraMundo(e)
-            const s = p.x < inicioMarcas ? -1 : Math.floor((p.x - inicioMarcas) / PASSO_MARCA)
+            const s = p.x < 0 ? Math.floor((p.x - origem) / PASSO_MARCA) : -1
             const lx = p.x - xMarca(s)
             const em = (r: { x: number; y: number; w: number; h: number }) => lx >= r.x - 3 && lx <= r.x + r.w + 3 && p.y >= r.y - 3 && p.y <= r.y + r.h + 4
-            const alvo = !marcas[s] || p.x >= xFin ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
+            const alvo = !marcas[s] ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
             if (alvo !== sobre) setSobre(alvo)
             ;(e.target as HTMLElement).style.cursor = alvo ? 'pointer' : ''
             return
