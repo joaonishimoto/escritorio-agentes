@@ -32,16 +32,27 @@ export const PAREDE_DEPTO_Y = 152 // parede entre os departamentos e o hall
 export const LINHA_DEPTO = 144 // onde se anda dentro do departamento, na frente das mesas
 export const LINHA_HALL = 174 // onde se anda no hall
 export const CAFE = { x: 262, y: 188 }
-/** Cofrinho do hall: clicar mostra quanto a sala está gastando. */
-export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
-/** Gaveta de posts do hall: cômoda com uma gaveta aberta cheia de pastas. */
-export const GAVETA = { x: 258, y: 184, w: 30, h: 28 }
-/** Kit de decoração do hall (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
-export const DECORAR = { x: 50, y: 186, w: 30, h: 28 }
-/** Escrivaninha de pedidos do hall (máquina de escrever com a folha do pedido): clicar abre um post novo naquela sala. */
-export const NOVO_POST = { x: 8, y: 184, w: 34, h: 30 }
-/** Celular no suporte, ao lado do tapete: a tela fica nas cores do Instagram quando a sala está conectada. */
-export const INSTAGRAM = { x: 86, y: 180, w: 18, h: 34 }
+
+// ───────── sala de cada marca: recepção da marca, sem funcionários ─────────
+// A equipe é uma só, para todas as marcas (mesmo código, a marca entra como contexto). Cada marca tem a sua sala
+// com o que é dela: quadros da parede, pedidos, Instagram, cofrinho, gaveta e decoração.
+export const MARCA_W = 208
+export const PASSO_MARCA = MARCA_W + 16
+/** a sala da equipe vem primeiro no andar, depois as das marcas */
+export const PASSO_EQUIPE = SALA_W + 16
+export const PORTA_MARCA = MARCA_W / 2
+/** onde se anda na sala da marca */
+export const LINHA_MARCA = 196
+/** Cofrinho: clicar mostra quanto a marca está gastando. */
+export const COFRINHO = { x: 134, y: 154, w: 24, h: 22 }
+/** Gaveta de posts: cômoda com uma gaveta aberta cheia de pastas. */
+export const GAVETA = { x: 168, y: 148, w: 30, h: 28 }
+/** Kit de decoração (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
+export const DECORAR = { x: 172, y: 48, w: 30, h: 28 }
+/** Escrivaninha de pedidos (máquina de escrever com a folha do pedido): clicar abre um post novo para a marca. */
+export const NOVO_POST = { x: 10, y: 148, w: 34, h: 30 }
+/** Celular no suporte: a tela fica nas cores do Instagram quando a marca está conectada. */
+export const INSTAGRAM = { x: 54, y: 144, w: 18, h: 34 }
 
 /** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
@@ -57,12 +68,12 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
 }
 export const MESA_W = 30
 
-/** Quadros da parede que abrem algo ao clicar: referências e calendário (Pauta), branding (Criação) e regras (Revisão). */
+/** Quadros da parede da sala da marca que abrem algo ao clicar: referências, calendário, branding e regras. */
 export const QUADROS = {
   referencias: { x: 6, y: 3, w: 42, h: 28 },
-  calendario: { x: 58, y: 5, w: 38, h: 26 },
-  branding: { x: 138, y: 3, w: 44, h: 28 },
-  regras: { x: 246, y: 3, w: 44, h: 28 },
+  calendario: { x: 56, y: 5, w: 38, h: 26 },
+  branding: { x: 102, y: 3, w: 44, h: 28 },
+  regras: { x: 156, y: 3, w: 44, h: 28 },
 } as const
 export type Quadro = keyof typeof QUADROS
 
@@ -142,8 +153,12 @@ export const ESTILOS: Record<string, Estilo> = {
 }
 export const ORDEM_ESTILOS = ['d', 'e', 'f']
 
-/** Onde fica a placa com o nome da marca na parede (o texto é HTML por cima, para ficar nítido). */
-export const PLACA = { x: 160, y: 192 }
+/** Onde fica a placa com o nome da marca, no tapete da sala dela (o texto é HTML por cima, para ficar nítido). */
+export const PLACA = { x: MARCA_W / 2, y: 112 }
+/** Placa da sala da equipe, no tapete do hall. */
+export const PLACA_EQUIPE = { x: 160, y: 197 }
+/** A sala da equipe tem estilo fixo: é de todas as marcas. */
+export const COR_EQUIPE = '#2a5288'
 
 const misturar = (a: string, b: string, t: number) => {
   const pa = parseInt(a.slice(1), 16)
@@ -629,8 +644,9 @@ function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
   r(g, '#f2b233', x + 2, y + 3, 4, 5)
 }
 
-/** Desenha uma sala de marca inteira (sem os bonecos): Pauta, Criação e Revisão em cima, hall embaixo. */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: boolean }) {
+/** A sala da equipe (sem os bonecos): Pauta, Criação e Publicação em cima, hall com café embaixo. */
+export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
+  const estilo = comCorDaMarca(ESTILOS.d, COR_EQUIPE)
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
   piso(g, p.hall.estilo, x0, SALA_W, topoHall, SALA_H - topoHall, p.hall.padrao)
@@ -638,20 +654,8 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   piso(g, p.criacao.estilo, x0 + 108, 104, PAREDE_H, topoHall - PAREDE_H, p.criacao.padrao)
   piso(g, p.publicacao.estilo, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, p.publicacao.padrao)
   parede(g, estilo, x0, SALA_W)
-
-  // parede do fundo: referências e calendário (Pauta), janelas e branding (Criação), mural de regras (Revisão)
-  const f = QUADROS.referencias
-  quadroReferencias(g, estilo, x0 + f.x, f.y, f.w, f.h, quadros.referencias)
-  const c = QUADROS.calendario
-  desenharCalendario(g, x0, quadros.dias, quadros.hoje, c)
-  janela(g, x0 + 112, 7, 20, noite)
-  janela(g, x0 + 188, 7, 20, noite)
-  const b = QUADROS.branding
-  quadroBranding(g, estilo, x0 + b.x, b.y, b.w, b.h)
-  janela(g, x0 + 222, 7, 18, noite)
-  janela(g, x0 + 296, 7, 18, noite)
-  const q = QUADROS.regras
-  quadroRegras(g, x0 + q.x, q.y, q.w, q.h, quadros.regras)
+  for (const jx of [10, 58, 112, 188, 222, 296]) janela(g, x0 + jx, 7, jx === 58 || jx === 112 || jx === 188 ? 26 : 18, noite)
+  estante(g, x0 + 150, 2)
 
   // divisórias entre os departamentos e a parede do hall, com uma porta em cada
   divisoria(g, estilo, x0 + 104, PAREDE_H, 4, topoHall - PAREDE_H)
@@ -664,7 +668,6 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   }
   divisoria(g, estilo, x0 + ultimo, PAREDE_DEPTO_Y, SALA_W - ultimo, 6)
 
-  // mesas
   for (const id of Object.keys(MESAS) as AgenteId[]) {
     const m = MESAS[id]
     mesa(g, estilo, x0 + m.x, m.y)
@@ -674,23 +677,51 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   microfone(g, x0 + MESAS.narrador.x + 2, MESAS.narrador.y - 6)
   mesinha(g, estilo, x0 + 254, 102)
 
-  // hall: tapete da marca no meio (o nome vai por cima), cofrinho e plantas
-  r(g, '#1f2330', x0 + 107, 179, 106, 36)
-  r(g, estilo.rodape, x0 + 108, 180, 104, 34)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 183, 98, 1)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 210, 98, 1)
-  cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
-  kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
-  gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
-  escrivaninhaNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y)
-  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
+  // hall: tapete com a placa da equipe, sofá de espera, café e plantas
+  r(g, '#1f2330', x0 + 107, 184, 106, 30)
+  r(g, estilo.rodape, x0 + 108, 185, 104, 28)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 188, 98, 1)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 209, 98, 1)
+  sofa(g, x0 + 20, 196, 56, '#3d5a80')
+  mesaDeCentro(g, x0 + 30, 178, 34)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
   planta(g, x0 + 300, 160)
-  // parede de baixo, com a porta principal
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18, 5)
   r(g, '#1f2330', x0 + PORTA_X + 18, SALA_H - 5, SALA_W - PORTA_X - 18, 5)
   r(g, estilo.rodape, x0 + PORTA_X - 18, SALA_H - 2, 36, 2)
+}
+
+/** A sala de uma marca: quadros na parede, tapete com o nome, pedidos, Instagram, cofrinho, gaveta e decoração. */
+export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: boolean }) {
+  const p = pisos(estilo)
+  piso(g, p.hall.estilo, x0, MARCA_W, PAREDE_H, SALA_H - PAREDE_H, p.hall.padrao)
+  parede(g, estilo, x0, MARCA_W)
+  const f = QUADROS.referencias
+  quadroReferencias(g, estilo, x0 + f.x, f.y, f.w, f.h, quadros.referencias)
+  desenharCalendario(g, x0, quadros.dias, quadros.hoje, QUADROS.calendario)
+  const b = QUADROS.branding
+  quadroBranding(g, estilo, x0 + b.x, b.y, b.w, b.h)
+  const q = QUADROS.regras
+  quadroRegras(g, x0 + q.x, q.y, q.w, q.h, quadros.regras)
+
+  // tapete da marca no meio (o nome vai por cima), com a cor dela
+  r(g, '#1f2330', x0 + 47, 93, 114, 38)
+  r(g, estilo.rodape, x0 + 48, 94, 112, 36)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 51, 97, 106, 1)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 51, 126, 106, 1)
+  mesinha(g, estilo, x0 + 14, 52)
+  kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
+  escrivaninhaNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y)
+  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
+  cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
+  gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
+  planta(g, x0 + 92, 150)
+  planta(g, x0 + 4, 216)
+  planta(g, x0 + MARCA_W - 14, 216)
+  r(g, '#1f2330', x0, SALA_H - 5, PORTA_MARCA - 18, 5)
+  r(g, '#1f2330', x0 + PORTA_MARCA + 18, SALA_H - 5, MARCA_W - PORTA_MARCA - 18, 5)
+  r(g, estilo.rodape, x0 + PORTA_MARCA - 18, SALA_H - 2, 36, 2)
 }
 
 /** Sua sala, no fim do corredor. */
