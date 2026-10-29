@@ -119,16 +119,25 @@ const Texto = z.object({
   slides: z.array(
     z.object({
       tipo: z.enum(['capa', 'conteudo', 'cta']),
-      etiqueta: z.string().describe('texto curto da pílula no topo, pode ser vazio'),
-      titulo: z.string(),
+      etiqueta: z.string().describe('selo curto de apoio (ex.: categoria, número do passo); deixe vazio na maioria dos slides, não é obrigatório'),
+      titulo: z.string().describe('curto: até 8 palavras na capa, até 10 nos outros slides'),
       destaque: z.string().describe('parte do título que vai na cor de destaque, pode ser vazio'),
-      corpo: z.string().describe('texto de apoio, pode ser vazio'),
+      corpo: z.string().describe('texto de apoio, até 30 palavras, pode ser vazio'),
       itens: z.array(z.object({ quantidade: z.string(), item: z.string() })).describe('lista (ex.: ingredientes), pode ser vazia'),
       foto: z.string().describe('descrição da foto ideal, ou vazio se não usa foto'),
     }),
   ),
   legenda: z.string(),
 })
+
+/** O que vale para o texto de toda marca: vem das correções do dono que se repetiam de marca em marca. */
+const ESCRITA = `## Regras de escrita (todas as marcas)
+- Nunca escreva endereço de site (www, .com, lp., use.) nos slides nem na legenda. Botão e chamada usam palavras comuns de ação ("Link na bio", "Começar grátis", "Baixe o app").
+- @ de perfil do Instagram sempre em minúsculas, como está no perfil.
+- O fecho segue o objetivo da pauta. Só "vender" pede chamada de venda (baixar, assinar, link na bio). "engajar" e "educar" fecham com um convite leve (salvar, mandar pra alguém, comentar) ou fechando a ideia. "marca" não tem chamada de venda nem pedido de contato, e quase não tem texto na arte: a mensagem vai na legenda.
+- Entregue exatamente a quantidade de slides da pauta, um por item do plano. Foto e Reel têm um slide só.
+- Texto que cabe no slide: título curto, corpo curto, uma ideia por slide. O que não couber vai para a legenda.
+- Palavra comum, sem duplo sentido nem termo estranho; se a palavra soa esquisita em voz alta, troque.`
 
 export const redator: Agente = async (ctx, passo, em) => {
   // numa volta (revisor ou correção sua) parte do texto que já existe e mexe só no que foi pedido
@@ -141,12 +150,14 @@ export const redator: Agente = async (ctx, passo, em) => {
     // a volta só troca o que foi apontado: Sonnet dá conta e custa metade do Opus
     modelo: ajuste ? modeloNaVolta(ctx, 'redator', 'claude-sonnet-5-5') : modeloDe(ctx, 'redator'),
     effort: 'medium',
-    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
+    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${ESCRITA}\n\n${CLICHES}`,
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
       pauta?.voz && pauta.voz in VOZES ? `## Voz deste post: ${pauta.voz}\n${VOZES[pauta.voz]}` : '',
       pauta?.estrutura && pauta.estrutura in ESTRUTURAS ? `## Estrutura deste post: ${pauta.estrutura}\n${ESTRUTURAS[pauta.estrutura]}` : '',
+      pauta?.objetivo && pauta.objetivo in OBJETIVOS ? `## Objetivo deste post: ${pauta.objetivo}\n${OBJETIVOS[pauta.objetivo]}\nFecho combinado: ${pauta.fecho}` : '',
+      pauta ? `## Quantidade: ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'slide' : 'slides'}` : '',
       jaUsado,
       `Pesquisa:\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? '(sem pesquisa)'}`,
       ajuste
@@ -158,6 +169,8 @@ export const redator: Agente = async (ctx, passo, em) => {
       .join('\n\n'),
     schema: Texto,
   })
+  // foto e Reel têm uma imagem só: um slide a mais do modelo não vira um post a mais
+  if (pauta && pauta.formato !== 'carrossel' && dados.slides.length > 1) dados.slides = dados.slides.slice(0, 1)
   for (const [i, s] of dados.slides.entries()) await em.texto(`Slide ${i + 1}: ${s.titulo}\n`)
   await em.texto(`\nLegenda:\n${dados.legenda}\n`)
   await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
