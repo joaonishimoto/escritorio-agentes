@@ -1,9 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
-export function origemDaRequisicao(req: VercelRequest) {
-  const host = req.headers['x-forwarded-host'] ?? req.headers.host
-  const proto = req.headers['x-forwarded-proto'] ?? 'https'
+/**
+ * Endereço do próprio app, para o executor se chamar de novo e para o banco chamar o agendador.
+ * Vem de variável de ambiente, nunca do cabeçalho Host: quem forja o Host receberia o EXECUTOR_SECRET.
+ * Ordem: APP_URL; em produção, o domínio de produção da Vercel; numa prévia, o endereço do deploy;
+ * só fora da Vercel (rodando local) usa o cabeçalho.
+ */
+export function origemConfiavel(env: Record<string, string | undefined>, headers: Record<string, string | string[] | undefined>) {
+  const limpa = (u: string) => u.replace(/\/+$/, '')
+  if (env.APP_URL) return limpa(env.APP_URL)
+  if (env.VERCEL_ENV === 'production' && env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${limpa(env.VERCEL_PROJECT_PRODUCTION_URL)}`
+  if (env.VERCEL_URL) return `https://${limpa(env.VERCEL_URL)}`
+  const host = headers['x-forwarded-host'] ?? headers.host
+  const proto = headers['x-forwarded-proto'] ?? 'http'
   return `${proto}://${host}`
+}
+
+export function origemDaRequisicao(req: VercelRequest) {
+  return origemConfiavel(process.env, req.headers)
 }
 
 const OBRIGATORIAS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'ANTHROPIC_API_KEY', 'EXECUTOR_SECRET']

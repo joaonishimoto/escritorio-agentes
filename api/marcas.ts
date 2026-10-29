@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { gerarJson } from './_lib/claude.js'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
+import { validarIdentidade } from './_lib/identidade.js'
 import { completarMarca } from './_lib/marcas/index.js'
 import { AGENTES_DE_REGRA, Juntadas, montarProposta, pedidoDeJuntar, SISTEMA_JUNTAR, type RegraAntiga } from './_lib/regras.js'
 import { gastoDoMes } from './_lib/teto.js'
@@ -73,8 +74,10 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
     else delete identidade[k]
   }
   if (novoTom !== undefined && novoTom !== efetivo.tom_de_voz) identidade.tom_editado = true
+  const valida = validarIdentidade(identidade)
+  if (!valida.ok) return res.status(400).json({ erro: valida.erro })
 
-  const mudancas: Record<string, unknown> = { identidade }
+  const mudancas: Record<string, unknown> = { identidade: valida.identidade }
   const nome = texto(c.nome, 40)
   if (nome) mudancas.nome = nome
   if (c.instagram_usuario !== undefined) mudancas.instagram_usuario = texto(c.instagram_usuario, 60)?.replace(/^@/, '') || null
