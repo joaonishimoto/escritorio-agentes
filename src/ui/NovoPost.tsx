@@ -516,7 +516,7 @@ export function NovoPost({
                       </label>
                     )
                   })}
-                  <p className="np-nota">GPT, Gemini e DeepSeek usam a chave do OpenRouter; Kling 3.0, Hailuo e Seedance usam a do fal.ai.</p>
+                  <p className="np-nota">GPT, Gemini e DeepSeek usam a chave do OpenRouter; Kling 3.0, Hailuo, Seedance e as imagens do designer usam a do fal.ai.</p>
                 </div>
               )}
             </Secao>

@@ -1,4 +1,5 @@
 import type { Contexto } from './contexto.js'
+import { eMotorImagem, MOTOR_IMAGEM_PADRAO, type MotorImagem } from './imagens.js'
 
 // Qual IA cada funcionário usa, escolhida por post no Novo post (preferencias.ias). As chaves são as mesmas de src/lib/ias.ts.
 
@@ -44,7 +45,7 @@ export function limparIas(bruto: unknown): Record<string, string> {
   const ias: Record<string, string> = {}
   if (!bruto || typeof bruto !== 'object') return ias
   for (const [agente, valor] of Object.entries(bruto)) {
-    const valido = agente === 'cinegrafista' ? eMotorVideo(valor) : agente in PADRAO_TEXTO && (eModeloTexto(valor) || (agente === 'narrador' && valor === 'nenhum'))
+    const valido = agente === 'cinegrafista' ? eMotorVideo(valor) : agente === 'imagens' ? eMotorImagem(valor) || valor === 'nenhuma' : agente in PADRAO_TEXTO && (eModeloTexto(valor) || (agente === 'narrador' && valor === 'nenhum'))
     if (valido) ias[agente] = valor as string
   }
   return ias
@@ -69,6 +70,14 @@ export function modeloNaVolta(ctx: Contexto, agente: AgenteDeTexto, leve: Modelo
 export function motorDeVideo(ctx: Contexto): MotorVideo {
   const escolhido = ctx.post.preferencias?.ias?.cinegrafista
   return eMotorVideo(escolhido) ? escolhido : motorPadrao()
+}
+
+/** Modelo que gera as imagens do designer neste post; null quando o post vai sem imagem gerada ou falta a FAL_KEY. */
+export function motorDeImagem(ctx: Contexto): MotorImagem | null {
+  if (!process.env.FAL_KEY) return null
+  const escolhido = ctx.post.preferencias?.ias?.imagens
+  if (escolhido === 'nenhuma') return null
+  return eMotorImagem(escolhido) ? escolhido : MOTOR_IMAGEM_PADRAO
 }
 
 /** Quais serviços têm chave na Vercel (para o Novo post mostrar o que dá para usar). */

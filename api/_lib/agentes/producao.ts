@@ -8,7 +8,8 @@ import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
 import { juntarNarracao } from '../ffmpeg.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
-import { modeloDe, modeloNaVolta, motorDeVideo, type MotorVideo } from '../ias.js'
+import { modeloDe, modeloNaVolta, motorDeImagem, motorDeVideo, type MotorVideo } from '../ias.js'
+import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } from '../imagens.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
@@ -219,6 +220,8 @@ async function editarSlides(
 ) {
   const anterior = base ?? (ctx.saidas.designer as { html?: string } | undefined)?.html
   if (!anterior) return null
+  // as imagens geradas seguem na saída, para uma refação não pagar por elas de novo
+  const imagens = (ctx.saidas.designer as { imagens?: unknown[] } | undefined)?.imagens
   if (!base) await em.inicio('Editando os slides prontos')
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'designer'),
@@ -246,7 +249,7 @@ async function editarSlides(
     await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
     ctx.post.legenda = dados.legenda
   }
-  if (!opts.renderizar) return { html, uso, saida: { html, slides: ctx.post.slides }, entrega: 'Ajuste aplicado' }
+  if (!opts.renderizar) return { html, uso, saida: { html, slides: ctx.post.slides, imagens }, entrega: 'Ajuste aplicado' }
   let slides = ctx.post.slides
   let checagem: string | undefined
   if (html !== anterior) {
@@ -255,9 +258,73 @@ async function editarSlides(
     html = r.html
     slides = r.slides
     checagem = r.checagem
-    return { html, uso: r.uso, saida: { html, slides, checagem }, entrega: checagem ? 'Ajuste aplicado; a checagem automática ainda aponta algo' : 'Ajuste aplicado' }
+    return { html, uso: r.uso, saida: { html, slides, checagem, imagens }, entrega: checagem ? 'Ajuste aplicado; a checagem automática ainda aponta algo' : 'Ajuste aplicado' }
   }
-  return { html, uso, saida: { html, slides }, entrega: 'Ajuste aplicado' }
+  return { html, uso, saida: { html, slides, imagens }, entrega: 'Ajuste aplicado' }
+}
+
+const PlanoDeImagens = z.object({
+  imagens: z
+    .array(
+      z.object({
+        slide: z.number().int().describe('número do slide onde a imagem entra, começando em 1'),
+        prompt: z
+          .string()
+          .describe('descrição detalhada da imagem em inglês: cena, assunto, luz, enquadramento e estilo fotográfico; sem texto, letras, logos ou marca d\'água na imagem'),
+        referencias: z.array(z.string()).describe('URLs exatas da lista de fotos que servem de base (produto, pessoa, ambiente da marca); vazio para gerar só pelo texto'),
+      }),
+    )
+    .describe(`imagens novas para o post, no máximo ${MAX_IMAGENS_POR_POST}; vazio se as fotos aprovadas já bastam ou o slide funciona só com tipografia`),
+})
+type ImagemGerada = { slide: number; url: string; prompt: string; modelo: string }
+
+/**
+ * Antes de montar os slides, o designer decide se o post precisa de imagens novas e gera pelo fal.ai,
+ * usando as fotos da marca como referência. Uma imagem que falha não para o post: o slide fica sem ela.
+ */
+async function gerarImagensDoPost(
+  ctx: Parameters<Agente>[0],
+  em: Parameters<Agente>[2],
+  motor: MotorImagem,
+  fotos: { url: string; descricao: string | null; tags: string[] }[],
+  refsDoPedido: string[],
+): Promise<{ imagens: ImagemGerada[]; uso: Uso }> {
+  await em.acao('Vendo se o post precisa de imagens novas')
+  const candidatas = [...refsDoPedido.map((url) => ({ url, descricao: 'referência enviada neste pedido', tags: [] as string[] })), ...fotos]
+  const { dados, uso } = await gerarJson({
+    modelo: modeloDe(ctx, 'designer'),
+    effort: 'low',
+    sistema: sistemaDoAgente(
+      ctx,
+      'designer',
+      `Você decide quais imagens novas o post precisa antes de montar os slides. Cada imagem custa dinheiro: peça só quando a imagem faz o slide melhor (capa, produto em uso, cena que ilustra o ponto), no máximo ${MAX_IMAGENS_POR_POST}. Se há foto aprovada que já serve, não gere. Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado).`,
+    ),
+    conteudo: [
+      `## Plano dos slides\n${JSON.stringify((ctx.saidas.chefe as { plano_slides?: string[] } | undefined)?.plano_slides ?? [])}`,
+      `## Texto dos slides\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+      `## Fotos da marca e referências que podem servir de base\n${candidatas.length ? JSON.stringify(candidatas) : '(nenhuma: gere só pelo texto)'}`,
+    ].join('\n\n'),
+    schema: PlanoDeImagens,
+  })
+  const validas = new Set(candidatas.map((c) => c.url))
+  const pedidos = dados.imagens.slice(0, MAX_IMAGENS_POR_POST)
+  if (!pedidos.length) return { imagens: [], uso }
+  const m = MODELOS_IMAGEM[motor]
+  await em.acao(`Gerando ${pedidos.length} ${pedidos.length === 1 ? 'imagem' : 'imagens'} no ${m.nome} (até US$ ${(pedidos.length * m.preco).toFixed(2)})`)
+  const feitas = await Promise.allSettled(
+    pedidos.map((p, i) => gerarImagem(motor, { prompt: p.prompt, referencias: p.referencias.filter((u) => validas.has(u)), postId: ctx.post.id, nome: `slide${p.slide}-${i}` })),
+  )
+  const imagens: ImagemGerada[] = []
+  let custo = 0
+  feitas.forEach((f, i) => {
+    if (f.status === 'fulfilled') {
+      imagens.push({ slide: pedidos[i].slide, url: f.value.url, prompt: pedidos[i].prompt, modelo: f.value.modelo })
+      custo += f.value.custo
+    }
+  })
+  const falhas = feitas.filter((f): f is PromiseRejectedResult => f.status === 'rejected')
+  if (falhas.length) await em.texto(`${falhas.length} ${falhas.length === 1 ? 'imagem não saiu' : 'imagens não saíram'}: ${String(falhas[0].reason?.message ?? falhas[0].reason).slice(0, 200)}\n`)
+  return { imagens, uso: { ...uso, custo_usd: uso.custo_usd + custo } }
 }
 
 export const designer: Agente = async (ctx, passo, em) => {
@@ -290,6 +357,20 @@ export const designer: Agente = async (ctx, passo, em) => {
   // com referências no pedido, o visual vem delas; sem, o último post publicado é o exemplo da marca
   const aprovado = refsDesign.tem || ctx.marca.identidade?.neutra ? '' : await layoutAprovado(ctx).catch(() => '')
   if (aprovado) await em.acao('Olhando o último post aprovado da marca')
+
+  // imagens novas para o post: numa refação, reaproveita as que já foram geradas em vez de pagar de novo
+  let geradas = (ctx.saidas.designer as { imagens?: ImagemGerada[] } | undefined)?.imagens ?? []
+  let usoImagens = USO_ZERO
+  const motorImagem = motorDeImagem(ctx)
+  if (!geradas.length && motorImagem) {
+    const refsDoPedido = (ctx.post.referencias ?? []).filter((r) => r.tipo === 'imagem').map((r) => r.url)
+    const r = await gerarImagensDoPost(ctx, em, motorImagem, fotos, refsDoPedido).catch(async (e) => {
+      await em.texto(`Não deu para gerar imagens agora (${e instanceof Error ? e.message : String(e)}); sigo com as fotos da marca.\n`)
+      return { imagens: [], uso: USO_ZERO }
+    })
+    geradas = r.imagens
+    usoImagens = r.uso
+  }
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: modeloDe(ctx, 'designer'),
@@ -311,7 +392,10 @@ export const designer: Agente = async (ctx, passo, em) => {
           refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx)),
           aprovado,
           inspiracoes.length ? `## Inspirações da marca (as últimas imagens acima)\nPeças que o dono gosta. Use como referência de estilo; não coloque essas imagens nos slides.\n${inspiracoes.map((m) => `- ${m.descricao ?? 'inspiração'}`).join('\n')}` : '',
-          `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : '(nenhuma: faça slides só com tipografia e cor)'}`,
+          geradas.length
+            ? `## Imagens geradas para este post\nFeitas sob medida para estes slides: use cada uma no slide indicado, grande (fundo inteiro ou metade do slide), com o texto em cima de uma área limpa ou de um degradê para ler bem.\n${JSON.stringify(geradas.map((g) => ({ slide: g.slide, url: g.url, o_que_mostra: g.prompt })))}`
+            : '',
+          `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : geradas.length ? '(nenhuma além das geradas)' : '(nenhuma: faça slides só com tipografia e cor)'}`,
           refsDesign.tem
             ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`
             : '',
@@ -324,8 +408,10 @@ export const designer: Agente = async (ctx, passo, em) => {
   const html = gerado.texto.replace(/^[\s\S]*?(<!doctype|<html)/i, '$1').replace(/```\s*$/, '').trim()
 
   await em.acao('Renderizando JPEG 1080 × 1350')
-  const r = await renderizarEConferir(ctx, passo, em, html, gerado.uso)
-  return { saida: { html: r.html, slides: r.slides, checagem: r.checagem }, uso: r.uso, entrega: `${r.slides.length} slides renderizados${r.checagem ? ', com pontos da checagem automática' : ''}` }
+  const usoAntes = { ...gerado.uso, tokens_entrada: gerado.uso.tokens_entrada + usoImagens.tokens_entrada, tokens_saida: gerado.uso.tokens_saida + usoImagens.tokens_saida, custo_usd: gerado.uso.custo_usd + usoImagens.custo_usd }
+  const r = await renderizarEConferir(ctx, passo, em, html, usoAntes)
+  const comImagens = geradas.length ? `, com ${geradas.length} ${geradas.length === 1 ? 'imagem gerada' : 'imagens geradas'}` : ''
+  return { saida: { html: r.html, slides: r.slides, checagem: r.checagem, imagens: geradas }, uso: r.uso, entrega: `${r.slides.length} slides renderizados${comImagens}${r.checagem ? ', com pontos da checagem automática' : ''}` }
 }
 
 // ───────── Cinegrafista (só em Reels) ─────────

@@ -50,9 +50,9 @@ export function custoFal(motor: MotorFal, segundos: number) {
   return m.precoPorSegundo ? m.precoPorSegundo * segundos : 0
 }
 
-async function chamar<T>(url: string, corpo?: unknown): Promise<T> {
+export async function chamarFal<T>(url: string, corpo?: unknown): Promise<T> {
   const chave = process.env.FAL_KEY
-  if (!chave) throw new Error('Falta configurar FAL_KEY na Vercel para gerar vídeo pelo fal.ai')
+  if (!chave) throw new Error('Falta configurar FAL_KEY na Vercel para usar o fal.ai')
   const r = await fetch(url, {
     method: corpo ? 'POST' : 'GET',
     headers: { Authorization: `Key ${chave}`, 'Content-Type': 'application/json' },
@@ -73,7 +73,7 @@ async function chamar<T>(url: string, corpo?: unknown): Promise<T> {
 export async function pedirVideoFal(motor: MotorFal, opts: { prompt: string; segundos: number; primeiroQuadro?: string }) {
   const m: ModeloFal = MODELOS_FAL[motor]
   const modelo = opts.primeiroQuadro ? m.imagemParaVideo : m.textoParaVideo
-  const r = await chamar<{ request_id: string; status_url: string; response_url: string }>(`https://queue.fal.run/${modelo}`, {
+  const r = await chamarFal<{ request_id: string; status_url: string; response_url: string }>(`https://queue.fal.run/${modelo}`, {
     prompt: opts.prompt,
     duration: String(opts.segundos),
     ...m.extras,
@@ -84,10 +84,10 @@ export async function pedirVideoFal(motor: MotorFal, opts: { prompt: string; seg
 
 /** Situação do pedido: devolve a URL do vídeo quando estiver pronto. */
 export async function consultarVideoFal(pedido: { status_url: string; response_url: string }): Promise<{ pronto: false } | { pronto: true; url: string }> {
-  const s = await chamar<{ status: string; error?: string }>(pedido.status_url)
+  const s = await chamarFal<{ status: string; error?: string }>(pedido.status_url)
   if (s.status !== 'COMPLETED') return { pronto: false }
   if (s.error) throw new Error(`fal.ai não conseguiu gerar o vídeo: ${s.error}`)
-  const r = await chamar<{ video?: { url?: string } }>(pedido.response_url)
+  const r = await chamarFal<{ video?: { url?: string } }>(pedido.response_url)
   if (!r.video?.url) throw new Error('fal.ai terminou sem devolver o vídeo')
   return { pronto: true, url: r.video.url }
 }
