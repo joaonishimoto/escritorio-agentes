@@ -27,6 +27,14 @@ export const MOTORES_VIDEO: OpcaoIA[] = [
   { id: 'fal-seedance', nome: 'Seedance 2.0', desc: 'Pelo fal.ai · 720p', servico: 'fal' },
 ]
 
+/** Imagens que o designer gera para dentro do post (pelo fal.ai), ou nenhuma: só as fotos aprovadas da marca. */
+export const MODELOS_IMAGEM: OpcaoIA[] = [
+  { id: 'seedream', nome: 'Seedream 4', desc: 'Pelo fal.ai · US$ 0,03 por imagem, até 3 por post', servico: 'fal' },
+  { id: 'nano-banana', nome: 'Nano Banana', desc: 'Pelo fal.ai · US$ 0,04 por imagem, mantém bem o produto da referência', servico: 'fal' },
+  { id: 'nano-banana-pro', nome: 'Nano Banana Pro', desc: 'Pelo fal.ai · US$ 0,15 por imagem, a melhor qualidade', servico: 'fal' },
+  { id: 'nenhuma', nome: 'Sem imagem gerada', desc: 'O designer usa só as fotos aprovadas da marca', servico: 'claude' },
+]
+
 /** O narrador escreve com um modelo de texto, ou o Reel vai sem narração. */
 export const OPCOES_NARRADOR: OpcaoIA[] = [...MODELOS_TEXTO, { id: 'nenhum', nome: 'Sem narração', desc: 'O Reel vai só com o vídeo', servico: 'claude' }]
 
@@ -36,6 +44,7 @@ export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; vi
   { agente: 'pesquisador', nome: 'Pesquisador', padrao: 'claude-sonnet-5-5' },
   { agente: 'redator', nome: 'Redator', padrao: 'claude-opus-5-5' },
   { agente: 'designer', nome: 'Designer', padrao: 'claude-sonnet-5-5' },
+  { agente: 'imagens', nome: 'Imagens do designer', padrao: 'seedream' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },
   { agente: 'narrador', nome: 'Narrador', padrao: 'claude-sonnet-5-5', video: true },
   { agente: 'revisor', nome: 'Revisor', padrao: 'claude-sonnet-5-5' },
@@ -56,13 +65,14 @@ export function motorPadrao(servicos: Servicos | null | undefined) {
 
 /** O padrão de cada funcionário; o do cinegrafista depende de qual serviço de vídeo tem chave. */
 export function padraoDe(f: { agente: string; padrao: string }, servicos: Servicos | null | undefined) {
+  if (f.agente === 'imagens') return servicos?.fal ? 'seedream' : 'nenhuma'
   return f.agente === 'cinegrafista' ? motorPadrao(servicos) : f.padrao
 }
 
 export function opcoesDe(agente: string) {
-  return agente === 'cinegrafista' ? MOTORES_VIDEO : agente === 'narrador' ? OPCOES_NARRADOR : MODELOS_TEXTO
+  return agente === 'imagens' ? MODELOS_IMAGEM : agente === 'cinegrafista' ? MOTORES_VIDEO : agente === 'narrador' ? OPCOES_NARRADOR : MODELOS_TEXTO
 }
 
 export function nomeDaIA(id: string) {
-  return [...OPCOES_NARRADOR, ...MOTORES_VIDEO].find((o) => o.id === id)?.nome ?? id
+  return [...OPCOES_NARRADOR, ...MOTORES_VIDEO, ...MODELOS_IMAGEM].find((o) => o.id === id)?.nome ?? id
 }
