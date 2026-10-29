@@ -3,6 +3,7 @@ import { claude } from './_lib/claude.js'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { AVISAR_COM_DIAS, diasParaVencer, infoDoToken } from './_lib/token-meta.js'
+import { explicarErroElevenLabs, MODELO_VOZ, NARRACAO_PADRAO } from './_lib/elevenlabs.js'
 import { MODELO_KLING } from './_lib/kling.js'
 import { saudeDaProducao } from './_lib/saude.js'
 
@@ -86,13 +87,23 @@ async function testarElevenLabs(): Promise<Resultado> {
   const chave = process.env.ELEVENLABS_API_KEY
   if (!chave) return semChave(base.id, base.nome, 'ELEVENLABS_API_KEY')
   try {
-    const r = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': chave }, signal: AbortSignal.timeout(TEMPO) })
-    if (r.status === 401 || r.status === 403) {
-      const json = (await r.json().catch(() => null)) as { detail?: { message?: string } } | null
-      const dica = /api key id/i.test(json?.detail?.message ?? '') ? 'Foi colado o ID da chave, não a chave. A chave começa com sk_' : 'Chave recusada'
-      return { ...base, estado: 'erro', detalhe: dica }
+    // o narrador precisa da permissão de voz: o teste fala uma palavra (gasta 2 caracteres) em vez de só ler a conta,
+    // porque uma chave sem "Text to Speech" passava no teste e falhava no Reel
+    const voz = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${NARRACAO_PADRAO.voz}?output_format=mp3_22050_32`, {
+      method: 'POST',
+      headers: { 'xi-api-key': chave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'Ok', model_id: MODELO_VOZ }),
+      signal: AbortSignal.timeout(TEMPO),
+    })
+    if (!voz.ok) {
+      const json = (await voz.json().catch(() => null)) as { detail?: { message?: string; status?: string } | string } | null
+      const det = json?.detail
+      const msg = typeof det === 'string' ? det : (det?.message ?? `HTTP ${voz.status}`)
+      return { ...base, estado: voz.status >= 500 ? 'incerto' : 'erro', detalhe: explicarErroElevenLabs(voz.status, msg, typeof det === 'object' ? det?.status : undefined) }
     }
-    if (!r.ok) return { ...base, estado: 'incerto', detalhe: `HTTP ${r.status}` }
+    // saldo do mês é só informação: chave sem permissão de ler a conta ainda serve para narrar
+    const r = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': chave }, signal: AbortSignal.timeout(TEMPO) })
+    if (!r.ok) return { ...base, estado: 'ok', detalhe: 'Chave aceita para gerar voz' }
     const s = (await r.json()) as { character_count?: number; character_limit?: number }
     const usados = s.character_count ?? 0
     const limite = s.character_limit ?? 0
