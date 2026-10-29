@@ -43,3 +43,14 @@ describe('reconferência só com os slides que mudaram', async () => {
     expect(marcasDosSlides(undefined)).toEqual([])
   })
 })
+
+describe('render remoto sem resposta', async () => {
+  const { semResposta } = await import('../api/_lib/render-remoto')
+  it('cai para o render local só quando a função não respondeu', () => {
+    const timeout = new Error('x')
+    timeout.name = 'TimeoutError'
+    expect(semResposta(timeout)).toBe(true)
+    expect(semResposta(new TypeError('fetch failed'))).toBe(true)
+    expect(semResposta(new Error('Slide 1: O slide não apareceu na página'))).toBe(false)
+  })
+})

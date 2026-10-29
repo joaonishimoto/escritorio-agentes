@@ -312,7 +312,7 @@ async function renderizarUmSlide(navegador: Navegador, html: string, largura: nu
     if (!slide) throw new Error('O slide não apareceu na página')
     const imagem = await slide.screenshot({ type: 'jpeg', quality: 90 })
     // a checagem nunca derruba o render: sem ela, o revisor confere como antes
-    const problemas = await pagina.evaluate<string[]>(CONFERIR).catch(() => [])
+    const problemas = await Promise.race([pagina.evaluate<string[]>(CONFERIR), new Promise<string[]>((ok) => setTimeout(() => ok([]), 10_000))]).catch(() => [])
     return { imagem, problemas }
   } finally {
     await pagina.close().catch(() => {})
