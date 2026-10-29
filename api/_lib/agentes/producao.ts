@@ -13,12 +13,16 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
 const Pauta = z.object({
   formato: z.enum(['carrossel', 'foto', 'reel']),
+  objetivo: z.enum(Object.keys(OBJETIVOS) as [keyof typeof OBJETIVOS]).describe('para que o post existe; "marca" quando o pedido fala em branding, posicionamento ou só mostrar a marca'),
+  fecho: z
+    .string()
+    .describe('como o post termina, no último slide e no fim da legenda, coerente com o objetivo (ex.: "Link na bio para baixar"; "convite para salvar a receita"; "frase de posicionamento, sem convite"); nunca um endereço de site'),
   angulo: z.string(),
   publico: z.string(),
   promessa: z.string().describe('a promessa do post em uma frase'),
@@ -61,7 +65,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
@@ -71,9 +75,10 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   if (pref.estrutura && pref.estrutura in ESTRUTURAS) dados.estrutura = pref.estrutura as typeof dados.estrutura
   if (pref.layout && pref.layout in LAYOUTS) dados.layout = pref.layout as typeof dados.layout
   if (pref.voz && pref.voz in VOZES) dados.voz = pref.voz as typeof dados.voz
-  await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nEstrutura: ${dados.estrutura} · Layout: ${dados.layout} · Voz: ${dados.voz}\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
-  await db.from('posts').update({ formato: dados.formato }).eq('id', ctx.post.id)
-  return { saida: dados, uso, entrega: 'Pauta pronta' }
+  const pauta = fecharPauta(dados, pref.slides)
+  await em.texto(`Formato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}.\nObjetivo: ${pauta.objetivo} · Fecho: ${pauta.fecho}\nEstrutura: ${pauta.estrutura} · Layout: ${pauta.layout} · Voz: ${pauta.voz}\nÂngulo: ${pauta.angulo}\nPromessa: ${pauta.promessa}\n`)
+  await db.from('posts').update({ formato: pauta.formato }).eq('id', ctx.post.id)
+  return { saida: pauta, uso, entrega: 'Pauta pronta' }
 }
 
 // ───────── Pesquisador ─────────
