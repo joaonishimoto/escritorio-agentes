@@ -131,6 +131,8 @@ export function NovoPost({
   const [layout, setLayout] = useState('')
   const [voz, setVoz] = useState('')
   const [agendar, setAgendar] = useState(!!agendarPara)
+  // duas aprovações por padrão: o texto antes do design e o post pronto
+  const [aprovarTexto, setAprovarTexto] = useState(true)
   const [quando, setQuando] = useState(() => (agendarPara ? paraCampo(agendarPara) : amanhaAs19()))
   const [linha, setLinha] = useState('')
   const [ideias, setIdeias] = useState<Ideia[]>([])
@@ -227,6 +229,7 @@ export function NovoPost({
           layout: formato === 'reel' ? undefined : layout || undefined,
           voz: voz || undefined,
           agendar_para: agendar ? new Date(quando).toISOString() : undefined,
+          aprovar_texto: aprovarTexto,
           ias: Object.keys(iasDoPost).length ? iasDoPost : undefined,
         },
       })
@@ -521,7 +524,14 @@ export function NovoPost({
               )}
             </Secao>
 
-            <Secao numero={6} titulo="Quando publicar">
+            <Secao numero={6} titulo="Aprovações e publicação">
+              <label className="np-toggle">
+                <input type="checkbox" checked={aprovarTexto} onChange={(e) => setAprovarTexto(e.target.checked)} />
+                <span>
+                  <strong>Aprovar o texto antes do design</strong>
+                  <small>O texto do redator para na sua mesa; o designer só começa depois que você aprovar.</small>
+                </span>
+              </label>
               <div className="np-quando" role="radiogroup" aria-label="Quando publicar">
                 <button type="button" role="radio" aria-checked={!agendar} className={!agendar ? 'ativo' : ''} onClick={() => setAgendar(false)}>
                   <strong>Decido na aprovação</strong>
@@ -550,6 +560,8 @@ export function NovoPost({
                 <dd>{resumoIas.length ? resumoIas.join(' · ') : 'As de sempre'}</dd>
                 <dt>Referências</dt>
                 <dd>{refs.length ? `${refs.length} ${refs.length > 1 ? 'itens' : 'item'}` : 'Nenhuma'}</dd>
+                <dt>Aprovações</dt>
+                <dd>{aprovarTexto ? 'Texto e post pronto' : 'Só o post pronto'}</dd>
                 <dt>Publicação</dt>
                 <dd>{quandoTexto}</dd>
               </dl>
@@ -558,7 +570,7 @@ export function NovoPost({
         </div>
 
         <footer className="np-rodape">
-          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {formato === 'reel' ? 'vídeo → narração' : 'design'} → revisão → você</p>}
+          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {aprovarTexto ? 'você → ' : ''}{formato === 'reel' ? 'vídeo → narração' : 'design'} → revisão → você</p>}
           <button type="button" className="secundario" onClick={aoFechar}>Cancelar</button>
           <button className="primario" disabled={enviando || subindo > 0 || !briefing.trim()}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
         </footer>

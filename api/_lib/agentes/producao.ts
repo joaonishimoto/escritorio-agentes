@@ -152,6 +152,12 @@ export const redator: Agente = async (ctx, passo, em) => {
   for (const [i, s] of dados.slides.entries()) await em.texto(`Slide ${i + 1}: ${s.titulo}\n`)
   await em.texto(`\nLegenda:\n${dados.legenda}\n`)
   await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
+  // com a aprovação do texto ligada, o texto novo (ou ajustado a seu pedido) para na sua mesa antes do designer;
+  // devolução do revisor e correção do post pronto seguem direto
+  if (ctx.post.preferencias?.aprovar_texto && (!passo.entrada.feedback || passo.entrada.ajuste_texto)) {
+    await db.from('posts').update({ status: 'aguardando_texto' }).eq('id', ctx.post.id)
+    return { saida: dados, uso, entrega: 'Texto pronto para você aprovar', proximos: null, para: 'voce' }
+  }
   return { saida: dados, uso, entrega: 'Texto pronto' }
 }
 

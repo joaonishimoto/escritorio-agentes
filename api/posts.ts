@@ -43,6 +43,8 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (Number.isInteger(p.slides) && (p.slides as number) >= 2 && (p.slides as number) <= 10) prefs.slides = p.slides
   const ias = limparIas(p.ias)
   if (Object.keys(ias).length) prefs.ias = ias
+  // aprovar o texto antes do designer: ligado, a não ser que o Novo post desligue
+  prefs.aprovar_texto = p.aprovar_texto !== false
   if (typeof p.agendar_para === 'string' && !Number.isNaN(Date.parse(p.agendar_para))) prefs.agendar_para = new Date(p.agendar_para).toISOString()
 
   const { data: roteiro } = await db.from('roteiro_ativo').select('id').eq('marca_id', marca_id).maybeSingle()

@@ -7,6 +7,7 @@ import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
 import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
+import { AprovarTexto } from './ui/AprovarTexto'
 import { Biblioteca } from './ui/Biblioteca'
 import { PerfilDaMarca } from './ui/PerfilDaMarca'
 import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
@@ -22,7 +23,7 @@ import { ListaDePosts } from './ui/ListaDePosts'
 import { useEscritorio } from './store/escritorio'
 import { supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
-import { type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { ESPERANDO_VOCE, type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { Menu } from './ui/Menu'
 import { Etapa } from './ui/Etapa'
@@ -242,19 +243,21 @@ function Painel() {
   const verPost = (id: string) => setPostId(id)
 
   const esperando = post?.status === 'aguardando_aprovacao'
+  const textoEsperando = post?.status === 'aguardando_texto'
   // o post pronto não abre o painel sozinho: você pula na sua mesa e toca um aviso; o painel abre clicando nela
   const definirPostEsperandoVoce = useEscritorio((s) => s.definirPostEsperandoVoce)
   // na sua mesa: tudo que espera você em qualquer sala; com mais de um, a mesa mostra a lista para você escolher
-  const naSuaMesa = andar.naSuaMesa.length ? andar.naSuaMesa : posts.filter((p) => p.status === 'aguardando_aprovacao' || p.status === 'erro')
+  const naSuaMesa = andar.naSuaMesa.length ? andar.naSuaMesa : posts.filter((p) => ESPERANDO_VOCE.includes(p.status))
   const [escolhido, setEscolhido] = useState<string | null>(null)
   useEffect(() => {
     if (foco !== 'voce') setEscolhido(null)
   }, [foco])
   const direto = naSuaMesa.length <= 1 || escolhido === post?.id
-  const algoNaMesa = esperando || naSuaMesa.length > 0
+  const algoNaMesa = esperando || textoEsperando || naSuaMesa.length > 0
   useEffect(() => definirPostEsperandoVoce(algoNaMesa), [algoNaMesa, definirPostEsperandoVoce])
   const mostrarAprovacao = esperando && !selecionado && foco === 'voce' && direto
   const mostrarErro = post?.status === 'erro' && !selecionado && foco === 'voce' && direto
+  const mostrarTexto = textoEsperando && !selecionado && foco === 'voce' && direto
   const abrirDaMesa = (p: { id: string; marca_id: string }) => {
     if (p.marca_id !== marcaId) setMarcaId(p.marca_id)
     setPostId(p.id)
@@ -308,7 +311,7 @@ function Painel() {
             <button onClick={() => supabase?.auth.signOut()}>Sair</button>
           </Menu>
         </div>
-        <Etapa estados={estados} aguardando={post?.status === 'aguardando_aprovacao'} ativo={post?.status === 'em_producao'} />
+        <Etapa estados={estados} aguardando={esperando || textoEsperando} ativo={post?.status === 'em_producao'} />
         <Suspense fallback={<Abertura noPalco frase="Montando o escritório…" />}>
           {carregandoMarcas ? (
             <Abertura noPalco frase="Montando o escritório…" />
@@ -350,6 +353,8 @@ function Painel() {
         </Suspense>
         {mostrarErro && post ? (
           <PostComErro post={post} aoMudar={mudou} aoFechar={voltarParaMesa} />
+        ) : mostrarTexto && post ? (
+          <AprovarTexto post={post} aoMudar={mudou} aoFechar={voltarParaMesa} />
         ) : mostrarAprovacao && post ? (
           <Aprovacao
             post={post}
@@ -414,7 +419,7 @@ function Painel() {
             <p className="muted">Peça no chat para cadastrar uma marca.</p>
           </div>
         )}
-        {!mostrarAprovacao && !mostrarErro && !selecionado && !foco && !novo && !biblioteca && !instagram && !novaSala && !trocarSenha && regras.length > 0 && (
+        {!mostrarAprovacao && !mostrarErro && !mostrarTexto && !selecionado && !foco && !novo && !biblioteca && !instagram && !novaSala && !trocarSenha && regras.length > 0 && (
           <aside className="painel painel-regras" aria-label="Regras propostas">
             <RegrasPropostas regras={regras} aoMudar={mudou} />
           </aside>
