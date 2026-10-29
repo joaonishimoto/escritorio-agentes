@@ -129,11 +129,12 @@ export function EscritorioPixel({
   const foco = useEscritorio((s) => s.foco)
 
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
-  // a equipe é uma só (sala 0 dos bonecos, no começo do andar); depois vêm as salas das marcas
-  const xMarca = (i: number) => PASSO_EQUIPE + i * PASSO_MARCA
-  const xVoce = xMarca(marcas.length)
-  // sala do Financeiro depois da sua, separada por uma parede
-  const xFin = xVoce + VOCE_W + 16
+  // a equipe é uma só (sala 0 dos bonecos, no começo do andar); ao lado dela, a sua sala; depois as das marcas
+  const xVoce = PASSO_EQUIPE
+  const inicioMarcas = xVoce + VOCE_W + 16
+  const xMarca = (i: number) => inicioMarcas + i * PASSO_MARCA
+  // sala do Financeiro no fim do andar, depois da última marca
+  const xFin = xMarca(marcas.length)
   const largura = xFin + FIN_W
   // paredes externas nas duas pontas do andar: a câmera pode mostrá-las, para as salas não ficarem coladas no vazio
   const inicio = -PAREDE_EXTERNA
@@ -167,13 +168,13 @@ export function EscritorioPixel({
     const hoje = new Date().getDate()
     desenharEquipe(g, 0, false)
     desenharParedeEntre(g, SALA_W)
+    desenharSuaSala(g, xVoce)
+    desenharParedeEntre(g, xVoce + VOCE_W)
     marcas.forEach((m, i) => {
       const q = quadros?.[m.id]
       desenharMarca(g, xMarca(i), estiloDe(m, i), { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram ? (m.instagramAviso ? 'atencao' : 'ok') : 'desligado' })
       desenharParedeEntre(g, xMarca(i) + MARCA_W)
     })
-    desenharSuaSala(g, xVoce)
-    desenharParedeEntre(g, xVoce + VOCE_W)
     desenharSalaFin(g, xFin)
     desenharGraficoFin(g, xFin, financeiro?.barras ?? [], !!financeiro?.alerta)
     return c
@@ -814,7 +815,7 @@ export function EscritorioPixel({
       const noGrafico = x >= xFin + GRAFICO_FIN.x - 2 && x <= xFin + GRAFICO_FIN.x + GRAFICO_FIN.w + 2 && y <= GRAFICO_FIN.y + GRAFICO_FIN.h + 2
       return focar(naMesa || noGrafico ? 'financeiro' : null)
     }
-    if (x >= xVoce) {
+    if (x >= xVoce && x < inicioMarcas) {
       const mx = xVoce + MESA_VOCE.x
       if (x >= xVoce + CALENDARIO.x && x <= xVoce + CALENDARIO.x + CALENDARIO.w && y <= CALENDARIO.y + CALENDARIO.h) return focar('calendario')
       if (x >= mx - 6 && x <= mx + MESA_VOCE.w + 6 && y >= MESA_VOCE.y - 24 && y <= MESA_VOCE.y + 20) return focar('voce')
@@ -829,7 +830,7 @@ export function EscritorioPixel({
       }
       return selecionar(null)
     }
-    const sala = Math.floor((x - PASSO_EQUIPE) / PASSO_MARCA)
+    const sala = Math.floor((x - inicioMarcas) / PASSO_MARCA)
     if (!marcas[sala]) return selecionar(null)
     const lx = x - xMarca(sala)
     // a câmera fica na sala da marca em que você clicou
@@ -916,6 +917,11 @@ export function EscritorioPixel({
             <span className="pixel-salas-sit trabalhando" title="Trabalhando agora" />
           )}
         </button>
+        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
+          <i aria-hidden />
+          Sua sala
+          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
+        </button>
         {naBarra.map((m) => {
           const i = marcas.indexOf(m)
           const sit = situacao(m, i)
@@ -950,11 +956,6 @@ export function EscritorioPixel({
             </button>
           )
         })}
-        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
-          <i aria-hidden />
-          Sua sala
-          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
-        </button>
         <button style={{ ['--cor' as string]: '#3f8f5b' }} onClick={() => irPara('financeiro')}>
           <i aria-hidden />
           Financeiro
@@ -972,10 +973,10 @@ export function EscritorioPixel({
           if (!a) {
             if (e.pointerType !== 'mouse') return
             const p = paraMundo(e)
-            const s = p.x < PASSO_EQUIPE ? -1 : Math.floor((p.x - PASSO_EQUIPE) / PASSO_MARCA)
+            const s = p.x < inicioMarcas ? -1 : Math.floor((p.x - inicioMarcas) / PASSO_MARCA)
             const lx = p.x - xMarca(s)
             const em = (r: { x: number; y: number; w: number; h: number }) => lx >= r.x - 3 && lx <= r.x + r.w + 3 && p.y >= r.y - 3 && p.y <= r.y + r.h + 4
-            const alvo = !marcas[s] || p.x >= xVoce ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
+            const alvo = !marcas[s] || p.x >= xFin ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
             if (alvo !== sobre) setSobre(alvo)
             ;(e.target as HTMLElement).style.cursor = alvo ? 'pointer' : ''
             return
