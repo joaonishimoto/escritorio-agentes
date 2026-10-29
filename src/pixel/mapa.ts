@@ -38,7 +38,7 @@ export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
 export const GAVETA = { x: 258, y: 184, w: 30, h: 28 }
 /** Kit de decoração do hall (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
 export const DECORAR = { x: 50, y: 186, w: 30, h: 28 }
-/** Balcão de pedidos do hall (bloco de pautas com um "+"): clicar abre um post novo naquela sala. */
+/** Escrivaninha de pedidos do hall (máquina de escrever com a folha do pedido): clicar abre um post novo naquela sala. */
 export const NOVO_POST = { x: 8, y: 184, w: 34, h: 30 }
 /** Celular no suporte, ao lado do tapete: a tela fica nas cores do Instagram quando a sala está conectada. */
 export const INSTAGRAM = { x: 86, y: 180, w: 18, h: 34 }
@@ -392,41 +392,45 @@ function kitDecorar(g: Ctx, x: number, y: number, estilo: Estilo) {
   r(g, '#9fc6ea', x + 22, y + 23, 6, 3)
 }
 
-/** Balcão de pedidos: tampo de madeira com um bloco de pautas, caneta e uma plaquinha com "+" na frente. */
-function balcaoNovoPost(g: Ctx, x: number, y: number, estilo: Estilo) {
+/** Escrivaninha de pedidos: mesa de madeira com uma máquina de escrever e a folha do pedido saindo dela, pilha de papel e copo de lápis. */
+function escrivaninhaNovoPost(g: Ctx, x: number, y: number) {
   const c = '#1f2330'
-  const madeira = estilo.mesa === '#ffffff' ? '#8a6a4a' : estilo.mesa
-  const escuro = misturar(madeira, '#000000', 0.3)
-  const claro = misturar(madeira, '#ffffff', 0.18)
+  const madeira = '#9a7046'
+  const escuro = '#6e4c2c'
+  const claro = '#b88a5c'
   r(g, 'rgba(0,0,0,.15)', x + 2, y + 28, 32, 2)
-  // frente do balcão
-  r(g, c, x - 1, y + 9, 36, 20)
-  r(g, madeira, x, y + 10, 34, 18)
-  r(g, escuro, x, y + 26, 34, 2)
-  r(g, escuro, x + 1, y + 12, 32, 1)
-  // plaquinha branca com o "+" na cor da marca
-  r(g, c, x + 11, y + 15, 12, 10)
-  r(g, '#f7f1e3', x + 12, y + 16, 10, 8)
-  r(g, estilo.rodape, x + 16, y + 17, 2, 6)
-  r(g, estilo.rodape, x + 14, y + 19, 6, 2)
+  // pés e saia da mesa
+  r(g, c, x, y + 14, 34, 15)
+  r(g, escuro, x + 1, y + 15, 32, 12)
+  r(g, madeira, x + 3, y + 17, 12, 8)
+  r(g, madeira, x + 19, y + 17, 12, 8)
+  r(g, '#d9b25f', x + 8, y + 20, 2, 2)
+  r(g, '#d9b25f', x + 24, y + 20, 2, 2)
   // tampo
-  r(g, c, x - 2, y + 6, 38, 5)
-  r(g, claro, x - 1, y + 7, 36, 3)
-  r(g, madeira, x - 1, y + 9, 36, 1)
-  // bloco de pautas com uma folha em branco e a caneta do lado
-  r(g, c, x + 5, y, 13, 9)
-  r(g, '#ffffff', x + 6, y + 1, 11, 7)
-  r(g, '#d9dde6', x + 8, y + 3, 7, 1)
-  r(g, '#d9dde6', x + 8, y + 5, 5, 1)
-  r(g, estilo.rodape, x + 6, y + 1, 11, 1)
-  r(g, c, x + 21, y + 1, 2, 8)
-  r(g, '#3d77b0', x + 21, y + 2, 2, 5)
-  r(g, '#f2b233', x + 21, y + 7, 2, 1)
-  // sininho de balcão
-  r(g, c, x + 26, y + 2, 6, 5)
-  r(g, '#d9b25f', x + 27, y + 3, 4, 3)
-  r(g, '#fff3b0', x + 28, y + 3, 1, 1)
-  r(g, c, x + 28, y, 2, 2)
+  r(g, c, x - 2, y + 10, 38, 5)
+  r(g, claro, x - 1, y + 11, 36, 2)
+  r(g, madeira, x - 1, y + 13, 36, 1)
+  // máquina de escrever: corpo, teclas, rolo e a folha saindo em cima
+  r(g, c, x + 9, y + 3, 16, 9)
+  r(g, '#4a5063', x + 10, y + 4, 14, 7)
+  r(g, '#2f3442', x + 10, y + 9, 14, 2)
+  for (let k = 0; k < 5; k++) r(g, '#d9dde6', x + 11 + k * 2.5, y + 8, 1, 1)
+  r(g, c, x + 8, y + 2, 18, 2)
+  r(g, '#5a6070', x + 9, y + 2, 16, 1)
+  r(g, c, x + 12, y - 6, 10, 9)
+  r(g, '#ffffff', x + 13, y - 5, 8, 7)
+  r(g, '#d9dde6', x + 14, y - 3, 6, 1)
+  r(g, '#d9dde6', x + 14, y - 1, 4, 1)
+  // pilha de folhas à esquerda e copo de lápis à direita
+  r(g, c, x + 1, y + 6, 8, 5)
+  r(g, '#f4efe4', x + 2, y + 7, 6, 3)
+  r(g, '#d9dde6', x + 2, y + 8, 6, 1)
+  r(g, c, x + 27, y + 4, 6, 7)
+  r(g, '#3d77b0', x + 28, y + 5, 4, 5)
+  r(g, '#f2b233', x + 28, y + 1, 1, 4)
+  r(g, '#e05a4f', x + 30, y + 2, 1, 3)
+  r(g, c, x + 28, y, 1, 1)
+  r(g, c, x + 30, y + 1, 1, 1)
 }
 
 /** Celular num suporte: a tela mostra o degradê e o ícone do Instagram quando conectado, cinza quando não. */
@@ -678,7 +682,7 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
   gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
-  balcaoNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y, estilo)
+  escrivaninhaNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y)
   celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
@@ -721,6 +725,22 @@ export function desenharCorredor(g: Ctx, largura: number) {
   r(g, '#2a5288', 8, CORREDOR_Y + 6, largura - 16, 14)
   r(g, '#3969a8', 8, CORREDOR_Y + 7, largura - 16, 1)
   r(g, '#3969a8', 8, CORREDOR_Y + 18, largura - 16, 1)
+}
+
+/** Largura da parede externa que fecha o andar nas duas pontas. */
+export const PAREDE_EXTERNA = 28
+/** Parede externa do prédio: mais grossa que as divisórias, com tijolos marcados, do teto ao fim do corredor. */
+export function desenharParedeExterna(g: Ctx, x: number, w: number) {
+  r(g, '#1f2330', x, -40, w, ANDAR_H + 80)
+  r(g, '#3a3f4f', x + 2, -40, w - 4, ANDAR_H + 78)
+  // fiadas de tijolo
+  for (let y = -36; y < ANDAR_H + 36; y += 8) {
+    r(g, '#2f3442', x + 2, y, w - 4, 1)
+    const desloca = ((y / 8) % 2) * 6
+    for (let bx = x + 2 + desloca; bx < x + w - 2; bx += 12) r(g, '#2f3442', bx, y, 1, 8)
+  }
+  r(g, '#4a5063', x + 2, -40, 1, ANDAR_H + 78)
+  r(g, '#4a5063', x + w - 3, -40, 1, ANDAR_H + 78)
 }
 
 export function desenharParedeEntre(g: Ctx, x: number) {

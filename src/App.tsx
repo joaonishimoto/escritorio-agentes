@@ -11,7 +11,6 @@ import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
 import { Biblioteca } from './ui/Biblioteca'
 import { PerfilDaMarca } from './ui/PerfilDaMarca'
 import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
-import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Gaveta } from './ui/Gaveta'
 import { Calendario } from './ui/Calendario'
@@ -30,18 +29,6 @@ import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
 import type { Ideia } from './lib/ideias'
 import { PainelSala } from './ui/PainelSala'
 import { Abertura } from './ui/Abertura'
-
-const ROTULO_STATUS: Record<string, string> = {
-  rascunho: 'rascunho',
-  em_producao: 'em produção',
-  aguardando_aprovacao: 'esperando você',
-  aprovado: 'publicando',
-  agendado: 'agendado',
-  publicado: 'publicado',
-  reprovado: 'reprovado',
-  erro: 'com erro',
-  guardado: 'na gaveta',
-}
 
 export default function App() {
   const [sessao, setSessao] = useState<Session | null>(null)
@@ -297,60 +284,6 @@ function Painel() {
 
   return (
     <div className="app">
-      <header className="topo">
-        <div className="marca">
-          <button className="icone alternar-lista" onClick={() => alternarLista()} aria-expanded={listaAberta} aria-label={listaAberta ? 'Recolher lista de posts' : 'Abrir lista de posts'} title={listaAberta ? 'Recolher posts' : 'Abrir posts'}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <rect x="2" y="3" width="14" height="12" rx="2.5" />
-              <path d="M7 3v12" />
-              <path className="alternar-seta" d="M11.5 7 10 9l1.5 2" />
-            </svg>
-          </button>
-          <Logo />
-          <span className="nome-app">Escritório</span>
-          <span className="barra" aria-hidden>/</span>
-          <Popover
-            rotulo="Marca"
-            botao={
-              <>
-                <i className="ponto-marca" style={{ background: marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id))?.cor }} />
-                <strong>{marca?.nome ?? 'Drinfy'}</strong>
-              </>
-            }
-          >
-            {marcas.map((m) => (
-              <button key={m.id} className={m.id === marcaId ? 'ativo' : ''} onClick={() => escolherMarca(m.id)}>
-                <i className="ponto-marca" style={{ background: corDaMarca(m) }} /> {m.nome}
-                {m.identidade?.neutra ? <small className="muted">neutra</small> : null}
-              </button>
-            ))}
-            <hr />
-            {marcaId && <button onClick={() => setPerfilMarca(true)}>Editar marca</button>}
-            {marcaId && <button onClick={() => setBiblioteca(true)}>Referências</button>}
-            <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
-          </Popover>
-          {post && <span className={`chip status-${post.status}`}>{ROTULO_STATUS[post.status] ?? post.status}</span>}
-        </div>
-        <div className="topo-acoes">
-          <button className={`icone topo-atalho${foco === 'calendario' ? ' ativo' : ''}`} onClick={() => (foco === 'calendario' ? focar(null) : focar('calendario'))} aria-pressed={foco === 'calendario'} aria-label="Calendário de todas as marcas" title="Calendário">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <rect x="2.5" y="3.5" width="13" height="12" rx="2" />
-              <path d="M2.5 7.5h13M6 2v3M12 2v3" />
-            </svg>
-          </button>
-          <button className={`icone topo-atalho${foco === 'voce' ? ' ativo' : ''}`} onClick={() => (foco === 'voce' ? focar(null) : focar('voce'))} aria-pressed={foco === 'voce'} aria-label={naSuaMesa.length ? `Sua mesa: ${naSuaMesa.length} esperando você` : 'Sua mesa'} title="Sua mesa">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <path d="M2.5 10.5h4l1 2h3l1-2h4" />
-              <path d="M3.5 6.5 2.5 10.5v4h13v-4l-1-4h-11z" />
-            </svg>
-            {naSuaMesa.length > 0 && <span className="topo-contagem">{naSuaMesa.length > 9 ? '9+' : naSuaMesa.length}</span>}
-          </button>
-          <Menu>
-            <button onClick={() => setTrocarSenha(true)}>Trocar senha</button>
-            <button onClick={() => supabase?.auth.signOut()}>Sair</button>
-          </Menu>
-        </div>
-      </header>
 
       <div className="corpo">
       <ListaDePosts
@@ -366,6 +299,14 @@ function Painel() {
         aoAbrir={() => alternarLista(true)}
       />
       <main className="palco">
+        <div className="palco-menu">
+          <Menu>
+            <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
+            <hr />
+            <button onClick={() => setTrocarSenha(true)}>Trocar senha</button>
+            <button onClick={() => supabase?.auth.signOut()}>Sair</button>
+          </Menu>
+        </div>
         <Etapa estados={estados} aguardando={post?.status === 'aguardando_aprovacao'} ativo={post?.status === 'em_producao'} />
         <Suspense fallback={<Abertura noPalco frase="Montando o escritório…" />}>
           {carregandoMarcas ? (
@@ -530,37 +471,6 @@ function Painel() {
   )
 }
 
-
-/** Botão do topo que abre uma lista; fecha ao clicar fora, no Esc ou ao escolher. */
-function Popover({ rotulo, botao, children, largo, desativado }: { rotulo: string; botao: ReactNode; children: ReactNode; largo?: boolean; desativado?: boolean }) {
-  const [aberto, setAberto] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!aberto) return
-    const fora = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setAberto(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false)
-    document.addEventListener('pointerdown', fora)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('pointerdown', fora)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [aberto])
-  if (desativado) return <span className="seletor-topo estatico">{botao}</span>
-  return (
-    <div className="menu" ref={ref}>
-      <button className="seletor-topo" aria-label={rotulo} aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
-        {botao}
-        <svg className="seta-baixo" width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
-      </button>
-      {aberto && (
-        <div className={`menu-lista pop-lista${largo ? ' largo' : ''}`} role="menu" onClick={() => setAberto(false)}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** Menu de três pontinhos: fecha ao clicar fora, ao apertar Esc ou ao escolher uma opção. */
 function Menu({ children }: { children: ReactNode }) {

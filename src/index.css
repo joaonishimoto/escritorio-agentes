@@ -126,7 +126,7 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .aviso { color: var(--danger-strong); font-size: 13px }
 
 /* ───────── estrutura ───────── */
-.app { display: grid; grid-template-rows: var(--topbar-height) 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100% }
+.app { display: grid; grid-template-rows: 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100% }
 .topo {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0;
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
@@ -161,6 +161,10 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 }
 
 .palco { position: relative; min-height: 0; background: var(--background) }
+/* menu do escritório: canto do palco, no lugar do antigo header */
+.palco-menu { position: absolute; top: 10px; right: 10px; z-index: 2100 }
+.palco-menu .icone { width: 30px; height: 30px; border-radius: 0; background: #fff; color: #1f2330; box-shadow: 0 0 0 2px #1f2330; margin: 4px }
+.palco-menu .icone:hover, .palco-menu .icone[aria-expanded="true"] { background: #eef2f8; color: #1f2330 }
 .carregando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted-foreground) }
 
 /* etiquetas 3D */
@@ -1143,7 +1147,7 @@ i.falhou { background: var(--danger, #b42318) }
 
 
 /* barra das salas, no alto do andar */
-.pixel-salas { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; gap: 6px; max-width: calc(100% - 24px); overflow-x: auto; scrollbar-width: none; padding: 4px }
+.pixel-salas { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; gap: 6px; max-width: calc(100% - 120px); overflow-x: auto; scrollbar-width: none; padding: 4px }
 .pixel-salas::-webkit-scrollbar { display: none }
 .pixel-salas button { flex: none; display: inline-flex; align-items: center; gap: 7px; font-family: 'Pixelify Sans', monospace; font-size: 13px; line-height: 1; padding: 6px 10px 7px; background: #fff; color: #1f2330; border: 0; border-radius: 0; box-shadow: 0 0 0 2px #1f2330; cursor: pointer; white-space: nowrap }
 .pixel-salas button:hover { background: #eef2f8 }
@@ -1156,7 +1160,7 @@ i.falhou { background: var(--danger, #b42318) }
 .pixel-salas-conta { background: #e05a4f; color: #fff; font-size: 11px; padding: 2px 5px }
 .pixel-objeto .pixel-nome { pointer-events: none }
 .etapa { top: 58px }
-@media (max-width: 760px) { .pixel-salas { left: 8px; right: 8px; transform: none; max-width: none; top: 6px } .pixel-salas button { font-size: 12px; padding: 5px 8px 6px } }
+@media (max-width: 760px) { .pixel-salas { left: 8px; right: 52px; transform: none; max-width: none; top: 6px } .pixel-salas button { font-size: 12px; padding: 5px 8px 6px } }
 
 /* Sua mesa: posts de todas as salas */
 .sm-grupo { display: flex; flex-direction: column; gap: 8px }

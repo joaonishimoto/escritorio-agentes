@@ -7,7 +7,7 @@ import {
   ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
-  COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
+  COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, PAREDE_EXTERNA, desenharParedeExterna, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -147,6 +147,9 @@ export function EscritorioPixel({
   // sala do Financeiro depois da sua, separada por uma parede
   const xFin = xVoce + VOCE_W + 16
   const largura = xFin + FIN_W
+  // paredes externas nas duas pontas do andar: a câmera pode mostrá-las, para as salas não ficarem coladas no vazio
+  const inicio = -PAREDE_EXTERNA
+  const fim = largura + PAREDE_EXTERNA
   const corDe = (m: MarcaNoAndar) => m.cor ?? '#2a5288'
   const padraoDe = (m: MarcaNoAndar, i: number) => estilosAntigos[m.id] ?? ORDEM_ESTILOS[(m.ordem ?? i) % ORDEM_ESTILOS.length]
   const estiloDe = (m: MarcaNoAndar, i: number) => estiloDaSala(padraoDe(m, i), corDe(m), m.sala)
@@ -471,14 +474,14 @@ export function EscritorioPixel({
       alvoAntes.current = alvoX
       const cam = camera.current
       const livre = agora - cam.soltouEm > 8000
-      const maxX = Math.max(0, largura - vistaW)
+      const maxX = Math.max(inicio, fim - vistaW)
       // o deslocamento manual não passa das pontas do andar (senão rolar para trás demora a responder)
       const base = alvoX - vistaW / 2
-      cam.arrasto = Math.max(-base, Math.min(maxX - base, cam.arrasto))
+      cam.arrasto = Math.max(inicio - base, Math.min(maxX - base, cam.arrasto))
       const desejado = base + (livre ? 0 : cam.arrasto)
       if (livre) cam.arrasto *= 0.9
       cam.x += (desejado - cam.x) * Math.min(1, dt * (livre ? 3 : 10))
-      const camX = largura < vistaW ? (largura - vistaW) / 2 : Math.max(0, Math.min(maxX, cam.x))
+      const camX = fim - inicio < vistaW ? inicio + (fim - inicio - vistaW) / 2 : Math.max(inicio, Math.min(maxX, cam.x))
 
       g.setTransform(1, 0, 0, 1, 0, 0)
       g.imageSmoothingEnabled = false
@@ -486,6 +489,8 @@ export function EscritorioPixel({
       g.fillRect(0, 0, c.width, c.height)
       g.setTransform(escala, 0, 0, escala, -Math.round(camX * escala), offY * escala)
       g.drawImage(cenario, 0, 0)
+      desenharParedeExterna(g, inicio, PAREDE_EXTERNA)
+      desenharParedeExterna(g, largura, PAREDE_EXTERNA)
       desenharCalendario(g, xVoce, diasRef.current, new Date().getDate(), CALENDARIO)
       // o dia em que a folhinha pousou pisca por um instante
       for (const [dia, quando] of pousou.current) {
@@ -778,8 +783,8 @@ export function EscritorioPixel({
     const { escala, offY } = geom.current
     const vistaW = c.width / escala
     const cam = camera.current
-    const maxX = Math.max(0, largura - vistaW)
-    const camX = largura < vistaW ? (largura - vistaW) / 2 : Math.max(0, Math.min(maxX, cam.x))
+    const maxX = Math.max(inicio, fim - vistaW)
+    const camX = fim - inicio < vistaW ? inicio + (fim - inicio - vistaW) / 2 : Math.max(inicio, Math.min(maxX, cam.x))
     return { x: ((ev.clientX - rect.left) * dpr) / escala + camX, y: ((ev.clientY - rect.top) * dpr) / escala - offY }
   }
   const clicar = (x: number, y: number) => {
