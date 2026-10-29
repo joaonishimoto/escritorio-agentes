@@ -1094,6 +1094,7 @@ i.falhou { background: var(--danger, #b42318) }
 .pixel-nome.cofre { background: #fff; color: #1f2330; font-variant-numeric: tabular-nums }
 .pixel-nome.cofre.ativo { background: #f2a6b8 }
 .pixel-nome.cofre.instagram { background: linear-gradient(100deg, #f9ce34, #ee2a7b 55%, #6228d7); color: #fff }
+.pixel-nome.cofre.instagram-aviso { background: #ffd84d; color: #3d2e00 }
 .gst .fin-nota { margin-top: 0; text-align: left }
 .gst-fin { align-self: flex-start }
 
