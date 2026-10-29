@@ -30,11 +30,12 @@ export const PADRAO_TEXTO = {
 export type AgenteDeTexto = keyof typeof PADRAO_TEXTO
 
 /**
- * Motor de vídeo quando o post não escolheu: Kling 3.0 pelo fal.ai (cobra por uso, sem pacote), senão a Kling
- * direta, senão a animação do Claude, que não depende de serviço de vídeo. Mesma regra de src/lib/ias.ts.
+ * Motor de vídeo padrão: a animação do Claude, que só custa texto. Kling, Hailuo e Seedance custam por vídeo
+ * (um Reel de 10 s na Kling 3.0 sai uns US$ 0,85, e cada ajuste paga de novo), então só entram por escolha no post.
+ * Mesma regra de src/lib/ias.ts.
  */
-export function motorPadrao(servicos: { fal?: boolean; kling?: boolean } = servicosDisponiveis()): MotorVideo {
-  return servicos.fal ? 'fal-kling' : servicos.kling ? 'kling' : 'claude'
+export function motorPadrao(): MotorVideo {
+  return 'claude'
 }
 
 export const eModeloTexto = (v: unknown): v is ModeloTexto => MODELOS_TEXTO.includes(v as ModeloTexto)
