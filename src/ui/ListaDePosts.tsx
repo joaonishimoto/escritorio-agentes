@@ -22,7 +22,6 @@ function quando(p: Post) {
 export function ListaDePosts({
   posts,
   postId,
-  emDemo,
   aberta,
   aoEscolher,
   aoNovo,
@@ -31,7 +30,6 @@ export function ListaDePosts({
 }: {
   posts: Post[]
   postId: string | null
-  emDemo: boolean
   aberta: boolean
   aoEscolher: (id: string) => void
   aoNovo?: () => void
@@ -53,7 +51,7 @@ export function ListaDePosts({
           return (
             <button
               key={p.id}
-              className={`trilho-post${p.id === postId && !emDemo ? ' ativo' : ''}`}
+              className={`trilho-post${p.id === postId ? ' ativo' : ''}`}
               onClick={() => aoEscolher(p.id)}
               title={p.briefing}
               aria-label={p.briefing}
@@ -78,9 +76,8 @@ export function ListaDePosts({
         </div>
       )}
       <div className="lista-posts-corpo">
-        {emDemo && <p className="muted lista-posts-vazio">Na demonstração, o escritório mostra um post de exemplo.</p>}
-        {!emDemo && posts.length === 0 && <p className="muted lista-posts-vazio">Nenhum post nesta sala ainda.</p>}
-        {!emDemo && posts.length > 0 && achados.length === 0 && <p className="muted lista-posts-vazio">Nenhum post com "{busca.trim()}".</p>}
+        {posts.length === 0 && <p className="muted lista-posts-vazio">Nenhum post nesta sala ainda.</p>}
+        {posts.length > 0 && achados.length === 0 && <p className="muted lista-posts-vazio">Nenhum post com "{busca.trim()}".</p>}
         {GRUPOS.map(([titulo, status]) => {
           const doGrupo = achados.filter((p) => status.includes(p.status))
           if (!doGrupo.length) return null
@@ -95,9 +92,9 @@ export function ListaDePosts({
                 return (
                   <button
                     key={p.id}
-                    className={`lista-post${p.id === postId && !emDemo ? ' ativo' : ''}`}
+                    className={`lista-post${p.id === postId ? ' ativo' : ''}`}
                     onClick={() => aoEscolher(p.id)}
-                    aria-current={p.id === postId && !emDemo}
+                    aria-current={p.id === postId}
                   >
                     {capa ? <img src={capa} alt="" loading="lazy" /> : <span className="lista-post-capa" />}
                     <span className="lista-post-texto">

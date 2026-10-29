@@ -39,7 +39,7 @@ export interface ItemAgenda {
   data: string
   titulo: string
   status: 'agendado' | 'publicado' | 'falhou'
-  /** urls dos slides, na ordem (vazio na demonstração) */
+  /** urls dos slides, na ordem (vazio enquanto o designer não entrega) */
   slides?: string[]
   legenda?: string | null
   /** de qual marca é (no calendário geral) */
@@ -59,7 +59,7 @@ interface EscritorioState {
   /** sua mesa ou o calendário da parede, quando abertos */
   foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | null
   aguardandoVoce: boolean
-  /** status real do post aberto (fora da demonstração): manda mais que os eventos, que não sabem se você já aprovou ou publicou */
+  /** status real do post aberto: manda mais que os eventos, que não sabem se você já aprovou ou publicou */
   postEsperandoVoce: boolean | null
   definirPostEsperandoVoce: (v: boolean | null) => void
   /** posts com data, para o calendário da parede */
@@ -192,5 +192,5 @@ export const useEscritorio = create<EscritorioState>((set) => ({
     set({ estados: estadosIniciais(), acaoAtual: {}, rascunho: {}, eventos: [], entregas: [], aguardandoVoce: false }),
 }))
 
-/** Você tem post para aprovar? Fora da demonstração vale o status do post; na demonstração, os eventos. */
+/** Você tem post para aprovar? Vale o status do post; sem ele, os eventos. */
 export const selecionarEsperandoVoce = (s: { aguardandoVoce: boolean; postEsperandoVoce: boolean | null }) => s.postEsperandoVoce ?? s.aguardandoVoce

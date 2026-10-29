@@ -7,7 +7,7 @@ import {
   ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PASSO_SALA,
   PORTA_VOCE_X, PORTA_X, SALA_W, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharSala, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
-  COFRINHO, DECORAR, GAVETA, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
+  COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
 
 export interface MarcaNoAndar {
@@ -19,6 +19,8 @@ export interface MarcaNoAndar {
   ordem?: number
   /** o que o dono personalizou na sala: pisos, paredes, móveis */
   sala?: SalaCustom | null
+  /** a sala está ligada a uma conta do Instagram (o celular do hall acende nas cores dele) */
+  instagram?: boolean
 }
 
 const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
@@ -90,6 +92,8 @@ export function EscritorioPixel({
   naSuaMesa = 0,
   aoEditarSala,
   aoReordenar,
+  aoNovoPost,
+  aoConectarInstagram,
 }: {
   marcas: MarcaNoAndar[]
   marcaAtiva: string | null
@@ -110,6 +114,10 @@ export function EscritorioPixel({
   aoEditarSala?: (marcaId: string) => void
   /** arrastar os nomes da barra muda a ordem das salas (ids da esquerda para a direita) */
   aoReordenar?: (ids: string[]) => void
+  /** clique no balcão de pedidos de uma sala: abre um post novo para aquela marca */
+  aoNovoPost?: (marcaId: string) => void
+  /** clique no celular do hall: conecta (ou mostra) o Instagram daquela marca */
+  aoConectarInstagram?: (marcaId: string) => void
 }) {
   const caixa = useRef<HTMLDivElement>(null)
   const tela = useRef<HTMLCanvasElement>(null)
@@ -168,7 +176,7 @@ export function EscritorioPixel({
     const hoje = new Date().getDate()
     marcas.forEach((m, i) => {
       const q = quadros?.[m.id]
-      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0 })
+      desenharSala(g, i * PASSO_SALA, estiloDe(m, i), (m.sala?.base ?? padraoDe(m, i)) === 'e', { dias: new Set(q?.dias ?? []), hoje, regras: q?.regras ?? 0, referencias: q?.referencias ?? 0, gaveta: q?.gaveta ?? 0, instagram: m.instagram })
       desenharParedeEntre(g, i * PASSO_SALA + SALA_W)
     })
     desenharSuaSala(g, xVoce)
@@ -728,11 +736,11 @@ export function EscritorioPixel({
           el.style.transform = `translate(${((s * PASSO_SALA + DEPTOS[n].porta - camX) * escala) / dpr}px, ${((PAREDE_DEPTO_Y + 8 + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
-        if (chave.startsWith('cofre:') || chave.startsWith('decorar:') || chave.startsWith('gaveta:')) {
-          // embaixo do cofrinho, do kit de decoração e da gaveta de cada sala
+        if (chave.startsWith('cofre:') || chave.startsWith('decorar:') || chave.startsWith('gaveta:') || chave.startsWith('novo:') || chave.startsWith('instagram:')) {
+          // embaixo do cofrinho, do kit de decoração, da gaveta, do balcão e do celular de cada sala
           const [tipo, n] = chave.split(':')
           const s = Number(n)
-          const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : DECORAR
+          const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : tipo === 'novo' ? NOVO_POST : tipo === 'instagram' ? INSTAGRAM : DECORAR
           el.style.transform = `translate(${((s * PASSO_SALA + ref.x + ref.w / 2 - camX) * escala) / dpr}px, ${((ref.y + ref.h + offY) * escala) / dpr}px) translate(-50%, 0)`
           continue
         }
@@ -800,6 +808,16 @@ export function EscritorioPixel({
     }
     // kit de decoração: edita aquela sala
     if (marcas[sala] && dentro(DECORAR) && aoEditarSala) return aoEditarSala(marcas[sala].id)
+    // balcão de pedidos: post novo naquela sala
+    if (marcas[sala] && dentro(NOVO_POST) && aoNovoPost) {
+      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
+      return aoNovoPost(marcas[sala].id)
+    }
+    // celular do hall: Instagram daquela sala
+    if (marcas[sala] && dentro(INSTAGRAM) && aoConectarInstagram) {
+      if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
+      return aoConectarInstagram(marcas[sala].id)
+    }
     // gaveta de posts guardados daquela sala
     if (marcas[sala] && dentro(GAVETA)) {
       if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
@@ -936,7 +954,7 @@ export function EscritorioPixel({
             const s = Math.floor(p.x / PASSO_SALA)
             const lx = p.x - s * PASSO_SALA
             const em = (r: { x: number; y: number; w: number; h: number }) => lx >= r.x - 3 && lx <= r.x + r.w + 3 && p.y >= r.y - 3 && p.y <= r.y + r.h + 4
-            const alvo = !marcas[s] || p.x >= xVoce ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : null
+            const alvo = !marcas[s] || p.x >= xVoce ? null : em(COFRINHO) ? `cofre:${s}` : em(DECORAR) ? `decorar:${s}` : em(GAVETA) ? `gaveta:${s}` : aoNovoPost && em(NOVO_POST) ? `novo:${s}` : aoConectarInstagram && em(INSTAGRAM) ? `instagram:${s}` : null
             if (alvo !== sobre) setSobre(alvo)
             ;(e.target as HTMLElement).style.cursor = alvo ? 'pointer' : ''
             return
@@ -1053,6 +1071,28 @@ export function EscritorioPixel({
               {(sobre === `gaveta:${s}` || (foco === 'gaveta' && s === indiceAtivo)) && (
                 <div className={`pixel-nome cofre${foco === 'gaveta' && s === indiceAtivo ? ' ativo' : ''}`}>Gaveta · {quadros?.[m.id]?.gaveta}</div>
               )}
+            </div>
+          )}
+          {aoNovoPost && (
+            <div
+              className="pixel-etiqueta pixel-objeto"
+              ref={(el) => {
+                if (el) etiquetas.current.set(`novo:${s}`, el)
+                else etiquetas.current.delete(`novo:${s}`)
+              }}
+            >
+              {sobre === `novo:${s}` && <div className="pixel-nome cofre">Novo post</div>}
+            </div>
+          )}
+          {aoConectarInstagram && (
+            <div
+              className="pixel-etiqueta pixel-objeto"
+              ref={(el) => {
+                if (el) etiquetas.current.set(`instagram:${s}`, el)
+                else etiquetas.current.delete(`instagram:${s}`)
+              }}
+            >
+              {sobre === `instagram:${s}` && <div className={`pixel-nome cofre${m.instagram ? ' instagram' : ''}`}>{m.instagram ? 'Instagram conectado' : 'Conectar Instagram'}</div>}
             </div>
           )}
           {aoEditarSala && (

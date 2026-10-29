@@ -38,6 +38,10 @@ export const COFRINHO = { x: 222, y: 190, w: 24, h: 22 }
 export const GAVETA = { x: 258, y: 184, w: 30, h: 28 }
 /** Kit de decoração do hall (mostruário de cores e lata de tinta): clicar abre a edição da sala. */
 export const DECORAR = { x: 50, y: 186, w: 30, h: 28 }
+/** Balcão de pedidos do hall (bloco de pautas com um "+"): clicar abre um post novo naquela sala. */
+export const NOVO_POST = { x: 8, y: 184, w: 34, h: 30 }
+/** Celular no suporte, ao lado do tapete: a tela fica nas cores do Instagram quando a sala está conectada. */
+export const INSTAGRAM = { x: 86, y: 180, w: 18, h: 34 }
 
 /** Mesas (canto de cima à esquerda). O boneco senta embaixo, de costas para nós. */
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
@@ -388,6 +392,79 @@ function kitDecorar(g: Ctx, x: number, y: number, estilo: Estilo) {
   r(g, '#9fc6ea', x + 22, y + 23, 6, 3)
 }
 
+/** Balcão de pedidos: tampo de madeira com um bloco de pautas, caneta e uma plaquinha com "+" na frente. */
+function balcaoNovoPost(g: Ctx, x: number, y: number, estilo: Estilo) {
+  const c = '#1f2330'
+  const madeira = estilo.mesa === '#ffffff' ? '#8a6a4a' : estilo.mesa
+  const escuro = misturar(madeira, '#000000', 0.3)
+  const claro = misturar(madeira, '#ffffff', 0.18)
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 28, 32, 2)
+  // frente do balcão
+  r(g, c, x - 1, y + 9, 36, 20)
+  r(g, madeira, x, y + 10, 34, 18)
+  r(g, escuro, x, y + 26, 34, 2)
+  r(g, escuro, x + 1, y + 12, 32, 1)
+  // plaquinha branca com o "+" na cor da marca
+  r(g, c, x + 11, y + 15, 12, 10)
+  r(g, '#f7f1e3', x + 12, y + 16, 10, 8)
+  r(g, estilo.rodape, x + 16, y + 17, 2, 6)
+  r(g, estilo.rodape, x + 14, y + 19, 6, 2)
+  // tampo
+  r(g, c, x - 2, y + 6, 38, 5)
+  r(g, claro, x - 1, y + 7, 36, 3)
+  r(g, madeira, x - 1, y + 9, 36, 1)
+  // bloco de pautas com uma folha em branco e a caneta do lado
+  r(g, c, x + 5, y, 13, 9)
+  r(g, '#ffffff', x + 6, y + 1, 11, 7)
+  r(g, '#d9dde6', x + 8, y + 3, 7, 1)
+  r(g, '#d9dde6', x + 8, y + 5, 5, 1)
+  r(g, estilo.rodape, x + 6, y + 1, 11, 1)
+  r(g, c, x + 21, y + 1, 2, 8)
+  r(g, '#3d77b0', x + 21, y + 2, 2, 5)
+  r(g, '#f2b233', x + 21, y + 7, 2, 1)
+  // sininho de balcão
+  r(g, c, x + 26, y + 2, 6, 5)
+  r(g, '#d9b25f', x + 27, y + 3, 4, 3)
+  r(g, '#fff3b0', x + 28, y + 3, 1, 1)
+  r(g, c, x + 28, y, 2, 2)
+}
+
+/** Celular num suporte: a tela mostra o degradê e o ícone do Instagram quando conectado, cinza quando não. */
+function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
+  const c = '#1f2330'
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 32, 16, 2)
+  // suporte
+  r(g, c, x + 3, y + 29, 14, 4)
+  r(g, '#5a6070', x + 4, y + 30, 12, 2)
+  r(g, c, x + 8, y + 26, 4, 4)
+  // corpo do celular
+  r(g, c, x + 2, y, 16, 28)
+  r(g, '#2a2d36', x + 3, y + 1, 14, 26)
+  r(g, c, x + 8, y + 1, 4, 1)
+  // tela: degradê do Instagram em faixas diagonais, ou cinza
+  const faixas = conectado ? ['#f9ce34', '#fd8d32', '#fa5c48', '#ee2a7b', '#b02ba5', '#6228d7'] : ['#c2c6d0', '#b6bac6', '#aab0bd', '#9ea4b3', '#949aa9', '#8a909f']
+  for (let i = 0; i < 24; i++) {
+    for (let j = 0; j < 12; j++) {
+      const k = Math.min(faixas.length - 1, Math.floor((i + j) / 6))
+      r(g, faixas[k], x + 4 + j, y + 2 + i, 1, 1)
+    }
+  }
+  // ícone: quadrado arredondado com a lente no meio e o pontinho do flash
+  const traco = conectado ? '#ffffff' : '#f0f2f6'
+  r(g, traco, x + 6, y + 9, 8, 1)
+  r(g, traco, x + 6, y + 16, 8, 1)
+  r(g, traco, x + 5, y + 10, 1, 6)
+  r(g, traco, x + 14, y + 10, 1, 6)
+  r(g, traco, x + 8, y + 12, 4, 1)
+  r(g, traco, x + 8, y + 13, 4, 1)
+  r(g, traco, x + 9, y + 11, 2, 1)
+  r(g, traco, x + 9, y + 14, 2, 1)
+  r(g, faixas[2], x + 9, y + 12, 2, 2)
+  r(g, traco, x + 12, y + 10, 1, 1)
+  // botão de casa
+  r(g, '#5a6070', x + 8, y + 27, 4, 1)
+}
+
 /** Porquinho cor-de-rosa num banquinho, com uma moeda entrando. */
 function cofrinho(g: Ctx, x: number, y: number) {
   const contorno = '#1f2330'
@@ -549,7 +626,7 @@ function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
 }
 
 /** Desenha uma sala de marca inteira (sem os bonecos): Pauta, Criação e Revisão em cima, hall embaixo. */
-export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number }) {
+export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: boolean }) {
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
   piso(g, p.hall.estilo, x0, SALA_W, topoHall, SALA_H - topoHall, p.hall.padrao)
@@ -601,6 +678,8 @@ export function desenharSala(g: Ctx, x0: number, estilo: Estilo, noite: boolean,
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
   gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
+  balcaoNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y, estilo)
+  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
   planta(g, x0 + 4, 216)
   planta(g, x0 + 302, 216)
   planta(g, x0 + 300, 160)
