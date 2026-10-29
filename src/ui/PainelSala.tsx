@@ -1,11 +1,7 @@
 import { ESTILOS, ORDEM_ESTILOS, PISOS, estiloDaSala, pisos, type AreaSala, type Piso, type SalaCustom } from '../pixel/mapa'
 
-const AREAS: { id: AreaSala; nome: string }[] = [
-  { id: 'pauta', nome: 'Pauta' },
-  { id: 'criacao', nome: 'Criação' },
-  { id: 'publicacao', nome: 'Publicação' },
-  { id: 'hall', nome: 'Hall' },
-]
+// a sala da marca é uma recepção só (a equipe fica na sala dela): um piso
+const AREAS: { id: AreaSala; nome: string }[] = [{ id: 'hall', nome: 'Sala' }]
 
 function Cor({ valor, rotulo, aoMudar }: { valor: string; rotulo: string; aoMudar: (cor: string) => void }) {
   return (
