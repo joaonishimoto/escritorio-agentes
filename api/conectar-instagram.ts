@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
+import { infoAoConectar } from './_lib/token-meta.js'
 
 const VERSAO = process.env.INSTAGRAM_API_VERSION ?? 'v23.0'
 
@@ -33,7 +34,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (error) throw new Error(`Não consegui guardar o token: ${error.message}`)
 
   const { data: marca } = await db.from('marcas').select('identidade').eq('id', marca_id).single()
-  const identidade = { ...((marca?.identidade as Record<string, unknown>) ?? {}), instagram: conta.username, instagram_conectado_em: new Date().toISOString() }
+  const identidade = { ...((marca?.identidade as Record<string, unknown>) ?? {}), instagram: conta.username, instagram_conectado_em: new Date().toISOString(), instagram_token: infoAoConectar() }
   await db.from('marcas').update({ instagram_conta_id: conta.user_id, identidade }).eq('id', marca_id)
   return res.status(200).json({ ok: true, usuario: conta.username, tipo: conta.account_type })
 })

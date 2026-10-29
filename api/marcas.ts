@@ -49,7 +49,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
 
 const CAMPOS_PERFIL = 'id, nome, instagram_usuario, instagram_conta_id, tom_de_voz, identidade, hashtags_fixas, aviso_final, checklist_revisor, modelo_slides_html'
 // chaves da identidade que o app mantém sozinho: o formulário não apaga nem troca
-const PROTEGIDAS = ['instagram', 'instagram_conectado_em', 'neutra', 'tom_editado', 'sala', 'posicao']
+const PROTEGIDAS = ['instagram', 'instagram_conectado_em', 'instagram_token', 'neutra', 'tom_editado', 'sala', 'posicao']
 
 /** Perfil da marca para editar no app: lê o que os agentes usam de verdade e salva o que o dono mudou. */
 async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: string; id?: string; campos?: Record<string, unknown> }) {

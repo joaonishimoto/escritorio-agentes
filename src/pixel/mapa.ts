@@ -449,7 +449,11 @@ function escrivaninhaNovoPost(g: Ctx, x: number, y: number) {
 }
 
 /** Celular num suporte: a tela mostra o degradê e o ícone do Instagram quando conectado, cinza quando não. */
-function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
+/** desligado: sem conta; ok: nas cores do Instagram; atencao: amarelo, o token vence logo ou a renovação falhou */
+export type EstadoInstagram = 'desligado' | 'ok' | 'atencao'
+
+function celularInstagram(g: Ctx, x: number, y: number, estado: EstadoInstagram) {
+  const conectado = estado !== 'desligado'
   const c = '#1f2330'
   r(g, 'rgba(0,0,0,.15)', x + 2, y + 32, 16, 2)
   // suporte
@@ -461,7 +465,8 @@ function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
   r(g, '#2a2d36', x + 3, y + 1, 14, 26)
   r(g, c, x + 8, y + 1, 4, 1)
   // tela: degradê do Instagram em faixas diagonais, ou cinza
-  const faixas = conectado ? ['#f9ce34', '#fd8d32', '#fa5c48', '#ee2a7b', '#b02ba5', '#6228d7'] : ['#c2c6d0', '#b6bac6', '#aab0bd', '#9ea4b3', '#949aa9', '#8a909f']
+  const faixas =
+    estado === 'atencao' ? ['#fff1a8', '#ffe57a', '#ffd84d', '#f7c824', '#ecb80c', '#dca600'] : conectado ? ['#f9ce34', '#fd8d32', '#fa5c48', '#ee2a7b', '#b02ba5', '#6228d7'] : ['#c2c6d0', '#b6bac6', '#aab0bd', '#9ea4b3', '#949aa9', '#8a909f']
   for (let i = 0; i < 24; i++) {
     for (let j = 0; j < 12; j++) {
       const k = Math.min(faixas.length - 1, Math.floor((i + j) / 6))
@@ -469,7 +474,7 @@ function celularInstagram(g: Ctx, x: number, y: number, conectado: boolean) {
     }
   }
   // ícone: quadrado arredondado com a lente no meio e o pontinho do flash
-  const traco = conectado ? '#ffffff' : '#f0f2f6'
+  const traco = estado === 'atencao' ? '#5a4300' : conectado ? '#ffffff' : '#f0f2f6'
   r(g, traco, x + 6, y + 9, 8, 1)
   r(g, traco, x + 6, y + 16, 8, 1)
   r(g, traco, x + 5, y + 10, 1, 6)
@@ -693,7 +698,7 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
 }
 
 /** A sala de uma marca: quadros na parede, tapete com o nome, pedidos, Instagram, cofrinho, gaveta e decoração. */
-export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: boolean }) {
+export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dias: Set<number>; hoje: number; regras: number; referencias: number; gaveta?: number; instagram?: EstadoInstagram }) {
   const p = pisos(estilo)
   piso(g, p.hall.estilo, x0, MARCA_W, PAREDE_H, SALA_H - PAREDE_H, p.hall.padrao)
   parede(g, estilo, x0, MARCA_W)
@@ -713,7 +718,7 @@ export function desenharMarca(g: Ctx, x0: number, estilo: Estilo, quadros: { dia
   mesinha(g, estilo, x0 + 14, 52)
   kitDecorar(g, x0 + DECORAR.x, DECORAR.y, estilo)
   escrivaninhaNovoPost(g, x0 + NOVO_POST.x, NOVO_POST.y)
-  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, !!quadros.instagram)
+  celularInstagram(g, x0 + INSTAGRAM.x, INSTAGRAM.y, quadros.instagram ?? 'desligado')
   cofrinho(g, x0 + COFRINHO.x, COFRINHO.y)
   gaveteiro(g, x0 + GAVETA.x, GAVETA.y, estilo, quadros.gaveta ?? 0)
   planta(g, x0 + 92, 150)

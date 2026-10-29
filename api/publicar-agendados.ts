@@ -3,6 +3,7 @@ import { db } from './_lib/db.js'
 import { enfileirar, rodarAteOLimite } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 import { definirOrigem } from './_lib/render-remoto.js'
+import { renovarTokens } from './_lib/renovar-tokens.js'
 
 /** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora (manda para o publicador) ou quando há passo parado na fila (roda a fila). */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
@@ -10,6 +11,8 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const { data: token } = await db.from('config_app').select('valor').eq('chave', 'token_agendador').single()
   if (!token?.valor || req.headers['x-agendador'] !== token.valor) return res.status(401).end()
   definirOrigem(origemDaRequisicao(req))
+  // uma vez por dia o banco pede para renovar os tokens do Instagram antes de vencerem
+  if ((req.body as { acao?: string } | undefined)?.acao === 'renovar_tokens') return res.status(200).json({ ok: true, ...(await renovarTokens()) })
 
   const { data: vencidos } = await db
     .from('posts')
