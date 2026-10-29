@@ -3,6 +3,7 @@ import { claude } from './_lib/claude.js'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { MODELO_KLING } from './_lib/kling.js'
+import { saudeDaProducao } from './_lib/saude.js'
 
 // "Testar serviços" no perfil da marca: uma chamada mínima em cada serviço, para descobrir chave errada,
 // saldo zerado ou Instagram desconectado antes de gastar um post inteiro.
@@ -128,6 +129,8 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
 
   const { data: marcas } = await db.from('marcas').select('id, nome, instagram_conta_id, meta_token_secret_id').eq('dono_id', usuario).order('criado_em')
+  // ?so=saude: só a saúde da produção, que é do banco e não chama serviço nenhum (abre sozinha na aba)
+  if (req.query.so === 'saude') return res.status(200).json({ saude: await saudeDaProducao((marcas ?? []).map((m) => m.id)) })
   const resultados = await Promise.all([
     testarClaude(),
     testarOpenRouter(),
