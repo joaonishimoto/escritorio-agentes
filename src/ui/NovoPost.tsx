@@ -1,7 +1,7 @@
 import { useEffect, useState, type ClipboardEvent, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { chamarApi, lerApi } from '../lib/api'
 import { useIdeiasGuardadas, type Ideia } from '../lib/ideias'
-import { CHAVE_DO_SERVICO, FUNCIONARIOS_IA, nomeDaIA, opcoesDe, type Servicos } from '../lib/ias'
+import { CHAVE_DO_SERVICO, FUNCIONARIOS_IA, nomeDaIA, opcoesDe, type Servicos, padraoDe } from '../lib/ias'
 import { supabase } from '../lib/supabase'
 import { ESTRUTURAS, LAYOUTS, VOZES, nomeDe } from '../lib/estilos'
 import type { Post } from '../lib/dados'
@@ -491,7 +491,7 @@ export function NovoPost({
                   {funcionarios.map((f) => {
                     const opcoes = opcoesDe(f.agente)
                     const escolhida = ias[f.agente] ?? ''
-                    const atual = opcoes.find((o) => o.id === (escolhida || f.padrao))
+                    const atual = opcoes.find((o) => o.id === (escolhida || padraoDe(f, servicos)))
                     return (
                       <label key={f.agente} className="np-ia">
                         <span>
@@ -503,7 +503,7 @@ export function NovoPost({
                           </small>
                         </span>
                         <select value={escolhida} onChange={(e) => setIas((x) => ({ ...x, [f.agente]: e.target.value }))}>
-                          <option value="">Padrão ({nomeDaIA(f.padrao)})</option>
+                          <option value="">Padrão ({nomeDaIA(padraoDe(f, servicos))})</option>
                           {opcoes.map((o) => (
                             <option key={o.id} value={o.id} disabled={semChave(o.servico)}>
                               {o.nome}{semChave(o.servico) ? ` · falta ${CHAVE_DO_SERVICO[o.servico]} na Vercel` : ''}
