@@ -58,6 +58,10 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [aviso, setAviso] = useState('')
   const [checklist, setChecklist] = useState('')
   const [narracao, setNarracao] = useState<Narracao>(NARRACAO_PADRAO)
+  // teto de gasto em US$, como texto do campo; vazio no mês = sem teto, vazio no post = padrão
+  const [tetoPost, setTetoPost] = useState('')
+  const [tetoMes, setTetoMes] = useState('')
+  const [gastoMes, setGastoMes] = useState<number | null>(null)
   const [base, setBase] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -95,14 +99,20 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     setChecklist(p.checklist_revisor ?? '')
     const n = id.narracao && typeof id.narracao === 'object' ? (id.narracao as Partial<Narracao>) : {}
     setNarracao({ ...NARRACAO_PADRAO, ...n })
+    const t = id.teto && typeof id.teto === 'object' ? (id.teto as { por_post_usd?: unknown; por_mes_usd?: unknown }) : {}
+    setTetoPost(t.por_post_usd === null ? 'sem' : typeof t.por_post_usd === 'number' ? String(t.por_post_usd).replace('.', ',') : '')
+    setTetoMes(typeof t.por_mes_usd === 'number' ? String(t.por_mes_usd).replace('.', ',') : '')
   }
 
-  const retrato = JSON.stringify([nome, instagram, corSala, tom, cores, fonte, regras, hashtags, aviso, checklist, narracao])
+  const retrato = JSON.stringify([nome, instagram, corSala, tom, cores, fonte, regras, hashtags, aviso, checklist, narracao, tetoPost, tetoMes])
   const mudou = perfil !== null && retrato !== base
 
   useEffect(() => {
-    chamarApi<{ marca: Perfil }>('marcas', { acao: 'ler', id: marcaId })
-      .then(({ marca }) => preencher(marca))
+    chamarApi<{ marca: Perfil; gasto_mes?: number }>('marcas', { acao: 'ler', id: marcaId })
+      .then(({ marca, gasto_mes }) => {
+        preencher(marca)
+        setGastoMes(gasto_mes ?? null)
+      })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Não deu para abrir a marca'))
   }, [marcaId])
   // depois de preencher, guarda o retrato para saber se algo mudou
@@ -164,6 +174,16 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
     if (fonte.trim()) identidade.fonte = fonte.trim()
     for (const r of regras) if (r.chave.trim() && r.valor.trim()) identidade[chave(r.chave)] = r.valor.trim()
     identidade.narracao = { ...narracao, voz: narracao.voz.trim() || NARRACAO_PADRAO.voz }
+    const dinheiro = (v: string) => {
+      const n = Number(v.trim().replace(/[^\d,.]/g, '').replace(',', '.'))
+      return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : undefined
+    }
+    const teto: Record<string, number | null> = {}
+    if (/^sem/i.test(tetoPost.trim())) teto.por_post_usd = null
+    else if (dinheiro(tetoPost) !== undefined) teto.por_post_usd = dinheiro(tetoPost)!
+    if (dinheiro(tetoMes) !== undefined) teto.por_mes_usd = dinheiro(tetoMes)!
+    if (Object.keys(teto).length) identidade.teto = teto
+    else delete identidade.teto
     try {
       const { marca } = await chamarApi<{ marca: Perfil }>('marcas', {
         acao: 'salvar',
@@ -404,6 +424,31 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                     </label>
                     <span className="mono muted">{corSala.toUpperCase()}</span>
                   </div>
+
+                  <h3 className="pm-subtitulo">Teto de gasto</h3>
+                  <p className="pm-dica">
+                    Por post: ao passar, a equipe para e manda o post como está para você decidir. Vazio usa US$ 2,00; escreva &quot;sem&quot; para não ter teto.
+                    Por mês: ao passar, a sala não começa post novo até virar o mês. Vazio = sem teto.
+                  </p>
+                  <div className="pm-tetos">
+                    <label>
+                      <span>Por post (US$)</span>
+                      <input inputMode="decimal" value={tetoPost} onChange={(e) => setTetoPost(e.target.value)} placeholder="2,00" aria-label="Teto por post em dólares" />
+                    </label>
+                    <label>
+                      <span>Por mês (US$)</span>
+                      <input inputMode="decimal" value={tetoMes} onChange={(e) => setTetoMes(e.target.value)} placeholder="sem teto" aria-label="Teto por mês em dólares" />
+                    </label>
+                  </div>
+                  {gastoMes !== null && (
+                    <p className="pm-dica">
+                      Gasto desta sala no mês: <strong>US$ {gastoMes.toFixed(2).replace('.', ',')}</strong>
+                      {(() => {
+                        const n = Number(tetoMes.replace(',', '.'))
+                        return Number.isFinite(n) && n > 0 ? ` de US$ ${n.toFixed(2).replace('.', ',')} (${Math.min(100, Math.round((gastoMes / n) * 100))}%)` : ''
+                      })()}
+                    </p>
+                  )}
                 </section>
               )}
             </>

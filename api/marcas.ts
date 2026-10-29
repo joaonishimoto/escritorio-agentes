@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { completarMarca } from './_lib/marcas/index.js'
+import { gastoDoMes } from './_lib/teto.js'
 
 const CHECKLIST_PADRAO = `- Português correto, sem erro de digitação
 - Capa com gancho curto e legível no celular
@@ -56,7 +57,7 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
   if (!atual) return res.status(404).json({ erro: 'Marca não encontrada' })
   const sem = (m: typeof atual) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'modelo_slides_html')) as Omit<typeof atual, 'modelo_slides_html'>
 
-  if (corpo.acao === 'ler') return res.json({ marca: sem(completarMarca(atual)) })
+  if (corpo.acao === 'ler') return res.json({ marca: sem(completarMarca(atual)), gasto_mes: await gastoDoMes(atual.id) })
 
   const c = corpo.campos ?? {}
   const texto = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined)

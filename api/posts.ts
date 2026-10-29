@@ -3,6 +3,7 @@ import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 import { limparIas, servicosDisponiveis } from './_lib/ias.js'
+import { gastoDoMes, tetoDaMarca } from './_lib/teto.js'
 import { ESTRUTURAS, LAYOUTS, VOZES } from './_lib/variacao.js'
 
 /** POST cria um post e põe o chefe de pauta para trabalhar. GET diz quais IAs têm chave configurada. */
@@ -15,6 +16,14 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const { marca_id, briefing, referencias, preferencias } = (req.body ?? {}) as { marca_id?: string; briefing?: string; referencias?: unknown; preferencias?: Record<string, unknown> }
   if (!marca_id || !briefing?.trim()) return res.status(400).json({ erro: 'Escolha a marca e escreva o pedido' })
   if (!(await eDonoDaMarca(usuario, marca_id))) return res.status(403).json({ erro: 'Essa marca não é sua' })
+
+  const { data: marca } = await db.from('marcas').select('identidade').eq('id', marca_id).single()
+  const teto = tetoDaMarca(marca?.identidade as Record<string, unknown> | null)
+  if (teto.mes !== null) {
+    const gasto = await gastoDoMes(marca_id)
+    if (gasto >= teto.mes)
+      return res.status(400).json({ erro: `Esta marca já gastou US$ ${gasto.toFixed(2)} este mês e o teto é US$ ${teto.mes.toFixed(2)}. Aumente o teto no perfil da marca (aba Sala) para pedir mais posts.` })
+  }
 
   // imagens só do armazenamento do próprio app; links só http(s)
   const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/marcas/${marca_id}/`
