@@ -790,8 +790,8 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const pesquisa = ctx.saidas.pesquisador as { notas?: string; busca_falhou?: string[] } | undefined
   // sem busca funcionando, devolver ao pesquisador só repete a falha: o redator suaviza o que não tem fonte
   const semBusca = !!pesquisa?.busca_falhou?.length || /busca (na web )?falhou|não consegui verificar nada|nenhuma (fonte )?consultada/i.test(pesquisa?.notas ?? '')
-  const { data: midias } = await db.from('midias').select('descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
-  const fotosDaMarca = (midias ?? []).filter((m) => !(m.tags as string[]).includes('inspiracao')).map((m) => m.descricao ?? (m.tags as string[]).join(', '))
+  const pauta = ctx.saidas.chefe as { formato?: string; quantidade_slides?: number; objetivo?: string; fecho?: string } | undefined
+  const fotosDaMarca = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao')).map((m) => m.descricao ?? m.tags.join(', '))
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'revisor'),
     effort: reconferindo ? 'low' : 'medium',
@@ -818,10 +818,11 @@ export const revisor: Agente = async (ctx, passo, em) => {
           semBusca
             ? '## A busca na web não funcionou neste post\nNão aponte o pesquisador por falta de fonte: refazer não adianta. Se o texto, a legenda ou a narração afirmam algo específico sem fonte (número, tempo, causa), aponte para o redator (ou o narrador) suavizar para algo geral e seguro. Diga no resumo que os fatos não foram conferidos na web.'
             : '',
+          pauta?.objetivo ? `## Pauta deste post\nFormato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}\nObjetivo: ${pauta.objetivo} (${OBJETIVOS[pauta.objetivo as keyof typeof OBJETIVOS] ?? ''})\nFecho combinado: ${pauta.fecho}` : '',
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
-            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.`,
+            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.objetivo ? ' A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta, nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem.' : ''}`,
         ]
           .filter(Boolean)
           .join('\n\n'),
