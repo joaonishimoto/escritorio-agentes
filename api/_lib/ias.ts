@@ -27,7 +27,14 @@ export const PADRAO_TEXTO = {
   narrador: 'claude-sonnet-5-5',
 } as const satisfies Record<string, ModeloTexto>
 export type AgenteDeTexto = keyof typeof PADRAO_TEXTO
-export const PADRAO_VIDEO: MotorVideo = 'kling'
+
+/**
+ * Motor de vídeo quando o post não escolheu: Kling 3.0 pelo fal.ai (cobra por uso, sem pacote), senão a Kling
+ * direta, senão a animação do Claude, que não depende de serviço de vídeo. Mesma regra de src/lib/ias.ts.
+ */
+export function motorPadrao(servicos: { fal?: boolean; kling?: boolean } = servicosDisponiveis()): MotorVideo {
+  return servicos.fal ? 'fal-kling' : servicos.kling ? 'kling' : 'claude'
+}
 
 export const eModeloTexto = (v: unknown): v is ModeloTexto => MODELOS_TEXTO.includes(v as ModeloTexto)
 export const eMotorVideo = (v: unknown): v is MotorVideo => MOTORES_VIDEO.includes(v as MotorVideo)
@@ -52,7 +59,7 @@ export function modeloDe(ctx: Contexto, agente: AgenteDeTexto): ModeloTexto {
 /** Motor de vídeo do cinegrafista neste post. */
 export function motorDeVideo(ctx: Contexto): MotorVideo {
   const escolhido = ctx.post.preferencias?.ias?.cinegrafista
-  return eMotorVideo(escolhido) ? escolhido : PADRAO_VIDEO
+  return eMotorVideo(escolhido) ? escolhido : motorPadrao()
 }
 
 /** Quais serviços têm chave na Vercel (para o Novo post mostrar o que dá para usar). */

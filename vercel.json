@@ -27,6 +27,9 @@
     },
     "api/financeiro.ts": {
       "maxDuration": 60
+    },
+    "api/servicos.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
