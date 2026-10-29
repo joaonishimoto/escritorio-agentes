@@ -58,13 +58,16 @@ export async function rodarUmPasso(): Promise<boolean> {
 
     let proximos = r.proximos
     if (proximos === undefined) {
+      // numa devolução do revisor a rota diz quem ainda refaz; sem rota, segue o fluxo do roteiro
+      const { correcao, feedback, rota } = passo.entrada as { correcao?: unknown; feedback?: string; rota?: unknown }
       const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato)
-      const seguinte = fluxo[fluxo.indexOf(passo.agente) + 1]
+      const naRota = Array.isArray(rota) && rota.length ? (rota as string[]) : null
+      const seguinte = naRota ? naRota[0] : fluxo[fluxo.indexOf(passo.agente) + 1]
       // numa correção sua ou numa devolução do revisor, os próximos agentes continuam sabendo o que foi pedido
-      const { correcao, feedback } = passo.entrada
       const entrada: Record<string, unknown> = {}
       if (correcao) entrada.correcao = correcao
       if (feedback && seguinte !== 'revisor') entrada.feedback = feedback
+      if (naRota && naRota.length > 1) entrada.rota = naRota.slice(1)
       proximos = seguinte ? [{ agente: seguinte, entrada }] : null
     }
     const teto = tetoDaMarca(ctx.marca.identidade)

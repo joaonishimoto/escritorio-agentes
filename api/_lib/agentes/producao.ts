@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { layoutAprovado } from '../aprovados.js'
 import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
-import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
+import { fluxoDeProducao, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
@@ -88,7 +88,7 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
     return { saida: { notas: 'Sem pesquisa: a pauta não cita fatos externos. Não invente dados históricos ou números.' }, uso: USO_ZERO, entrega: 'Sem fatos para conferir' }
   }
   await em.inicio(devolvido ? 'Corrigindo só os pontos que o revisor apontou' : 'Começando a pesquisa')
-  const { texto, uso } = await gerarTexto({
+  const { texto, uso, buscas } = await gerarTexto({
     modelo: modeloDe(ctx, 'pesquisador'),
     sistema: sistemaDoAgente(
       ctx,
@@ -98,11 +98,15 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
     conteudo: devolvido
       ? `Pedido: ${ctx.post.briefing}\n\n## Suas notas anteriores\n${anteriores}\n\nRefaça as notas mantendo tudo o que está certo e corrigindo só o que foi apontado para o pesquisador abaixo. Ignore os pontos de outros agentes. Busque na web só o necessário.${feedback(passo)}`
       : `Pedido: ${ctx.post.briefing}\n\nPromessa do post: ${pauta?.promessa ?? ''}\nPlano dos slides: ${JSON.stringify(pauta?.plano_slides ?? [])}\n\n## Fatos a confirmar\n${(pauta?.precisa_pesquisa ?? []).map((f) => `- ${f}`).join('\n')}\n\n${referenciasDoPost(ctx).texto}\n\nConfirme só esses fatos, agrupando buscas quando der. Entregue notas curtas e verificadas, em tópicos, com as fontes no fim. Nada de introdução nem resumo.${feedback(passo)}`,
-    buscaWeb: devolvido ? 2 : 3,
+    // a busca com filtro roda várias consultas de uma vez: com 3 usos, um lote só já estourava o limite e nada voltava
+    buscaWeb: devolvido ? 4 : 6,
     aoEscrever: (t) => em.texto(t),
     aoBuscar: (q) => em.acao(`Buscando: ${q}`),
   })
-  return { saida: { notas: texto }, uso, entrega: 'Pesquisa conferida' }
+  // nenhuma busca deu certo: o revisor não manda refazer a pesquisa (falharia de novo), pede para suavizar o texto
+  const buscaFalhou = !!buscas && buscas.erros.length > 0 && buscas.feitas === 0
+  if (buscaFalhou) console.warn(`pesquisador: busca na web falhou (${buscas!.erros.join(', ')})`)
+  return { saida: { notas: texto, ...(buscaFalhou ? { busca_falhou: buscas!.erros } : {}) }, uso, entrega: buscaFalhou ? 'Pesquisa sem fontes: a busca falhou' : 'Pesquisa conferida' }
 }
 
 // ───────── Redator ─────────
@@ -731,6 +735,11 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const slides = mudaram.length === 0 && anterior?.problemas.some((p) => p.agente === 'designer') ? todos : mudaram
   const iguais = todos.length - slides.length
   const precisaPesquisa = !reconferindo || anterior!.problemas.some((p) => p.agente === 'pesquisador' || p.agente === 'redator')
+  const pesquisa = ctx.saidas.pesquisador as { notas?: string; busca_falhou?: string[] } | undefined
+  // sem busca funcionando, devolver ao pesquisador só repete a falha: o redator suaviza o que não tem fonte
+  const semBusca = !!pesquisa?.busca_falhou?.length || /busca (na web )?falhou|não consegui verificar nada|nenhuma (fonte )?consultada/i.test(pesquisa?.notas ?? '')
+  const { data: midias } = await db.from('midias').select('descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
+  const fotosDaMarca = (midias ?? []).filter((m) => !(m.tags as string[]).includes('inspiracao')).map((m) => m.descricao ?? (m.tags as string[]).join(', '))
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'revisor'),
     effort: reconferindo ? 'low' : 'medium',
@@ -753,7 +762,11 @@ export const revisor: Agente = async (ctx, passo, em) => {
           (ctx.saidas.designer as { checagem?: string } | undefined)?.checagem
             ? `## Checagem automática dos slides (medida no navegador)\n${(ctx.saidas.designer as { checagem: string }).checagem}\n\nO designer já tentou corrigir uma vez. Confira nas imagens se isso aparece de verdade; se aparecer, é problema do designer.`
             : '',
-          precisaPesquisa ? `## Pesquisa usada\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? ''}` : '',
+          precisaPesquisa ? `## Pesquisa usada\n${pesquisa?.notas ?? ''}` : '',
+          semBusca
+            ? '## A busca na web não funcionou neste post\nNão aponte o pesquisador por falta de fonte: refazer não adianta. Se o texto, a legenda ou a narração afirmam algo específico sem fonte (número, tempo, causa), aponte para o redator (ou o narrador) suavizar para algo geral e seguro. Diga no resumo que os fatos não foram conferidos na web.'
+            : '',
+          `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
             : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.`,
@@ -778,17 +791,17 @@ export const revisor: Agente = async (ctx, passo, em) => {
     }
   }
 
-  // devolve para o primeiro agente com problema; os seguintes refazem na sequência
-  const ordem = ['pesquisador', 'redator', 'designer', 'narrador']
-  const primeiro = ordem.find((a) => dados.problemas.some((p) => p.agente === a)) ?? 'designer'
-  const texto = dados.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
+  // devolve só para quem tem o que corrigir (e quem depende dele); vídeo e narração ficam como estão se não foram apontados
+  const problemas = semBusca ? dados.problemas.map((p) => (p.agente === 'pesquisador' ? { agente: 'redator' as const, problema: `Sem fonte (a busca falhou): suavize no texto. ${p.problema}` } : p)) : dados.problemas
+  const rota = rotaDaDevolucao(problemas.map((p) => p.agente), fluxoDeProducao(ctx.etapas, ctx.post.formato))
+  const texto = problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
   await em.texto(texto)
   return {
     saida: { ...dados, marcas_vistas: marcas },
     uso,
     entrega: `Devolvido: ${dados.problemas[0]?.problema.slice(0, 80) ?? 'ajustes'}`,
-    proximos: [{ agente: primeiro, entrada: { feedback: texto } }],
+    proximos: [{ agente: rota[0], entrada: { feedback: texto, rota: rota.slice(1) } }],
   }
 }
 

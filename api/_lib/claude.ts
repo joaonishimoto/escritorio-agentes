@@ -70,13 +70,14 @@ export async function gerarTexto(opts: {
   effort?: 'low' | 'medium' | 'high'
   aoEscrever?: (trecho: string) => Promise<void> | void
   aoBuscar?: (consulta: string) => Promise<void> | void
-}): Promise<{ texto: string; uso: Uso }> {
+}): Promise<{ texto: string; uso: Uso; buscas?: { feitas: number; erros: string[] } }> {
   const modelo = opts.modelo
   if (!eClaude(modelo)) return gerarTextoOR({ ...opts, modelo })
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: opts.conteudo }]
   const tools = opts.buscaWeb ? [{ type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: opts.buscaWeb }] : undefined
   let uso: Uso | undefined
   let texto = ''
+  const buscas = { feitas: 0, erros: [] as string[] }
 
   // pause_turn: o servidor pausou um turno longo de busca; reenviamos para continuar
   for (let rodada = 0; rodada < 4; rodada++) {
@@ -94,16 +95,23 @@ export async function gerarTexto(opts: {
         await opts.aoEscrever?.(ev.delta.text)
       } else if (ev.type === 'content_block_start' && ev.content_block.type === 'server_tool_use') {
         const input = ev.content_block.input as { query?: string } | undefined
-        await opts.aoBuscar?.(input?.query ?? 'buscando na web')
+        if (input?.query) await opts.aoBuscar?.(input.query)
       }
     }
     const final = await stream.finalMessage()
     uso = somarUso(modelo, final.usage, uso)
     checarRecusa(final)
+    // busca que voltou com erro (limite de usos, serviço fora) fica registrada para quem chamou decidir o que fazer
+    for (const b of final.content as { type: string; content?: unknown }[]) {
+      if (b.type !== 'web_search_tool_result') continue
+      const c = b.content as { type?: string; error_code?: string } | unknown[]
+      if (Array.isArray(c)) buscas.feitas++
+      else if (c?.error_code) buscas.erros.push(c.error_code)
+    }
     if (final.stop_reason !== 'pause_turn') break
     messages.push({ role: 'assistant', content: final.content })
   }
-  return { texto, uso: uso! }
+  return { texto, uso: uso!, buscas }
 }
 
 /** Gera uma resposta estruturada validada pelo schema (zod). */

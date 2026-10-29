@@ -168,3 +168,16 @@ export function fluxoDeProducao(etapas: Etapa[], formato?: string) {
   const video = ['cinegrafista', 'narrador']
   return revisor < 0 ? [...ordem, ...video] : [...ordem.slice(0, revisor), ...video, ...ordem.slice(revisor)]
 }
+
+/**
+ * Quem refaz numa devolução do revisor: só os apontados, na ordem do fluxo, e o revisor no fim.
+ * Pesquisa corrigida muda o texto (entra o redator); texto corrigido muda os slides (entra o designer).
+ * Vídeo e narração só entram se forem apontados: ajuste de legenda não refaz o Reel.
+ */
+export function rotaDaDevolucao(apontados: string[], fluxo: string[]) {
+  const quem = new Set(apontados)
+  if (quem.has('pesquisador')) quem.add('redator')
+  if (quem.has('redator') && fluxo.includes('designer')) quem.add('designer')
+  const rota = fluxo.filter((a) => quem.has(a) && a !== 'revisor')
+  return [...(rota.length ? rota : ['designer']), 'revisor']
+}
