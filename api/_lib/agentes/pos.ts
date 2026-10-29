@@ -42,7 +42,7 @@ const Curadoria = z.object({
     .describe('true se a correção é um ajuste pequeno no que já existe (trocar/remover palavra ou letra, mudar uma cor, um tamanho, uma frase da legenda) e não pede novo conteúdo nem nova pesquisa'),
   refazer_a_partir_de: z
     .enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'nenhum'])
-    .describe('primeiro agente que precisa refazer para atender a correção. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel; narrador é só para mudar a fala da narração de um Reel'),
+    .describe('primeiro agente que precisa refazer para atender a correção. Formato ou quantidade errada (pediu um post e veio carrossel, slides a mais ou a menos, era vídeo) ou objetivo errado (post de marca virou venda) é do chefe. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel; narrador é só para mudar a fala da narração de um Reel'),
   instrucao: z.string().describe('o que esse agente deve mudar, em uma ou duas frases'),
 })
 
@@ -55,7 +55,7 @@ export const curador: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'curador',
-      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Não duplique regras que já existem; se uma regra parecida existe, não crie outra.',
+      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Não duplique regras que já existem; se uma regra parecida existe, não crie outra. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título dentro da área 1:1, número decorativo gigante só quando é o layout, logo de verdade em vez de letra.',
     ),
     conteudo: `Pedido original: ${ctx.post.briefing}\n\nLegenda atual:\n${ctx.post.legenda ?? ''}\n\nCorreção do dono da marca:\n${comentario}`,
     schema: Curadoria,

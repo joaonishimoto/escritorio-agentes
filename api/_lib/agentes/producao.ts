@@ -13,12 +13,16 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
 const Pauta = z.object({
   formato: z.enum(['carrossel', 'foto', 'reel']),
+  objetivo: z.enum(Object.keys(OBJETIVOS) as [keyof typeof OBJETIVOS]).describe('para que o post existe; "marca" quando o pedido fala em branding, posicionamento ou só mostrar a marca'),
+  fecho: z
+    .string()
+    .describe('como o post termina, no último slide e no fim da legenda, coerente com o objetivo (ex.: "Link na bio para baixar"; "convite para salvar a receita"; "frase de posicionamento, sem convite"); nunca um endereço de site'),
   angulo: z.string(),
   publico: z.string(),
   promessa: z.string().describe('a promessa do post em uma frase'),
@@ -61,7 +65,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta. Carrossel tem de 2 a 10 slides, incluindo capa e chamada final. Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
@@ -71,9 +75,10 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   if (pref.estrutura && pref.estrutura in ESTRUTURAS) dados.estrutura = pref.estrutura as typeof dados.estrutura
   if (pref.layout && pref.layout in LAYOUTS) dados.layout = pref.layout as typeof dados.layout
   if (pref.voz && pref.voz in VOZES) dados.voz = pref.voz as typeof dados.voz
-  await em.texto(`Formato: ${dados.formato}, ${dados.quantidade_slides} slides.\nEstrutura: ${dados.estrutura} · Layout: ${dados.layout} · Voz: ${dados.voz}\nÂngulo: ${dados.angulo}\nPromessa: ${dados.promessa}\n`)
-  await db.from('posts').update({ formato: dados.formato }).eq('id', ctx.post.id)
-  return { saida: dados, uso, entrega: 'Pauta pronta' }
+  const pauta = fecharPauta(dados, pref.slides)
+  await em.texto(`Formato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}.\nObjetivo: ${pauta.objetivo} · Fecho: ${pauta.fecho}\nEstrutura: ${pauta.estrutura} · Layout: ${pauta.layout} · Voz: ${pauta.voz}\nÂngulo: ${pauta.angulo}\nPromessa: ${pauta.promessa}\n`)
+  await db.from('posts').update({ formato: pauta.formato }).eq('id', ctx.post.id)
+  return { saida: pauta, uso, entrega: 'Pauta pronta' }
 }
 
 // ───────── Pesquisador ─────────
@@ -114,16 +119,25 @@ const Texto = z.object({
   slides: z.array(
     z.object({
       tipo: z.enum(['capa', 'conteudo', 'cta']),
-      etiqueta: z.string().describe('texto curto da pílula no topo, pode ser vazio'),
-      titulo: z.string(),
+      etiqueta: z.string().describe('selo curto de apoio (ex.: categoria, número do passo); deixe vazio na maioria dos slides, não é obrigatório'),
+      titulo: z.string().describe('curto: até 8 palavras na capa, até 10 nos outros slides'),
       destaque: z.string().describe('parte do título que vai na cor de destaque, pode ser vazio'),
-      corpo: z.string().describe('texto de apoio, pode ser vazio'),
+      corpo: z.string().describe('texto de apoio, até 30 palavras, pode ser vazio'),
       itens: z.array(z.object({ quantidade: z.string(), item: z.string() })).describe('lista (ex.: ingredientes), pode ser vazia'),
       foto: z.string().describe('descrição da foto ideal, ou vazio se não usa foto'),
     }),
   ),
   legenda: z.string(),
 })
+
+/** O que vale para o texto de toda marca: vem das correções do dono que se repetiam de marca em marca. */
+const ESCRITA = `## Regras de escrita (todas as marcas)
+- Nunca escreva endereço de site (www, .com, lp., use.) nos slides nem na legenda. Botão e chamada usam palavras comuns de ação ("Link na bio", "Começar grátis", "Baixe o app").
+- @ de perfil do Instagram sempre em minúsculas, como está no perfil.
+- O fecho segue o objetivo da pauta. Só "vender" pede chamada de venda (baixar, assinar, link na bio). "engajar" e "educar" fecham com um convite leve (salvar, mandar pra alguém, comentar) ou fechando a ideia. "marca" não tem chamada de venda nem pedido de contato, e quase não tem texto na arte: a mensagem vai na legenda.
+- Entregue exatamente a quantidade de slides da pauta, um por item do plano. Foto e Reel têm um slide só.
+- Texto que cabe no slide: título curto, corpo curto, uma ideia por slide. O que não couber vai para a legenda.
+- Palavra comum, sem duplo sentido nem termo estranho; se a palavra soa esquisita em voz alta, troque.`
 
 export const redator: Agente = async (ctx, passo, em) => {
   // numa volta (revisor ou correção sua) parte do texto que já existe e mexe só no que foi pedido
@@ -136,12 +150,14 @@ export const redator: Agente = async (ctx, passo, em) => {
     // a volta só troca o que foi apontado: Sonnet dá conta e custa metade do Opus
     modelo: ajuste ? modeloNaVolta(ctx, 'redator', 'claude-sonnet-5-5') : modeloDe(ctx, 'redator'),
     effort: 'medium',
-    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
+    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${ESCRITA}\n\n${CLICHES}`,
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
       pauta?.voz && pauta.voz in VOZES ? `## Voz deste post: ${pauta.voz}\n${VOZES[pauta.voz]}` : '',
       pauta?.estrutura && pauta.estrutura in ESTRUTURAS ? `## Estrutura deste post: ${pauta.estrutura}\n${ESTRUTURAS[pauta.estrutura]}` : '',
+      pauta?.objetivo && pauta.objetivo in OBJETIVOS ? `## Objetivo deste post: ${pauta.objetivo}\n${OBJETIVOS[pauta.objetivo]}\nFecho combinado: ${pauta.fecho}` : '',
+      pauta ? `## Quantidade: ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'slide' : 'slides'}` : '',
       jaUsado,
       `Pesquisa:\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? '(sem pesquisa)'}`,
       ajuste
@@ -153,6 +169,8 @@ export const redator: Agente = async (ctx, passo, em) => {
       .join('\n\n'),
     schema: Texto,
   })
+  // foto e Reel têm uma imagem só: um slide a mais do modelo não vira um post a mais
+  if (pauta && pauta.formato !== 'carrossel' && dados.slides.length > 1) dados.slides = dados.slides.slice(0, 1)
   for (const [i, s] of dados.slides.entries()) await em.texto(`Slide ${i + 1}: ${s.titulo}\n`)
   await em.texto(`\nLegenda:\n${dados.legenda}\n`)
   await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
@@ -203,7 +221,7 @@ async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters
   if (r.problemas.length) {
     await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
     await em.texto(`${textoDaChecagem(r.problemas)}\n`)
-    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Não mude o texto.`, html, { renderizar: false })
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título fora da área 1:1: traga para dentro de y 135 a 1215. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false })
     if (ajuste && ajuste.html !== html) {
       html = ajuste.html
       usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
@@ -271,6 +289,29 @@ async function editarSlides(
     return { html, uso: r.uso, saida: { html, slides, checagem, imagens }, entrega: checagem ? 'Ajuste aplicado; a checagem automática ainda aponta algo' : 'Ajuste aplicado' }
   }
   return { html, uso, saida: { html, slides, imagens }, entrega: 'Ajuste aplicado' }
+}
+
+/** Composição que vale para toda marca: vem das correções do dono que se repetiam (vazio, desalinhado, número gigante, site no botão). */
+const COMPOSICAO = `## Composição (todas as marcas)
+- Monte cada slide com uma grade: margem lateral igual em todos os slides (cerca de 80 px) e o mesmo espaço entre selo, título, corpo e rodapé de um slide para o outro. Prefira flexbox em coluna para os blocos de texto em vez de position absolute solto: evita sobreposição e vazios.
+- Nada de faixa grande vazia sem função. O conteúdo ocupa a altura do slide: se o texto é curto, aumente o título, a foto ou o ícone, ou centralize o grupo; espaço livre fica entre blocos, não sobrando num canto.
+- Título, logo e o que importa ficam dentro da área central 1:1 (de y 135 a y 1215): a grade do perfil corta o 4:5 em cima e embaixo.
+- Selo ou pílula é opcional; quando entrar, alinhe na mesma margem do título e varie a posição entre posts. Rodapé numa linha só, itens alinhados pela mesma base.
+- Número ou palavra gigante decorativa no fundo só no layout numero-gigante, e nunca cortado na borda.
+- Botão e chamada com palavras comuns ("Link na bio", "Começar grátis"), nunca endereço de site.
+- A marca aparece com o arquivo de imagem do logo ou ícone (na identidade ou no modelo), nunca com uma letra ou inicial no lugar.
+- Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide.
+- Post com objetivo "marca": pouco texto na arte, a marca em destaque.`
+
+// favicon e ícone em vários tamanhos são o mesmo desenho: no prompt eles só gastam token e confundem a escolha
+const VARIANTE_PEQUENA = /favicon|apple-touch|maskable|[-_](16|32|48|64|128|180|192|256|1024)(x\d+)?\.(png|svg|jpe?g|webp)$/i
+
+/** Mídias aprovadas da marca, sem as variantes de tamanho do ícone (fica a de 512 ou o arquivo principal). */
+export async function midiasDaMarca(ctx: Parameters<Agente>[0]) {
+  const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
+  return (midias ?? [])
+    .filter((m) => !VARIANTE_PEQUENA.test(m.caminho as string))
+    .map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao as string | null, tags: m.tags as string[] }))
 }
 
 const PlanoDeImagens = z.object({
@@ -357,8 +398,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     await em.acao('Não deu para editar direto, refazendo os slides')
   }
   await em.inicio('Escolhendo as fotos aprovadas')
-  const { data: midias } = await db.from('midias').select('caminho, descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
-  const todas = (midias ?? []).map((m) => ({ url: db.storage.from('marcas').getPublicUrl(m.caminho).data.publicUrl, descricao: m.descricao, tags: m.tags as string[] }))
+  const todas = await midiasDaMarca(ctx)
   // "inspiração" é só estilo: o designer vê as imagens, mas elas não entram nos slides
   const fotos = todas.filter((m) => !m.tags.includes('inspiracao'))
   const inspiracoes = todas.filter((m) => m.tags.includes('inspiracao')).slice(-3)
@@ -384,11 +424,11 @@ export const designer: Agente = async (ctx, passo, em) => {
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: modeloDe(ctx, 'designer'),
-    sistema: sistemaDoAgente(
+    sistema: `${sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha.',
-    ),
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título fora da área 1:1.',
+    )}\n\n${COMPOSICAO}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
@@ -409,6 +449,10 @@ export const designer: Agente = async (ctx, passo, em) => {
           refsDesign.tem
             ? `${refsDesign.texto}\n\nO que o chefe de pauta viu nelas: ${(ctx.saidas.chefe as { referencias?: string } | undefined)?.referencias ?? ''}\nSiga o estilo visual das referências. As imagens de referência também podem entrar nos slides (URLs acima) se combinarem com o pedido.`
             : '',
+          (() => {
+            const p = ctx.saidas.chefe as { objetivo?: string; formato?: string; quantidade_slides?: number } | undefined
+            return p?.objetivo ? `## Objetivo deste post: ${p.objetivo}\nFormato: ${p.formato}, ${p.quantidade_slides} ${p.quantidade_slides === 1 ? 'imagem' : 'slides'} (nem mais nem menos).` : ''
+          })(),
           `## Texto dos slides (não mude o texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto>)?.slides)}`,
           feedback(passo),
         ].join('\n\n'),
@@ -447,7 +491,11 @@ const REGRAS_ANIMACAO = `## Como escrever a animação
 - Use animation-fill-mode: both e tempos (delay + duração) que caibam na duração total. O último quadro precisa ficar bonito parado.
 - Pode ter texto na tela: frases curtas, grandes e legíveis no celular (título com 90 px ou mais), longe das bordas (120 px de margem embaixo e 200 px em cima, por causa dos botões do Instagram).
 - Fontes do Google Fonts via <link> e imagens só por URL https das referências; nada de outro recurso externo.
-- Movimento com intenção: entradas em sequência, um elemento principal por vez, ritmo de Reel. Use as cores e a fonte da identidade visual.`
+- Movimento com intenção: entradas em sequência, um elemento principal por vez, ritmo de Reel. Use as cores e a fonte da identidade visual.
+- Ritmo que dá para ler: cada cena ou frase fica pelo menos 2 s parada na tela antes de trocar; no máximo 3 cenas em 8 s.
+- O fundo cobre os 1080x1920 inteiros, sem barra preta nas laterais nem em cima e embaixo. O que importa fica no centro, longe das bordas.
+- A marca entra pela imagem do logo ou ícone da lista abaixo (<img> com a URL), nunca por uma letra ou inicial desenhada.
+- O produto (drink, app, peça) entra pela foto real da lista. Não desenhe o produto com CSS: fica artificial. Sem foto dele, use tipografia, cor e formas abstratas.`
 
 const ESPERA_POR_PASSO_MS = 100_000
 const MAX_ESPERAS = 6
@@ -503,13 +551,17 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   ]
 
   if (motor === 'claude') {
+    const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
+    const textoMidias = midias.length
+      ? `## Logo e fotos da marca (só estas URLs podem entrar na animação)\n${midias.map((m) => `- ${m.url} (${m.descricao ?? m.tags.join(', ')})`).join('\n')}`
+      : '## A marca não tem logo nem fotos na biblioteca: use só tipografia, cor e formas.'
     const r = await gerarJson({
       modelo: 'claude-opus-5-5',
       effort: 'medium',
       sistema: sistemaDoAgente(ctx, 'cinegrafista', 'Você faz o vídeo do Reel como motion designer: escreve uma animação em HTML e CSS que o app grava em vídeo.'),
       conteudo: [
         ...refs.blocos,
-        { type: 'text' as const, text: [...contexto, refs.tem ? refs.texto : '', REGRAS_ANIMACAO].filter(Boolean).join('\n\n') },
+        { type: 'text' as const, text: [...contexto, refs.tem ? refs.texto : '', textoMidias, REGRAS_ANIMACAO].filter(Boolean).join('\n\n') },
       ],
       schema: Animacao,
     })
@@ -531,7 +583,7 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   const r = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo.`),
+    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado.`),
     conteudo: [
       ...refs.blocos,
       {
@@ -756,8 +808,8 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const pesquisa = ctx.saidas.pesquisador as { notas?: string; busca_falhou?: string[] } | undefined
   // sem busca funcionando, devolver ao pesquisador só repete a falha: o redator suaviza o que não tem fonte
   const semBusca = !!pesquisa?.busca_falhou?.length || /busca (na web )?falhou|não consegui verificar nada|nenhuma (fonte )?consultada/i.test(pesquisa?.notas ?? '')
-  const { data: midias } = await db.from('midias').select('descricao, tags').eq('marca_id', ctx.marca.id).eq('aprovada', true)
-  const fotosDaMarca = (midias ?? []).filter((m) => !(m.tags as string[]).includes('inspiracao')).map((m) => m.descricao ?? (m.tags as string[]).join(', '))
+  const pauta = ctx.saidas.chefe as { formato?: string; quantidade_slides?: number; objetivo?: string; fecho?: string } | undefined
+  const fotosDaMarca = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao')).map((m) => m.descricao ?? m.tags.join(', '))
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'revisor'),
     effort: reconferindo ? 'low' : 'medium',
@@ -784,10 +836,11 @@ export const revisor: Agente = async (ctx, passo, em) => {
           semBusca
             ? '## A busca na web não funcionou neste post\nNão aponte o pesquisador por falta de fonte: refazer não adianta. Se o texto, a legenda ou a narração afirmam algo específico sem fonte (número, tempo, causa), aponte para o redator (ou o narrador) suavizar para algo geral e seguro. Diga no resumo que os fatos não foram conferidos na web.'
             : '',
+          pauta?.objetivo ? `## Pauta deste post\nFormato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}\nObjetivo: ${pauta.objetivo} (${OBJETIVOS[pauta.objetivo as keyof typeof OBJETIVOS] ?? ''})\nFecho combinado: ${pauta.fecho}` : '',
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
-            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.`,
+            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.objetivo ? ' A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta, nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem.' : ''}`,
         ]
           .filter(Boolean)
           .join('\n\n'),

@@ -36,9 +36,18 @@ export const VOZES = {
   didatica: 'quem ensina com paciência: explica o porquê de cada passo, sem jargão',
 } as const
 
+/** Para que o post existe: decide o fecho do texto e o que o revisor cobra no fim. */
+export const OBJETIVOS = {
+  vender: 'levar a pessoa a baixar, assinar ou comprar; termina com chamada de ação clara',
+  engajar: 'fazer salvar, comentar ou mandar pra alguém; termina com um convite leve, sem venda',
+  educar: 'ensinar algo útil; termina fechando a ideia ou com um convite leve, sem venda',
+  marca: 'mostrar a marca e o jeito dela (branding, posicionamento); pouco texto, sem chamada de venda nem pedido de contato',
+} as const
+
 export type Estrutura = keyof typeof ESTRUTURAS
 export type Layout = keyof typeof LAYOUTS
 export type Voz = keyof typeof VOZES
+export type Objetivo = keyof typeof OBJETIVOS
 
 /** Vícios de texto que denunciam IA. Vale para todas as marcas, mesmo com o tom editado pelo app. */
 export const CLICHES = `## Evite (soa como texto de IA)
@@ -156,4 +165,21 @@ export function textoLayout(layout: string | undefined, recentes: Anterior[]) {
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+/**
+ * Fecha a pauta com o que não fica a critério do modelo: o formato manda na quantidade de slides
+ * (foto e Reel têm uma imagem só), a quantidade escolhida pelo dono vale, e o plano acompanha a quantidade.
+ */
+export function fecharPauta<T extends { formato: string; quantidade_slides: number; plano_slides: string[] }>(pauta: T, slides?: number): T {
+  const p = { ...pauta, plano_slides: [...pauta.plano_slides] }
+  if (p.formato !== 'carrossel') p.quantidade_slides = 1
+  else if (slides && slides >= 2) p.quantidade_slides = Math.min(10, slides)
+  else p.quantidade_slides = Math.min(10, Math.max(2, p.plano_slides.length || p.quantidade_slides))
+  if (p.plano_slides.length > p.quantidade_slides) {
+    // o que sobrar do plano vira parte do último slide, em vez de virar um slide a mais
+    const resto = p.plano_slides.splice(p.quantidade_slides - 1)
+    p.plano_slides.push(resto.join(' / '))
+  }
+  return p
 }
