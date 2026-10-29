@@ -23,3 +23,24 @@ describe('identidadeVisual', () => {
     expect(identidadeVisual(null)).toEqual({})
   })
 })
+
+import { rotaDaDevolucao } from '../api/_lib/contexto'
+
+describe('rota da devolução do revisor', () => {
+  const reel = fluxoDeProducao([], 'reel')
+  it('ajuste de legenda no Reel volta ao redator e ao designer, sem refazer pesquisa, vídeo nem narração', () => {
+    expect(rotaDaDevolucao(['redator'], reel)).toEqual(['redator', 'designer', 'revisor'])
+  })
+  it('pesquisa corrigida passa pelo redator', () => {
+    expect(rotaDaDevolucao(['pesquisador'], reel)).toEqual(['pesquisador', 'redator', 'designer', 'revisor'])
+  })
+  it('narração apontada vai só ao narrador', () => {
+    expect(rotaDaDevolucao(['narrador'], reel)).toEqual(['narrador', 'revisor'])
+  })
+  it('só o designer quando só ele foi apontado', () => {
+    expect(rotaDaDevolucao(['designer', 'designer'], reel)).toEqual(['designer', 'revisor'])
+  })
+  it('narrador fora de um Reel cai no designer', () => {
+    expect(rotaDaDevolucao(['narrador'], fluxoDeProducao([], 'carrossel'))).toEqual(['designer', 'revisor'])
+  })
+})
