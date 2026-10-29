@@ -215,6 +215,11 @@ export async function decidirRegra(id: string, status: 'ativa' | 'arquivada') {
   await supabase?.from('regras').update({ status }).eq('id', id)
 }
 
+/** Passa a regra para outro agente (ex.: o curador anotou para um agente que não existe). */
+export async function moverRegra(id: string, agente: string) {
+  await supabase?.from('regras').update({ agente }).eq('id', id)
+}
+
 export interface Custos {
   post: number
   mes: number

@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { horariosLivres, noMesmoDia, paraCampo, rotuloHorario } from '../lib/agenda'
 import { chamarApi } from '../lib/api'
+import { useEscritorio } from '../store/escritorio'
 import { VerSlides } from './VerSlides'
 import { AGENTES } from '../agents/catalogo'
 import { decidirRegra, type Post, type Regra } from '../lib/dados'
@@ -17,6 +19,9 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
     return d && d.getTime() > Date.now() + 5 * 60_000 ? paraCampo(d) : sugestaoDeHorario()
   })
   const slides = [...(post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
+  const agenda = useEscritorio((s) => s.agenda)
+  const sugeridos = horariosLivres(agenda, post.marca_id, new Date(), 3, post.id)
+  const mesmoDia = quando ? noMesmoDia(agenda, post.marca_id, new Date(quando), post.id) : []
 
   const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar' | 'guardar') => {
     setEnviando(true)
@@ -87,7 +92,17 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
           <div className="confirmar">
             <label htmlFor="quando"><p>Publicar no Instagram em:</p></label>
             <input id="quando" type="datetime-local" value={quando} min={paraCampo(new Date(Date.now() + 5 * 60_000))} onChange={(e) => setQuando(e.target.value)} />
-            <p className="muted">Dá para cancelar pelo calendário até a hora marcada.</p>
+            {sugeridos.length > 0 && (
+              <div className="ap-sugeridos" aria-label="Horários livres sugeridos">
+                {sugeridos.map((d) => (
+                  <button key={d.toISOString()} type="button" className={`chip${paraCampo(d) === quando ? ' ativo' : ''}`} onClick={() => setQuando(paraCampo(d))}>
+                    {rotuloHorario(d)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {mesmoDia.length > 0 && <p className="cal-choque">Já tem {mesmoDia.length === 1 ? 'outro post' : `${mesmoDia.length} posts`} desta marca nesse dia. Posts no mesmo dia dividem o alcance.</p>}
+            <p className="muted">Dá para mudar o dia ou cancelar pelo calendário até a hora marcada.</p>
             <div className="ap-par">
               <button className="secundario" onClick={() => setConfirmar(null)}>Voltar</button>
               <button className="primario" disabled={enviando || !quando} onClick={() => decidir('agendar')}>Agendar</button>
@@ -167,11 +182,6 @@ export function RegrasPropostas({ regras, aoMudar }: { regras: Regra[]; aoMudar:
   )
 }
 
-/** Data no formato do campo datetime-local, no fuso do navegador. */
-function paraCampo(d: Date) {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 /** Próximo horário bom: hoje às 19h, ou amanhã se já passou. */
 function sugestaoDeHorario() {

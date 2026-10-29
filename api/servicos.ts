@@ -2,7 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { claude } from './_lib/claude.js'
 import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
+import { AVISAR_COM_DIAS, diasParaVencer, infoDoToken } from './_lib/token-meta.js'
 import { MODELO_KLING } from './_lib/kling.js'
+import { saudeDaProducao } from './_lib/saude.js'
 
 // "Testar serviços" no perfil da marca: uma chamada mínima em cada serviço, para descobrir chave errada,
 // saldo zerado ou Instagram desconectado antes de gastar um post inteiro.
@@ -100,7 +102,7 @@ async function testarElevenLabs(): Promise<Resultado> {
   }
 }
 
-async function testarInstagram(marca: { id: string; nome: string; instagram_conta_id: string | null; meta_token_secret_id: string | null }): Promise<Resultado> {
+async function testarInstagram(marca: { id: string; nome: string; instagram_conta_id: string | null; meta_token_secret_id: string | null; identidade: unknown }): Promise<Resultado> {
   const base = { id: `instagram:${marca.id}`, nome: `Instagram da ${marca.nome}` }
   if (!marca.instagram_conta_id || !marca.meta_token_secret_id) return { ...base, estado: 'falta', detalhe: 'Conta não conectada' }
   const { data: token, error } = await db.rpc('ler_token_meta', { p_marca: marca.id })
@@ -115,7 +117,13 @@ async function testarInstagram(marca: { id: string; nome: string; instagram_cont
       const msg = json?.error?.message ?? `HTTP ${r.status}`
       return { ...base, estado: 'erro', detalhe: json?.error?.code === 190 ? `Token expirado ou inválido: reconecte pelo celular da sala. (${msg})` : msg.slice(0, 160) }
     }
-    return { ...base, estado: 'ok', detalhe: `Conectado como @${json?.username ?? '?'}` }
+    const info = infoDoToken(marca.identidade)
+    const dias = diasParaVencer(info)
+    const conta = `Conectado como @${json?.username ?? '?'}`
+    if (info.erro) return { ...base, estado: 'incerto', detalhe: `${conta}, mas a última renovação automática falhou: ${info.erro}` }
+    if (dias === null) return { ...base, estado: 'ok', detalhe: `${conta} · sem data de validade: reconecte uma vez para o app passar a renovar sozinho` }
+    if (dias <= AVISAR_COM_DIAS) return { ...base, estado: 'incerto', detalhe: `${conta}, mas o token vence em ${dias} dia${dias === 1 ? '' : 's'}` }
+    return { ...base, estado: 'ok', detalhe: `${conta} · token ${info.estimado ? 'vence em até' : 'vale mais'} ${dias} dias e renova sozinho` }
   } catch (e) {
     return { ...base, estado: 'erro', detalhe: mensagem(e) }
   }
@@ -127,7 +135,9 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
 
-  const { data: marcas } = await db.from('marcas').select('id, nome, instagram_conta_id, meta_token_secret_id').eq('dono_id', usuario).order('criado_em')
+  const { data: marcas } = await db.from('marcas').select('id, nome, instagram_conta_id, meta_token_secret_id, identidade').eq('dono_id', usuario).order('criado_em')
+  // ?so=saude: só a saúde da produção, que é do banco e não chama serviço nenhum (abre sozinha na aba)
+  if (req.query.so === 'saude') return res.status(200).json({ saude: await saudeDaProducao((marcas ?? []).map((m) => m.id)) })
   const resultados = await Promise.all([
     testarClaude(),
     testarOpenRouter(),

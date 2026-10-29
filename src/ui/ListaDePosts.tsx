@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Post } from '../lib/dados'
+import { resumoMetricas, useMetricas } from '../lib/metricas'
 
 const GRUPOS: [string, string[]][] = [
   ['Esperando você', ['aguardando_aprovacao']],
@@ -37,6 +38,7 @@ export function ListaDePosts({
   aoAbrir: () => void
 }) {
   const [busca, setBusca] = useState('')
+  const metricas = useMetricas(posts.filter((p) => p.status === 'publicado').map((p) => p.id))
   const termo = busca.trim().toLowerCase()
   const achados = termo ? posts.filter((p) => `${p.briefing} ${p.legenda ?? ''}`.toLowerCase().includes(termo)) : posts
   return (
@@ -102,6 +104,7 @@ export function ListaDePosts({
                       <small className="muted">
                         {aoVivo && <i className="ao-vivo" aria-label="trabalhando agora" />}
                         {aoVivo ? 'equipe trabalhando' : quando(p)}
+                        {resumoMetricas(metricas[p.id]) && ` · ${resumoMetricas(metricas[p.id])}`}
                       </small>
                     </span>
                   </button>
