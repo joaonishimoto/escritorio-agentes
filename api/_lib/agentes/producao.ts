@@ -6,10 +6,10 @@ import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
 import { juntarNarracao } from '../ffmpeg.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
-import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
+import { modeloDe, modeloNaVolta, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
-import type { ProblemaDoSlide } from '../render.js'
+import { separarSlides, type ProblemaDoSlide } from '../render.js'
 import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
@@ -125,7 +125,8 @@ export const redator: Agente = async (ctx, passo, em) => {
   const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
   const jaUsado = ajuste ? '' : textoJaUsado(await postsRecentes(ctx))
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'redator'),
+    // a volta só troca o que foi apontado: Sonnet dá conta e custa metade do Opus
+    modelo: ajuste ? modeloNaVolta(ctx, 'redator', 'claude-sonnet-5-5') : modeloDe(ctx, 'redator'),
     effort: 'medium',
     sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
     conteudo: [
@@ -604,6 +605,16 @@ const Revisao = z.object({
 
 const MAX_VOLTAS = 2
 
+/** Uma marca curta por slide, tirada do HTML dele: muda quando o designer mexe naquele slide. */
+export function marcasDosSlides(html: string | undefined) {
+  if (!html) return []
+  return separarSlides(html).map((parte) => {
+    let h = 0
+    for (let i = 0; i < parte.length; i++) h = (Math.imul(h, 31) + parte.charCodeAt(i)) | 0
+    return (h >>> 0).toString(36)
+  })
+}
+
 export const revisor: Agente = async (ctx, passo, em) => {
   const correcao = passo.entrada.correcao as Correcao | undefined
   if (correcao) return revisarCorrecao(ctx, passo, em, correcao)
@@ -611,7 +622,15 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const anterior = ctx.post.voltas_revisao > 0 ? (ctx.saidas.revisor as z.infer<typeof Revisao> | undefined) : undefined
   const reconferindo = !!anterior?.problemas?.length
   await em.inicio(reconferindo ? 'Conferindo se o que apontei foi resolvido' : `Conferindo o checklist e ${ctx.regras.length} regras aprendidas`)
-  const slides = ctx.post.slides ?? []
+  const todos = [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
+  // cada slide tem uma marca do HTML que o gerou: na reconferência, só vão as imagens que mudaram desde a última vez
+  const marcas = marcasDosSlides((ctx.saidas.designer as { html?: string } | undefined)?.html)
+  const vistas = (anterior as { marcas_vistas?: string[] } | undefined)?.marcas_vistas
+  const mudou = (i: number) => !vistas || !marcas[i] || vistas[i] !== marcas[i]
+  const mudaram = reconferindo && marcas.length === todos.length ? todos.filter((_, i) => mudou(i)) : todos
+  // se o designer tinha algo a corrigir e nenhum slide mudou, o revisor precisa ver todos de novo
+  const slides = mudaram.length === 0 && anterior?.problemas.some((p) => p.agente === 'designer') ? todos : mudaram
+  const iguais = todos.length - slides.length
   const precisaPesquisa = !reconferindo || anterior!.problemas.some((p) => p.agente === 'pesquisador' || p.agente === 'redator')
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'revisor'),
@@ -626,7 +645,9 @@ export const revisor: Agente = async (ctx, passo, em) => {
       {
         type: 'text' as const,
         text: [
-          `Acima estão os ${slides.length} slides, na ordem.`,
+          iguais
+            ? `Acima estão só os slides que mudaram desde a sua última conferência (${slides.map((x) => x.ordem).join(', ') || 'nenhum'}). Os outros ${iguais} não mudaram e já tinham passado.`
+            : `Acima estão os ${slides.length} slides, na ordem.`,
           ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
           ctx.post.video?.narracao ? `## Narração do Reel (narrador)\n${ctx.post.video.narracao.texto}\n\nConfira a fala como texto: fato, tom e português. Problema nela é do narrador.` : '',
           `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
@@ -650,7 +671,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
     await em.texto(dados.resumo + pendencias)
     return {
-      saida: dados,
+      saida: { ...dados, marcas_vistas: marcas },
       uso,
       entrega: dados.aprovado ? 'Tudo certo. Enviado para sua aprovação' : 'Enviado com pendências para você decidir',
       proximos: null,
@@ -665,7 +686,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
   await em.texto(texto)
   return {
-    saida: dados,
+    saida: { ...dados, marcas_vistas: marcas },
     uso,
     entrega: `Devolvido: ${dados.problemas[0]?.problema.slice(0, 80) ?? 'ajustes'}`,
     proximos: [{ agente: primeiro, entrada: { feedback: texto } }],
