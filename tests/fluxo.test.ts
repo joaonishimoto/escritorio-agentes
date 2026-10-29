@@ -13,3 +13,13 @@ describe('fluxo de produção', () => {
     expect(fluxoDeProducao(etapas, 'foto')).toEqual(['chefe', 'redator', 'designer', 'revisor'])
   })
 })
+
+import { identidadeVisual } from '../api/_lib/contexto'
+
+describe('identidadeVisual', () => {
+  it('tira do prompt o que o app guarda na identidade (sala, ideias guardadas) e deixa o visual', () => {
+    const v = identidadeVisual({ cores: { primaria: '#123456' }, fontes: ['Inter'], sala: { base: 'a' }, posicao: 2, cor_sala: '#fff', ideias_guardadas: [{ titulo: 'x' }], tom_editado: true })
+    expect(v).toEqual({ cores: { primaria: '#123456' }, fontes: ['Inter'] })
+    expect(identidadeVisual(null)).toEqual({})
+  })
+})

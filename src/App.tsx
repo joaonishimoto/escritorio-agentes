@@ -27,6 +27,7 @@ import { chamarApi } from './lib/api'
 import { type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { ORDEM_ESTILOS, type Quadro, type SalaCustom } from './pixel/mapa'
+import type { Ideia } from './lib/ideias'
 import { PainelSala } from './ui/PainelSala'
 import { Abertura } from './ui/Abertura'
 
@@ -100,7 +101,8 @@ function Painel() {
   const [postId, setPostId] = useState<string | null>(null)
   const [recarregar, setRecarregar] = useState(0)
   const [novo, setNovo] = useState(false)
-  const [briefingInicial, setBriefingInicial] = useState<string | undefined>()
+  // ideia do pesquisador que abre o Novo post já preenchido (e qual ideia guardada era, para sair da lista ao criar)
+  const [ideiaInicial, setIdeiaInicial] = useState<{ ideia: Ideia; guardadaId?: string } | undefined>()
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [biblioteca, setBiblioteca] = useState(false)
   const [perfilMarca, setPerfilMarca] = useState(false)
@@ -457,9 +459,9 @@ function Painel() {
             porAgente={custos?.porAgente}
             aoMudar={mudou}
             marcaId={marcaId}
-            aoUsarIdeia={(b) => {
+            aoUsarIdeia={(ideia, guardadaId) => {
               selecionar(null)
-              setBriefingInicial(b)
+              setIdeiaInicial({ ideia, guardadaId })
               setNovo(true)
             }}
           />
@@ -513,11 +515,12 @@ function Painel() {
           marcaNome={marca?.nome}
           marcaCor={marca ? corDaMarca(marca) : undefined}
           neutra={!!marca?.identidade?.neutra}
-          inicial={briefingInicial}
-          aoFechar={() => { setNovo(false); setBriefingInicial(undefined) }}
+          inicial={ideiaInicial?.ideia}
+          ideiaGuardadaId={ideiaInicial?.guardadaId}
+          aoFechar={() => { setNovo(false); setIdeiaInicial(undefined) }}
           aoCriar={(p) => {
             setNovo(false)
-            setBriefingInicial(undefined)
+            setIdeiaInicial(undefined)
             mudou()
             verPost(p.id)
           }}
