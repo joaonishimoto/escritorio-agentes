@@ -17,6 +17,7 @@ describe('erro transitório da fila', () => {
   it('não insiste em erro de verdade', () => {
     for (const msg of [
       'Kling: sem créditos na conta (saldo insuficiente).',
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."},"request_id":"req_011_429"}',
       'Kling recusou a chave. Confira KLING_API_KEY na Vercel. (HTTP 401)',
       'Falta configurar OPENROUTER_API_KEY na Vercel para usar GPT, Gemini ou DeepSeek',
       'O modelo recusou a tarefa',
