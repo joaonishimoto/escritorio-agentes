@@ -471,6 +471,9 @@ i.falhou { background: var(--danger, #b42318) }
 .lista-posts-topo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border) }
 .lista-posts-topo h2 { font-size: 14px; font-weight: 600; flex: 1 }
 .lista-posts-fechar { width: 28px; height: 28px; font-size: 20px }
+.lista-busca { padding: 8px 10px 0 }
+.lista-busca input { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--neutral-0); color: inherit }
+.lista-busca input:focus { outline: 2px solid var(--primary); outline-offset: 1px }
 .lista-posts-corpo { flex: 1; overflow-y: auto; padding: 6px 6px 16px }
 .lista-posts-vazio { padding: 12px 8px; font-size: 13px }
 .lista-posts-grupo { display: flex; flex-direction: column; gap: 2px; padding-top: 8px }

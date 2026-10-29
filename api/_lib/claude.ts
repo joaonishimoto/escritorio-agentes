@@ -100,17 +100,26 @@ export async function gerarJson<S extends z.ZodType>(opts: {
 }): Promise<{ dados: z.infer<S>; uso: Uso }> {
   const modelo = opts.modelo
   if (!eClaude(modelo)) return gerarJsonOR({ ...opts, modelo })
-  const stream = claude.messages.stream({
-    model: modelo,
-    max_tokens: 32000,
-    system: opts.sistema,
-    output_config: { effort: opts.effort ?? 'medium', format: zodOutputFormat(opts.schema) },
-    messages: [{ role: 'user', content: opts.conteudo }],
-  })
-  const final = await stream.finalMessage()
-  checarRecusa(final)
-  const bloco = final.content.find((b): b is Anthropic.TextBlock => b.type === 'text')
-  if (!bloco) throw new Error('Resposta sem texto')
-  const dados = opts.schema.parse(JSON.parse(bloco.text))
-  return { dados, uso: somarUso(modelo, final.usage) }
+  let uso: Uso | undefined
+  // resposta cortada ou fora do schema (raro, mas acontece): pede de novo uma vez antes de desistir
+  for (let tentativa = 0; ; tentativa++) {
+    const stream = claude.messages.stream({
+      model: modelo,
+      max_tokens: 32000,
+      system: opts.sistema,
+      output_config: { effort: opts.effort ?? 'medium', format: zodOutputFormat(opts.schema) },
+      messages: [{ role: 'user', content: opts.conteudo }],
+    })
+    const final = await stream.finalMessage()
+    uso = somarUso(modelo, final.usage, uso)
+    checarRecusa(final)
+    try {
+      const bloco = final.content.find((b): b is Anthropic.TextBlock => b.type === 'text')
+      if (!bloco) throw new Error('Resposta sem texto')
+      return { dados: opts.schema.parse(JSON.parse(bloco.text)), uso }
+    } catch (e) {
+      if (tentativa >= 1) throw new Error(`A resposta do modelo veio fora do formato esperado: ${e instanceof Error ? e.message.slice(0, 200) : e}`)
+      console.warn('resposta fora do schema, pedindo de novo', e)
+    }
+  }
 }

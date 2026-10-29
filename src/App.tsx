@@ -15,7 +15,8 @@ import { Logo } from './ui/Logo'
 import { SuaMesa } from './ui/SuaMesa'
 import { Gaveta } from './ui/Gaveta'
 import { Calendario } from './ui/Calendario'
-import { PainelGastos, dolar } from './ui/Gastos'
+import { PainelGastos } from './ui/Gastos'
+import { dolar } from './lib/formato'
 import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
 import { PostComErro } from './ui/PostComErro'
@@ -95,7 +96,7 @@ function Painel({ logado }: { logado: boolean }) {
       return novo
     })
   const marcasDoBanco = useMarcas(logado, versaoMarcas)
-  const marcas = marcasDoBanco ?? []
+  const marcas = useMemo(() => marcasDoBanco ?? [], [marcasDoBanco])
   // logado, o escritório só aparece depois que as marcas chegam (antes piscava a sala de exemplo)
   const carregandoMarcas = logado && !!supabase && marcasDoBanco === null
   const [marcaId, setMarcaId] = useState<string | null>(null)
@@ -245,6 +246,19 @@ function Painel({ logado }: { logado: boolean }) {
     }, 15_000)
     return () => window.clearInterval(id)
   }, [emDemo, post, ultimoEvento])
+
+  // Esc fecha o que estiver aberto no palco (painel de agente, sua mesa, gaveta, cofre, calendário);
+  // os modais e o visualizador de slides cuidam do próprio Esc
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (document.querySelector('.ver-slides, .modal-fundo')) return
+      if (selecionado) selecionar(null)
+      else if (foco) focar(null)
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [selecionado, foco, selecionar, focar])
 
   const demo = () => {
     setEmDemo(true)
@@ -508,7 +522,7 @@ function Painel({ logado }: { logado: boolean }) {
           }}
         />
       )}
-      {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => location.reload()} />}
+      {instagram && marca && <ConectarInstagram marca={marca} aoFechar={() => setInstagram(false)} aoConectar={() => setVersaoMarcas((v) => v + 1)} />}
       {trocarSenha && <TrocarSenha aoFechar={() => setTrocarSenha(false)} />}
       {novo && marcaId && (
         <NovoPost

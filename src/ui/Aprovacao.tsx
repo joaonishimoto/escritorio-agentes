@@ -48,6 +48,12 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
           <h3>Vídeo do Reel</h3>
           <video className="video-reel" src={post.video.url} controls playsInline preload="metadata" poster={slides[0]?.url} />
           <p className="muted">A imagem abaixo é a capa.</p>
+          {post.video.narracao?.texto && (
+            <>
+              <h3>Narração</h3>
+              <pre className="rascunho">{post.video.narracao.texto}</pre>
+            </>
+          )}
         </section>
       )}
       {slides.length > 0 && (

@@ -3,7 +3,7 @@ import { db } from './_lib/db.js'
 import { enfileirar, rodarAteOLimite } from './_lib/fila.js'
 import { rota } from './_lib/http.js'
 
-/** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora: manda para o publicador. */
+/** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora (manda para o publicador) ou quando há passo parado na fila (roda a fila). */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const { data: token } = await db.from('config_app').select('valor').eq('chave', 'token_agendador').single()
@@ -24,6 +24,13 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     await enfileirar(p.id, 'publicador')
     enviados++
   }
-  if (enviados) await rodarAteOLimite(240_000)
-  return res.status(200).json({ ok: true, enviados })
+  // rede de segurança: passo pendente parado há mais de 2 minutos (navegador fechado, executor que não se re-disparou)
+  const { count: parados } = await db
+    .from('passos')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pendente')
+    .lt('criado_em', new Date(Date.now() - 2 * 60_000).toISOString())
+  let rodou = 0
+  if (enviados || parados) rodou = (await rodarAteOLimite(240_000)).rodou
+  return res.status(200).json({ ok: true, enviados, rodou })
 })

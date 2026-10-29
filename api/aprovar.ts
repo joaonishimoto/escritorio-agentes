@@ -25,7 +25,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     if (post.status !== 'erro') return res.status(409).json({ erro: 'Esse post não está com erro' })
     const { data: falhou } = await db
       .from('passos')
-      .select('agente, entrada')
+      .select('agente, entrada, saida')
       .eq('post_id', post_id)
       .eq('status', 'falhou')
       .order('ordem', { ascending: false })
@@ -34,6 +34,10 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     const agente = falhou?.agente ?? 'chefe'
     const publicar = agente === 'publicador'
     let entrada = (falhou?.entrada as Record<string, unknown>) ?? {}
+    // o render caiu com o HTML já escrito: a nova tentativa só desenha, sem gastar com a IA
+    const htmlGuardado = (falhou?.saida as { html?: string } | null)?.html
+    if (agente === 'designer' && htmlGuardado && !ia) entrada = { ...entrada, html_pronto: htmlGuardado }
+    else if (agente === 'designer') delete entrada.html_pronto
     // tentar de novo com outra IA: troca só a do agente que falhou, e o vídeo começa um pedido novo
     const trocar = ia ? limparIas({ [agente]: ia }) : {}
     if (trocar[agente]) {

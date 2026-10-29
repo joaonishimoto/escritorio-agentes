@@ -2,7 +2,7 @@
 
 # Escritório de Agentes
 
-App web onde uma equipe de agentes de IA cria posts de Instagram para qualquer marca, segue um roteiro editável, aprende com as correções e trabalha à vista num escritório 3D.
+App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório em pixel art: você vê quem está trabalhando, as pastas voando entre as mesas, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
 
 ## Rodar
 
@@ -11,7 +11,9 @@ npm install
 npm run dev
 ```
 
-Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app abre em **modo demonstração**: o botão "Rodar demonstração" reproduz um post inteiro com eventos simulados.
+Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app abre em **modo demonstração**: "Ver demonstração" reproduz um post inteiro com eventos simulados.
+
+Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test` (vitest, funções puras) e `npm run build`. O GitHub Actions roda os três em toda PR (`.github/workflows/checar.yml`).
 
 ## Publicar na Vercel
 
@@ -26,21 +28,32 @@ Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app a
    - `ELEVENLABS_API_KEY` (opcional; elevenlabs.io → API Keys). O narrador usa para gravar a voz dos Reels; a voz de cada marca fica na aba Narração do perfil.
    - `OPENROUTER_API_KEY` (opcional; openrouter.ai → Keys). Libera GPT, Gemini e DeepSeek para os funcionários de texto.
 3. No Supabase, em Authentication → URL Configuration, ponha a URL da Vercel em Site URL.
+4. Aplique as migrações de `supabase/migrations/` na ordem (SQL Editor ou `supabase db push`).
 
-## Como os agentes rodam
+## Como um post anda
 
-No Novo post, em "IAs da equipe", você escolhe a IA de cada funcionário só para aquele post (fica em `posts.preferencias.ias`; o que não for escolhido usa o padrão de `api/_lib/ias.ts`). Num post com erro, dá para tentar de novo com outra IA.
+1. **Novo post**: você escreve o pedido, manda referências (imagens e links), escolhe formato, estilo e a IA de cada funcionário só para aquele post (`posts.preferencias`). `/api/posts` cria o post e enfileira o chefe de pauta.
+2. **Produção**: chefe de pauta → pesquisador → redator → designer (→ cinegrafista → narrador nos Reels) → revisor. Cada agente lê a versão mais nova do roteiro e as regras ativas da marca quando começa. O revisor devolve até duas vezes para quem precisa refazer.
+3. **Sua mesa**: o post pronto aparece na sua mesa (de todas as salas). Dali você publica agora, agenda, pede ajuste, reprova ou guarda na **gaveta** da sala para usar depois.
+4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos.
+5. **Publicação**: o publicador usa a Instagram Graph API com o token guardado no Vault do Supabase. Agendados saem na hora marcada: um `pg_cron` no banco chama `/api/publicar-agendados` a cada minuto.
 
-`/api/posts` cria o post e enfileira o chefe de pauta. `/api/executar` pega um passo da fila (`pegar_proximo_passo`), roda o agente, grava os eventos e se chama de novo enquanto houver fila. Cada agente lê a versão mais nova do roteiro e as regras ativas da marca quando começa. `/api/aprovar` recebe sua decisão: publicar (publicador), pedir ajuste (curador propõe regras e devolve ao agente certo) ou reprovar.
+### A fila
+
+`/api/executar` pega um passo (`pegar_proximo_passo`, sem dois executores pegarem o mesmo), roda o agente, grava os eventos que o escritório anima (Realtime) e se chama de novo enquanto houver fila. Erro passageiro (IA sobrecarregada, timeout, rede, navegador que caiu) devolve o passo para a fila até três vezes antes de marcar o post com erro; erro de verdade aparece na sua mesa explicado em português, com "Tentar de novo" e a opção de trocar a IA. Passos presos voltam para a fila depois de 6 minutos. Com o app aberto, ele cutuca a fila (`/api/acordar`) se um post ficar 45 s sem evento; com o app fechado, o cron do banco faz o mesmo quando há passo pendente parado há mais de 2 minutos.
+
+### Vídeo dos Reels
+
+O cinegrafista pede o vídeo na Kling, num modelo do fal.ai ou escreve uma animação em HTML/CSS que o próprio app grava em MP4 (Chromium + WebCodecs, sem serviço pago). O narrador escreve a fala, gera a voz na ElevenLabs e junta ao vídeo com ffmpeg. Serviço sem crédito cai sozinho para a animação do Claude.
 
 ## Estrutura
 
-- `src/agents/catalogo.ts`: a equipe (nome, papel, modelo, lugar no escritório).
+- `src/App.tsx`: monta o escritório, os painéis e os modais.
+- `src/pixel/`: o escritório em pixel art (`mapa.ts` desenha salas, móveis e objetos; `EscritorioPixel.tsx` anima personagens, pastas, cartinhas, gatos e a barra de salas).
+- `src/ui/`: painéis (agente, sua mesa, aprovação, gaveta, cofrinho, financeiro, calendário, perfil da marca, referências, novo post).
+- `src/lib/`: dados do Supabase (`dados.ts`), chamadas à API, catálogo de IAs, ajudantes puros (`erros.ts`, `datas.ts`, `formato.ts`).
 - `src/store/escritorio.ts`: estado de cada agente, montado a partir dos eventos.
-- `src/office/`: cena 3D (React Three Fiber): mesas, bonecos, balões, pastas voando entre mesas.
-- `src/ui/`: painel do agente e linha do tempo.
-- `src/lib/dados.ts`: marcas, posts, regras e a assinatura Realtime dos eventos.
-- `api/`: rotas da Vercel; `api/_lib/agentes/` tem os 7 agentes.
-- `supabase/migrations/`: tabelas (marcas, roteiros, regras, posts, passos, eventos, midias) com RLS.
-- `public/`: logo (`favicon.svg`, mesma arte de `src/ui/Logo.tsx`), ícones do app, manifest e imagem de compartilhamento.
+- `api/`: rotas da Vercel; `api/_lib/agentes/` tem os agentes; `api/_lib/` tem fila, render dos slides, vídeo, voz, Instagram e integrações.
+- `supabase/migrations/`: tabelas (marcas, roteiros, regras, posts, passos, eventos, midias, config_app, analises_financeiro) com RLS, fila, Vault e cron.
+- `tests/`: testes do vitest.
 - `supabase/seed/drinfy.sql`: cadastra a Drinfy com roteiro, checklist e regras aprendidas.

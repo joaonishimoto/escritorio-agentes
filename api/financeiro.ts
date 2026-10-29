@@ -165,7 +165,9 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (acao !== 'analisar') return res.status(200).json({ numeros, ultima })
   if (!numeros || numeros.posts === 0) return res.status(400).json({ erro: 'Ainda não há posts nos últimos 30 dias para analisar' })
 
-  const { mais_caros, por_dia: _dias, ...resto } = numeros
+  const { mais_caros, ...resto } = numeros
+  // o gasto por dia é só gráfico: não vai para o modelo
+  delete (resto as Partial<typeof numeros>).por_dia
   const { dados, uso } = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',

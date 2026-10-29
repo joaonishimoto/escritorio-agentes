@@ -235,7 +235,8 @@ export function EscritorioPixel({
   const falarGato = (nome: string, texto: string) => {
     setMiau((m) => ({ ...m, [nome]: texto }))
     window.setTimeout(() => setMiau((m) => {
-      const { [nome]: _, ...resto } = m
+      const resto = { ...m }
+      delete resto[nome]
       return resto
     }), 2600)
   }
@@ -296,7 +297,7 @@ export function EscritorioPixel({
         // não sai andando na hora: entra na fila e só sai quando a pasta anterior chegar até quem entrega
         pendentes.current.push(...novas)
       }),
-    [marcas.length], // eslint-disable-line react-hooks/exhaustive-deps
+    [marcas.length],
   )
 
   // dois dedos no touchpad (ou a roda do mouse) passeiam pelo andar, sem precisar clicar e arrastar
@@ -1180,7 +1181,10 @@ function carta(g: CanvasRenderingContext2D, x: number, y: number) {
   g.fillStyle = '#ffffff'
   g.fillRect(x, y, 12, 8)
   g.fillStyle = '#c9ced8'
-  for (let i = 0; i < 6; i++) g.fillRect(x + i, y + i * 0.6, 1, 1), g.fillRect(x + 11 - i, y + i * 0.6, 1, 1)
+  for (let i = 0; i < 6; i++) {
+    g.fillRect(x + i, y + i * 0.6, 1, 1)
+    g.fillRect(x + 11 - i, y + i * 0.6, 1, 1)
+  }
   g.fillStyle = '#e05a4f'
   g.fillRect(x + 5, y + 3, 2, 2)
 }

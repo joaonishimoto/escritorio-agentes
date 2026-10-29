@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Post } from '../lib/dados'
 
 const GRUPOS: [string, string[]][] = [
@@ -37,6 +38,9 @@ export function ListaDePosts({
   aoFechar: () => void
   aoAbrir: () => void
 }) {
+  const [busca, setBusca] = useState('')
+  const termo = busca.trim().toLowerCase()
+  const achados = termo ? posts.filter((p) => `${p.briefing} ${p.legenda ?? ''}`.toLowerCase().includes(termo)) : posts
   return (
     <aside className={`lista-posts${aberta ? ' aberta' : ''}`} aria-label="Posts da marca">
       {/* recolhida: só as capas, uma embaixo da outra; clicar abre o post */}
@@ -68,11 +72,17 @@ export function ListaDePosts({
         {aoNovo && <button className="primario" onClick={aoNovo}>Novo post</button>}
         <button className="icone lista-posts-fechar" onClick={aoFechar} aria-label="Recolher lista de posts" title="Recolher">‹</button>
       </header>
+      {posts.length > 6 && (
+        <div className="lista-busca">
+          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nos posts" aria-label="Buscar nos posts" tabIndex={aberta ? 0 : -1} />
+        </div>
+      )}
       <div className="lista-posts-corpo">
         {emDemo && <p className="muted lista-posts-vazio">Na demonstração, o escritório mostra um post de exemplo.</p>}
         {!emDemo && posts.length === 0 && <p className="muted lista-posts-vazio">Nenhum post nesta sala ainda.</p>}
+        {!emDemo && posts.length > 0 && achados.length === 0 && <p className="muted lista-posts-vazio">Nenhum post com "{busca.trim()}".</p>}
         {GRUPOS.map(([titulo, status]) => {
-          const doGrupo = posts.filter((p) => status.includes(p.status))
+          const doGrupo = achados.filter((p) => status.includes(p.status))
           if (!doGrupo.length) return null
           return (
             <section key={titulo} className="lista-posts-grupo">
