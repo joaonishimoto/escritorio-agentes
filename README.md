@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) o app abre em **modo demonstração**: "Ver demonstração" reproduz um post inteiro com eventos simulados.
+Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (veja `.env.example`) a tela de entrada avisa que falta configurar o Supabase; não há modo de demonstração.
 
 Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test` (vitest, funções puras) e `npm run build`. O GitHub Actions roda os três em toda PR (`.github/workflows/checar.yml`).
 

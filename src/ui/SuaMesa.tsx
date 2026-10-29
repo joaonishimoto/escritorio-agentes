@@ -22,12 +22,10 @@ const quando = (iso: string) => {
 export function SuaMesa({
   pendentes,
   marcas,
-  emDemo,
   aoAbrirPost,
 }: {
   pendentes: Post[]
   marcas: { id: string; nome: string; cor: string }[]
-  emDemo: boolean
   aoAbrirPost: (p: Post) => void
 }) {
   const focar = useEscritorio((s) => s.focar)
@@ -62,9 +60,7 @@ export function SuaMesa({
         </div>
       </header>
       <div className="ag-corpo">
-        {emDemo ? (
-          <p className="muted">Na demonstração nada é publicado de verdade. Crie um post real em "Novo post" para aprovar aqui.</p>
-        ) : pendentes.length === 0 ? (
+        {pendentes.length === 0 ? (
           <div className="ag-vazio">
             <span className="ag-vazio-icone"><IconeMesa /></span>
             <strong>Mesa limpa</strong>

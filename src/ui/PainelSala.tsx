@@ -141,7 +141,7 @@ export function PainelSala({
 
       <footer className="sl-rodape">
         <span className={`sl-estado ${estado ?? ''}`} role="status">
-          {estado === 'salvando' ? 'Salvando…' : estado === 'salvo' ? 'Salvo nesta sala' : estado === 'erro' ? 'Não deu para salvar' : estado === 'local' ? 'Demonstração: não fica salvo' : ' '}
+          {estado === 'salvando' ? 'Salvando…' : estado === 'salvo' ? 'Salvo nesta sala' : estado === 'erro' ? 'Não deu para salvar' : estado === 'local' ? 'Não fica salvo' : ' '}
         </span>
         <button className="secundario" onClick={() => aoMudar({}, cor)} disabled={!personalizada && !sala.base}>Voltar ao padrão</button>
         <button className="primario" onClick={aoFechar}>Pronto</button>

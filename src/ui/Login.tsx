@@ -30,7 +30,8 @@ export function Login() {
         <label htmlFor="senha">Senha</label>
         <input id="senha" type="password" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
         {aviso && <p className="aviso">{aviso}</p>}
-        <button className="primario" disabled={enviando}>{enviando ? 'Aguarde…' : 'Entrar'}</button>
+        {!supabase && <p className="aviso">Falta configurar o Supabase neste ambiente (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).</p>}
+        <button className="primario" disabled={enviando || !supabase}>{enviando ? 'Aguarde…' : 'Entrar'}</button>
       </form>
     </div>
   )

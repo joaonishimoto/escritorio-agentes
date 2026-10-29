@@ -18,14 +18,12 @@ const FORMATO: Record<string, string> = { carrossel: 'Carrossel', foto: 'Foto', 
 export function Gaveta({
   posts,
   marcaNome,
-  emDemo,
   aoUsar,
   aoMudar,
   aoFechar,
 }: {
   posts: Post[]
   marcaNome?: string
-  emDemo: boolean
   aoUsar: (p: Post) => void
   aoMudar: () => void
   aoFechar: () => void
@@ -79,11 +77,11 @@ export function Gaveta({
       </header>
       <div className="ag-corpo">
         {erro && <p className="aviso">{erro}</p>}
-        {emDemo || posts.length === 0 ? (
+        {posts.length === 0 ? (
           <div className="ag-vazio">
             <span className="ag-vazio-icone"><IconeGaveta /></span>
             <strong>Gaveta vazia</strong>
-            <p>{emDemo ? 'Entre na sua conta para guardar posts aqui.' : 'Quando um post ficar pronto e você não quiser publicar agora, guarde aqui.'}</p>
+            <p>Quando um post ficar pronto e você não quiser publicar agora, guarde aqui.</p>
           </div>
         ) : (
           <ul className="gv-lista">

@@ -120,7 +120,6 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 
 /* selos (Badge) */
 .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; font-weight: 500; line-height: 16px; background: var(--secondary); color: var(--secondary-foreground); white-space: nowrap }
-.chip-demo { background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning-strong) }
 .status-aguardando_aprovacao { background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning-strong) }
 .status-publicado { background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: var(--success-strong) }
 .status-erro, .status-reprovado { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: var(--danger-strong) }
@@ -144,6 +143,11 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 .icone { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-md);
   background: none; color: var(--muted-foreground); fill: currentColor; cursor: pointer }
 .icone:hover, .icone[aria-expanded="true"] { background: var(--surface-hover); color: var(--primary) }
+.topo-atalho { position: relative }
+.topo-atalho.ativo { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--primary) }
+.topo-contagem { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--warning-strong); color: #fff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px var(--background) }
 .menu { position: relative }
 .menu-lista { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 200px; padding: 4px;
   display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
@@ -1055,6 +1059,7 @@ i.falhou { background: var(--danger, #b42318) }
 /* cofrinho da sala */
 .pixel-nome.cofre { background: #fff; color: #1f2330; font-variant-numeric: tabular-nums }
 .pixel-nome.cofre.ativo { background: #f2a6b8 }
+.pixel-nome.cofre.instagram { background: linear-gradient(100deg, #f9ce34, #ee2a7b 55%, #6228d7); color: #fff }
 .gst .fin-nota { margin-top: 0; text-align: left }
 .gst-fin { align-self: flex-start }
 
