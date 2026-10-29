@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "check": "tsc -b --noEmit && tsc -p tsconfig.api.json && eslint .",
     "test": "vitest run",
+    "fumaca": "node e2e/fumaca.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
