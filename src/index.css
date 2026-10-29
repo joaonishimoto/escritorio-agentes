@@ -315,6 +315,8 @@ i.publicado { background: #3f7650 }
 @keyframes ao-vivo { 70% { box-shadow: 0 0 0 8px rgba(224,90,79,0) } 100% { box-shadow: 0 0 0 0 rgba(224,90,79,0) } }
 
 /* ───────── escritório em pixel art ───────── */
+/* a Pixelify Sans junta "fi" numa ligadura que sai como "A" (Cinegrafista virava CinegraAsta): sem ligaduras no pixel art */
+.pixel, .etapa, .ab-titulo { font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0 }
 .pixel { position: absolute; inset: 0; overflow: hidden; background: #1f2330; isolation: isolate; z-index: 0 }
 .pixel-tela { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; touch-action: none }
 .pixel-etiqueta { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
@@ -330,9 +332,10 @@ i.publicado { background: #3f7650 }
 @media (prefers-reduced-motion: reduce) { .pixel-balao { animation: none } }
 
 /* etapa atual do post */
-.etapa { position: absolute; top: 12px; left: 12px; z-index: 15; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
-  background: #fff; color: #1f2330; font-family: 'Pixelify Sans', var(--font-sans); font-size: 15px; box-shadow: 0 0 0 2px #1f2330, 3px 3px 0 2px rgba(0,0,0,.25) }
-.etapa-ponto { width: 10px; height: 10px; background: #3969a8; animation: pisca .8s steps(2) infinite }
+.etapa { position: absolute; top: 14px; left: 14px; z-index: 15; display: inline-flex; align-items: center; gap: 6px; padding: 2px 7px 3px;
+  background: #1f2330; color: #fff; font-family: 'Pixelify Sans', var(--font-sans); font-size: 12px; font-weight: 500; line-height: 1.2;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1f2330; pointer-events: none }
+.etapa-ponto { width: 6px; height: 6px; background: #6fa3e0; animation: pisca .8s steps(2) infinite }
 .etapa-ponto.voce { background: #f2b233 }
 
 /* miniaturas e visualizador de slides */
