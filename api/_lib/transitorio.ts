@@ -3,4 +3,4 @@
 const TRANSITORIO = /overloaded|sobrecarreg|rate.?limit|too many requests|\b(429|500|502|503|504|529)\b|timeout|timed out|demorou demais|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|fetch failed|network|browser has been closed|target page, context or browser|internal server error/i
 export const MAX_TENTATIVAS = 3
 
-export const eErroTransitorio = (msg: string) => TRANSITORIO.test(msg) && !/sem cr[ée]ditos|sem saldo|saldo insuficiente|recusou a chave|falta configurar/i.test(msg)
+export const eErroTransitorio = (msg: string) => TRANSITORIO.test(msg) && !/sem cr[ée]ditos|credit balance|sem saldo|saldo insuficiente|recusou a chave|falta configurar/i.test(msg)

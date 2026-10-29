@@ -18,6 +18,17 @@ describe('explicação dos erros para o dono', () => {
     expect(e.titulo).toMatch(/não pode gerar voz/)
     expect(e.trocarPara).toBe('nenhum')
   })
+  it('Anthropic sem crédito explica, linka a recarga e não oferece trocar de IA', () => {
+    for (const msg of [
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans &amp; Billing to upgrade or purchase credits."}}',
+      'Anthropic: sem créditos na conta. Recarregue em https://console.anthropic.com/settings/billing e tente de novo.',
+    ]) {
+      const e = explicarErro('redator', msg)
+      expect(e.titulo).toMatch(/créditos da Anthropic/)
+      expect(e.semTrocaDeIA).toBe(true)
+      expect(e.link?.url).toBe('https://console.anthropic.com/settings/billing')
+    }
+  })
   it('erro desconhecido tem saída genérica', () => {
     expect(explicarErro('redator', 'algo estranho').titulo).toBe('Algo deu errado')
   })

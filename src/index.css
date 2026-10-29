@@ -1155,6 +1155,7 @@ i.falhou { background: var(--danger, #b42318) }
 .pe-motivo h3 { font-size: 17px; font-weight: 650; color: var(--foreground) }
 .pe-motivo p { font-size: 14px; line-height: 1.5; color: var(--muted-foreground) }
 .pe-motivo .pe-detalhe { align-self: flex-start; padding: 2px 0; font-size: 13px; text-decoration: underline; text-underline-offset: 3px }
+.pe-motivo .pe-link { align-self: flex-start; text-decoration: none; margin: 4px 0 }
 .pe-cru { display: block; font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--border); color: var(--muted-foreground); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 140px; overflow: auto }
 .pe-acoes { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
 .pe-acoes > button { width: 100%; min-height: 40px; white-space: normal }

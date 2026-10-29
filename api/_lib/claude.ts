@@ -6,6 +6,16 @@ import { gerarJsonOR, gerarTextoOR } from './openrouter.js'
 
 export const claude = new Anthropic()
 
+export const LINK_CREDITOS_ANTHROPIC = 'https://console.anthropic.com/settings/billing'
+
+/** Erro da API da Anthropic em português, quando dá para dizer o que fazer; os outros passam como vieram. */
+export function erroClaro(e: unknown): unknown {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (/credit balance is too low|purchase credits/i.test(msg))
+    return new Error(`Anthropic: sem créditos na conta. Recarregue em ${LINK_CREDITOS_ANTHROPIC} e tente de novo. (${msg.slice(0, 160)})`)
+  return e
+}
+
 export type Modelo = 'claude-opus-5-5' | 'claude-sonnet-5-5' | 'claude-haiku-5-5'
 const eClaude = (m: ModeloTexto): m is Modelo => m.startsWith('claude-')
 
@@ -73,6 +83,15 @@ export async function gerarTexto(opts: {
 }): Promise<{ texto: string; uso: Uso; buscas?: { feitas: number; erros: string[] } }> {
   const modelo = opts.modelo
   if (!eClaude(modelo)) return gerarTextoOR({ ...opts, modelo })
+  try {
+    return await gerarTextoClaude({ ...opts, modelo })
+  } catch (e) {
+    throw erroClaro(e)
+  }
+}
+
+async function gerarTextoClaude(opts: Parameters<typeof gerarTexto>[0] & { modelo: Modelo }) {
+  const modelo = opts.modelo
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: opts.conteudo }]
   const tools = opts.buscaWeb ? [{ type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: opts.buscaWeb }] : undefined
   let uso: Uso | undefined
@@ -124,6 +143,15 @@ export async function gerarJson<S extends z.ZodType>(opts: {
 }): Promise<{ dados: z.infer<S>; uso: Uso }> {
   const modelo = opts.modelo
   if (!eClaude(modelo)) return gerarJsonOR({ ...opts, modelo })
+  try {
+    return await gerarJsonClaude({ ...opts, modelo })
+  } catch (e) {
+    throw erroClaro(e)
+  }
+}
+
+async function gerarJsonClaude<S extends z.ZodType>(opts: Parameters<typeof gerarJson<S>>[0] & { modelo: Modelo }): Promise<{ dados: z.infer<S>; uso: Uso }> {
+  const modelo = opts.modelo
   let uso: Uso | undefined
   // resposta cortada ou fora do schema (raro, mas acontece): pede de novo uma vez antes de desistir
   for (let tentativa = 0; ; tentativa++) {

@@ -140,6 +140,11 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
           <small>{falha ? `Parou no ${NOMES[falha.agente]?.toLowerCase() ?? falha.agente}` : 'Vendo o que aconteceu…'}</small>
           <h3>{exp?.titulo ?? ' '}</h3>
           {exp && <p>{exp.texto}</p>}
+          {exp?.link && (
+            <a className="primario pe-link" href={exp.link.url} target="_blank" rel="noreferrer">
+              {exp.link.rotulo}
+            </a>
+          )}
           {falha?.erro && (
             <button className="link pe-detalhe" onClick={() => setDetalhe((d) => !d)} aria-expanded={detalhe}>
               {detalhe ? 'Esconder detalhe técnico' : 'Ver detalhe técnico'}

@@ -8,11 +8,20 @@ export interface Explicacao {
   rotuloTroca?: string
   /** o problema não é da IA: o painel não oferece trocar de IA */
   semTrocaDeIA?: boolean
+  /** onde o dono resolve, quando é fora do app */
+  link?: { url: string; rotulo: string }
 }
 
 /** Traduz o erro técnico para o que aconteceu e o que fazer. */
 export function explicarErro(agente: string, erro: string): Explicacao {
   const e = erro.toLowerCase()
+  if (/anthropic: sem cr[ée]ditos|credit balance is too low/.test(e))
+    return {
+      titulo: 'Acabaram os créditos da Anthropic',
+      texto: 'O saldo da conta da Anthropic, que paga o Claude de todos os funcionários, chegou a zero. Nada se perdeu: recarregue os créditos e clique em "Tentar de novo". Trocar para outro modelo do Claude não resolve, porque todos usam o mesmo saldo.',
+      semTrocaDeIA: true,
+      link: { url: 'https://console.anthropic.com/settings/billing', rotulo: 'Recarregar créditos na Anthropic' },
+    }
   if (/kling/.test(e) && /cr[ée]dito|saldo|balance|insufficient|quota/.test(e))
     return { titulo: 'A Kling está sem créditos', texto: 'O vídeo não saiu porque acabou o saldo da conta na Kling. Dá para fazer agora com a animação do Claude, ou recarregar a Kling e tentar de novo.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
   if (/vídeos pagos/.test(e))
