@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { layoutAprovado } from '../aprovados.js'
 import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
@@ -286,6 +287,9 @@ export const designer: Agente = async (ctx, passo, em) => {
   const inspiracoes = todas.filter((m) => m.tags.includes('inspiracao')).slice(-3)
 
   const refsDesign = referenciasDoPost(ctx)
+  // com referências no pedido, o visual vem delas; sem, o último post publicado é o exemplo da marca
+  const aprovado = refsDesign.tem || ctx.marca.identidade?.neutra ? '' : await layoutAprovado(ctx).catch(() => '')
+  if (aprovado) await em.acao('Olhando o último post aprovado da marca')
   await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: modeloDe(ctx, 'designer'),
@@ -305,6 +309,7 @@ export const designer: Agente = async (ctx, passo, em) => {
             : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
           // com referências, o visual vem delas; sem, segue o layout sorteado na pauta
           refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx)),
+          aprovado,
           inspiracoes.length ? `## Inspirações da marca (as últimas imagens acima)\nPeças que o dono gosta. Use como referência de estilo; não coloque essas imagens nos slides.\n${inspiracoes.map((m) => `- ${m.descricao ?? 'inspiração'}`).join('\n')}` : '',
           `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : '(nenhuma: faça slides só com tipografia e cor)'}`,
           refsDesign.tem
