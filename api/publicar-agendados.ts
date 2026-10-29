@@ -1,13 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_lib/db.js'
 import { enfileirar, rodarAteOLimite } from './_lib/fila.js'
-import { rota } from './_lib/http.js'
+import { origemDaRequisicao, rota } from './_lib/http.js'
+import { definirOrigem } from './_lib/render-remoto.js'
 
 /** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora (manda para o publicador) ou quando há passo parado na fila (roda a fila). */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const { data: token } = await db.from('config_app').select('valor').eq('chave', 'token_agendador').single()
   if (!token?.valor || req.headers['x-agendador'] !== token.valor) return res.status(401).end()
+  definirOrigem(origemDaRequisicao(req))
 
   const { data: vencidos } = await db
     .from('posts')

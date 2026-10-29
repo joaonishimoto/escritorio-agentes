@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, rodarAteOLimite } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
+import { definirOrigem } from './_lib/render-remoto.js'
 
 /**
  * Rede de segurança: o app chama quando um post em produção fica parado.
@@ -15,6 +16,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const { data: post } = await db.from('posts').select('marca_id').eq('id', post_id ?? '').maybeSingle()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
 
+  definirOrigem(origemDaRequisicao(req))
   const { rodou, sobrou } = await rodarAteOLimite()
   if (sobrou) acordarExecutor(origemDaRequisicao(req))
   return res.status(200).json({ rodou })

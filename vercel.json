@@ -27,6 +27,10 @@
     },
     "api/financeiro.ts": {
       "maxDuration": 60
+    },
+    "api/render.ts": {
+      "maxDuration": 300,
+      "memory": 2048
     }
   },
   "rewrites": [

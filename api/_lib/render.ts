@@ -68,30 +68,71 @@ export function umNavegadorPorVez<T>(fazer: () => Promise<T>): Promise<T> {
   return vez
 }
 
-async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Buffer[]> {
-  // o Chromium da Vercel às vezes cai no meio (memória, imagem pesada): tenta de novo com um navegador novo,
-  // e na segunda vez não espera a rede ficar parada, só o carregamento das imagens
-  // até três navegadores novos: a segunda e a terceira vez não esperam a rede parar, e a terceira usa menos memória
-  const tentativas: { espera: 'networkidle' | 'load'; leve: boolean }[] = [
-    { espera: 'networkidle', leve: false },
-    { espera: 'load', leve: false },
-    { espera: 'load', leve: true },
-  ]
-  let ultimo: unknown
-  for (const [n, t] of tentativas.entries()) {
-    const livre = await limparTmp()
-    try {
-      return await renderizarUmaVez(html, largura, altura, t.espera, t.leve)
-    } catch (e) {
-      ultimo = e
-      console.warn(`render falhou (tentativa ${n + 1}, /tmp com ${livre} MB livres)`, e)
-      await new Promise((ok) => setTimeout(ok, 1500))
+/**
+ * Separa o documento em um HTML por slide: o mesmo <head> e <body>, só com aquele <section class="slide">.
+ * Cada página do Chromium carrega um slide só (uma imagem de fundo, uma fonte), em vez do post inteiro de uma vez,
+ * que era o que derrubava o navegador da Vercel ("Target page, context or browser has been closed").
+ */
+export function separarSlides(html: string): string[] {
+  const secao = /<section\b[^>]*\bclass\s*=\s*["'][^"']*\bslide\b[^"']*["'][^>]*>[\s\S]*?<\/section>/gi
+  const trechos = Array.from(html.matchAll(secao))
+  return trechos.map((t, i) => {
+    let saida = ''
+    let cursor = 0
+    for (const [j, outro] of trechos.entries()) {
+      saida += html.slice(cursor, outro.index!)
+      if (j === i) saida += outro[0]
+      cursor = outro.index! + outro[0].length
     }
+    return saida + html.slice(cursor)
+  })
+}
+
+type Modo = { espera: 'networkidle' | 'load'; leve: boolean }
+// até três navegadores novos por slide: a segunda e a terceira vez não esperam a rede parar, e a terceira usa menos memória
+const MODOS: Modo[] = [
+  { espera: 'networkidle', leve: false },
+  { espera: 'load', leve: false },
+  { espera: 'load', leve: true },
+]
+
+async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Buffer[]> {
+  const partes = separarSlides(html)
+  if (partes.length === 0) throw new Error('O HTML não tem nenhum <section class="slide">')
+  const imagens: Buffer[] = []
+  let navegador: Navegador | null = null
+  try {
+    for (const [i, parte] of partes.entries()) {
+      let ultimo: unknown
+      let feito = false
+      for (const [n, modo] of MODOS.entries()) {
+        const livre = await limparTmp()
+        try {
+          navegador ??= await abrirNavegador()
+          imagens.push(await renderizarUmSlide(navegador, parte, largura, altura, modo))
+          feito = true
+          break
+        } catch (e) {
+          ultimo = e
+          console.warn(`render do slide ${i + 1} falhou (tentativa ${n + 1}, /tmp com ${livre} MB livres)`, e)
+          // o navegador pode ter caído: fecha e abre outro na próxima tentativa
+          await navegador?.close().catch(() => {})
+          navegador = null
+          await new Promise((ok) => setTimeout(ok, 1500))
+        }
+      }
+      if (!feito) {
+        // a primeira linha do erro do Playwright basta; o espaço livre ajuda a entender uma queda do navegador
+        const msg = ultimo instanceof Error ? ultimo.message.split('\n')[0] : String(ultimo)
+        const livre = await limparTmp()
+        throw new Error(`Slide ${i + 1}: ${msg}${livre >= 0 ? ` (espaço livre no servidor: ${livre} MB)` : ''}`)
+      }
+    }
+    return imagens
+  } finally {
+    await navegador?.close().catch(() => {})
+    await limparTmp()
   }
-  // a primeira linha do erro do Playwright basta; o espaço livre ajuda a entender uma queda do navegador
-  const msg = ultimo instanceof Error ? ultimo.message.split('\n')[0] : String(ultimo)
-  const livre = await limparTmp()
-  throw new Error(`${msg}${livre >= 0 ? ` (espaço livre no servidor: ${livre} MB)` : ''}`)
 }
 
 // Na Vercel o /tmp tem 512 MB e é tudo o que o Chromium tem para perfil, cache e memória compartilhada. O próprio
@@ -129,13 +170,14 @@ export async function abrirNavegador() {
   return playwright.launch({ executablePath: executavel, args: [...chromium.args, '--disable-gpu', '--disk-cache-size=1', '--media-cache-size=1', '--disable-gpu-shader-disk-cache'] })
 }
 
-async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load', leve = false): Promise<Buffer[]> {
-  const navegador = await abrirNavegador()
+type Navegador = Awaited<ReturnType<typeof abrirNavegador>>
+
+async function renderizarUmSlide(navegador: Navegador, html: string, largura: number, altura: number, modo: Modo): Promise<Buffer> {
+  const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
   try {
-    const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
-    await pagina.setContent(html, { waitUntil: espera, timeout: 45_000 })
+    await pagina.setContent(html, { waitUntil: modo.espera, timeout: 45_000 })
     // modo leve: sem filtros e desfoques, que são o que mais gasta memória no Chromium da Vercel
-    if (leve) await pagina.addStyleTag({ content: '*{filter:none!important;backdrop-filter:none!important}' }).catch(() => {})
+    if (modo.leve) await pagina.addStyleTag({ content: '*{filter:none!important;backdrop-filter:none!important}' }).catch(() => {})
     // imagens que ainda não carregaram ganham até 15 s; a que falhar não trava o post
     await pagina.evaluate(() =>
       Promise.race([
@@ -145,13 +187,10 @@ async function renderizarUmaVez(html: string, largura: number, altura: number, e
     )
     await pagina.evaluate(() => document.fonts.ready)
     await pagina.waitForTimeout(300)
-    const slides = await pagina.$$('section.slide')
-    if (slides.length === 0) throw new Error('O HTML não tem nenhum <section class="slide">')
-    const imagens: Buffer[] = []
-    for (const s of slides) imagens.push(await s.screenshot({ type: 'jpeg', quality: 90 }))
-    return imagens
+    const slide = await pagina.$('section.slide')
+    if (!slide) throw new Error('O slide não apareceu na página')
+    return await slide.screenshot({ type: 'jpeg', quality: 90 })
   } finally {
-    await navegador.close().catch(() => {})
-    await limparTmp()
+    await pagina.close().catch(() => {})
   }
 }
