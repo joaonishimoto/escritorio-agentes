@@ -49,6 +49,16 @@ export const CHAVE_DO_SERVICO: Record<Servico, string> = {
   elevenlabs: 'ELEVENLABS_API_KEY',
 }
 
+/** Motor de vídeo padrão conforme as chaves configuradas (mesma regra de api/_lib/ias.ts). */
+export function motorPadrao(servicos: Servicos | null | undefined) {
+  return servicos?.fal ? 'fal-kling' : servicos?.kling ? 'kling' : 'claude'
+}
+
+/** O padrão de cada funcionário; o do cinegrafista depende de qual serviço de vídeo tem chave. */
+export function padraoDe(f: { agente: string; padrao: string }, servicos: Servicos | null | undefined) {
+  return f.agente === 'cinegrafista' ? motorPadrao(servicos) : f.padrao
+}
+
 export function opcoesDe(agente: string) {
   return agente === 'cinegrafista' ? MOTORES_VIDEO : agente === 'narrador' ? OPCOES_NARRADOR : MODELOS_TEXTO
 }

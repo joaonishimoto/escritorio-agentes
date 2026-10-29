@@ -31,6 +31,9 @@
     "api/render.ts": {
       "maxDuration": 300,
       "memory": 2048
+    },
+    "api/servicos.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
