@@ -43,11 +43,11 @@ export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; vi
   { agente: 'chefe', nome: 'Chefe de pauta', padrao: 'claude-sonnet-5-5' },
   { agente: 'pesquisador', nome: 'Pesquisador', padrao: 'claude-sonnet-5-5' },
   { agente: 'redator', nome: 'Redator', padrao: 'claude-opus-5-5' },
-  { agente: 'designer', nome: 'Designer', padrao: 'claude-sonnet-5-5' },
+  { agente: 'designer', nome: 'Designer', padrao: 'claude-opus-5-5' },
   { agente: 'imagens', nome: 'Imagens do designer', padrao: 'seedream' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },
   { agente: 'narrador', nome: 'Narrador', padrao: 'claude-sonnet-5-5', video: true },
-  { agente: 'revisor', nome: 'Revisor', padrao: 'claude-sonnet-5-5' },
+  { agente: 'revisor', nome: 'Revisor', padrao: 'claude-opus-5-5' },
 ]
 
 export const CHAVE_DO_SERVICO: Record<Servico, string> = {

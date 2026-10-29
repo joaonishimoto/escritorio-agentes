@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { layoutAprovado } from '../aprovados.js'
 import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
-import { fluxoDeProducao, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente } from '../contexto.js'
+import { fluxoDeProducao, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente, type Contexto } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
@@ -65,7 +65,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
@@ -221,7 +221,7 @@ async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters
   if (r.problemas.length) {
     await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
     await em.texto(`${textoDaChecagem(r.problemas)}\n`)
-    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título fora da área 1:1: traga para dentro de y 135 a 1215. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false })
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título fora da área 1:1: traga para dentro de y 135 a 1215. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false, mecanico: true })
     if (ajuste && ajuste.html !== html) {
       html = ajuste.html
       usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
@@ -244,27 +244,39 @@ async function editarSlides(
   em: Parameters<Agente>[2],
   pedido: string,
   base?: string,
-  opts: { renderizar: boolean } = { renderizar: true },
+  opts: { renderizar: boolean; mecanico?: boolean } = { renderizar: true },
 ) {
   const anterior = base ?? (ctx.saidas.designer as { html?: string } | undefined)?.html
   if (!anterior) return null
   // as imagens geradas seguem na saída, para uma refação não pagar por elas de novo
   const imagens = (ctx.saidas.designer as { imagens?: unknown[] } | undefined)?.imagens
   if (!base) await em.inicio('Editando os slides prontos')
+  // o designer vê o slide como está (é o que o dono e o revisor olharam): sem isso, "a foto ficou quadrada" não diz onde mexer
+  const renderizados = opts.mecanico ? [] : [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'designer'),
-    effort: 'low',
+    // a correção da checagem automática é mecânica e vai no modelo leve; pedido do dono ou do revisor é trabalho de design
+    modelo: opts.mecanico ? modeloNaVolta(ctx, 'designer', 'claude-sonnet-5-5') : modeloDe(ctx, 'designer'),
+    effort: opts.mecanico ? 'low' : 'medium',
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      'Você aplica ajustes em slides prontos. Mude só o que foi pedido, com substituições exatas e mínimas. Não reescreva nada além disso. Nunca apague texto que o dono não pediu para tirar. Se o problema é um caractere que saiu como quadradinho (seta, símbolo), mantenha o texto e o caractere: o renderizador já desenha setas →; troque só símbolos que não sejam setas.',
+      'Você aplica ajustes em slides prontos. Atenda o pedido por completo, de um jeito que quem pediu veja a diferença no slide renderizado: se o pedido é de composição (tamanho ou posição da foto, moldura, fundo, espaçamento, proporção de um elemento), troque o bloco inteiro de CSS da classe ou o trecho inteiro de HTML envolvido, em vez de mexer num valor só. Fora do que foi pedido, não mude nada. Nunca apague texto que o dono não pediu para tirar. Se o problema é um caractere que saiu como quadradinho (seta, símbolo), mantenha o texto e o caractere: o renderizador já desenha setas →; troque só símbolos que não sejam setas. Se o pedido diz para refazer, ou não dá para atender com trocas no HTML atual, responda refazer: true.',
     ),
     conteudo: [
-      `## O que mudar\n${pedido}`,
-      `## Texto dos slides (versão atual do redator; se diferir do HTML, o HTML deve passar a seguir este texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
-      `## Legenda atual\n${ctx.post.legenda ?? ''}`,
-      `## HTML atual dos slides\n${anterior}`,
-    ].join('\n\n'),
+      ...renderizados.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
+      {
+        type: 'text' as const,
+        text: [
+          renderizados.length ? `Acima, ${renderizados.length === 1 ? 'o slide renderizado como está hoje' : `os ${renderizados.length} slides renderizados como estão hoje, na ordem`}. O pedido abaixo foi feito olhando para ${renderizados.length === 1 ? 'ele' : 'eles'}.` : '',
+          `## O que mudar\n${pedido}`,
+          `## Texto dos slides (versão atual do redator; se diferir do HTML, o HTML deve passar a seguir este texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+          `## Legenda atual\n${ctx.post.legenda ?? ''}`,
+          `## HTML atual dos slides\n${anterior}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      },
+    ],
     schema: Trocas,
   })
   if (dados.refazer) return null
@@ -289,6 +301,64 @@ async function editarSlides(
     return { html, uso: r.uso, saida: { html, slides, checagem, imagens }, entrega: checagem ? 'Ajuste aplicado; a checagem automática ainda aponta algo' : 'Ajuste aplicado' }
   }
   return { html, uso, saida: { html, slides, imagens }, entrega: 'Ajuste aplicado' }
+}
+
+const Autoconferencia = z.object({
+  devolveria: z.array(z.string()).describe('o que o revisor ou o dono devolveriam neste slide, um item por frase, citando o slide; vazio se está pronto'),
+  trocas: z
+    .array(z.object({ de: z.string().describe('trecho exato que existe hoje no HTML'), para: z.string() }))
+    .describe('substituições no HTML que resolvem tudo o que foi listado; pode trocar blocos inteiros de CSS ou de HTML; vazio se não há o que corrigir'),
+})
+
+/**
+ * Antes de entregar, o designer olha os slides renderizados com os olhos do revisor (checklist e regras aprendidas)
+ * e corrige numa passada só o que seria devolvido. Uma chamada leve com imagem, no lugar de uma rodada inteira
+ * de revisor + redator + designer. Devolve o HTML (corrigido ou não) e o que ainda ficou para o revisor saber.
+ */
+async function autoconferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], html: string, slides: NonNullable<Contexto['post']['slides']>, uso: Uso) {
+  if (!slides.length) return { html, slides, uso, pendente: undefined as string | undefined }
+  await em.acao('Olhando os slides prontos antes de entregar')
+  const ordenados = [...slides].sort((a, b) => a.ordem - b.ordem)
+  const { dados, uso: usoConferencia } = await gerarJson({
+    modelo: modeloNaVolta(ctx, 'designer', 'claude-sonnet-5-5'),
+    effort: 'medium',
+    sistema: `${sistemaDoAgente(
+      ctx,
+      'designer',
+      'Você confere os próprios slides renderizados antes de entregar ao revisor, olhando as imagens como ele e como o dono da marca vão olhar. Procure o que seria devolvido: regra aprendida quebrada, foto pequena ou cortada de um jeito que o drink ou o produto não se reconhece, área grande vazia, layout apagado ou sem contraste, texto encostando em foto ou em outro texto, rodapé em mais de uma linha ou desalinhado, elemento desproporcional ao título, título ou logo fora da área central 1:1. Corrija tudo o que achar numa passada só, com trocas no HTML (pode trocar blocos inteiros). Não mude o texto dos slides nem a legenda.',
+    )}\n\n${COMPOSICAO}`,
+    conteudo: [
+      ...ordenados.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
+      {
+        type: 'text' as const,
+        text: [
+          `Acima ${ordenados.length === 1 ? 'está o slide renderizado' : `estão os ${ordenados.length} slides renderizados, na ordem`}.`,
+          ctx.marca.checklist_revisor ? `## O que o revisor vai conferir\n${ctx.marca.checklist_revisor}` : '',
+          `## HTML atual dos slides\n${html}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      },
+    ],
+    schema: Autoconferencia,
+  })
+  const usoTotal = { tokens_entrada: uso.tokens_entrada + usoConferencia.tokens_entrada, tokens_saida: uso.tokens_saida + usoConferencia.tokens_saida, custo_usd: uso.custo_usd + usoConferencia.custo_usd }
+  if (!dados.devolveria.length || !dados.trocas.length) {
+    if (dados.devolveria.length) await em.texto(`Vi, mas não consegui corrigir direto:\n${dados.devolveria.map((d) => `- ${d}`).join('\n')}\n`)
+    return { html, slides, uso: usoTotal, pendente: dados.devolveria.length ? dados.devolveria.map((d) => `- ${d}`).join('\n') : undefined }
+  }
+  let corrigido = html
+  for (const t of dados.trocas) {
+    if (!t.de || !corrigido.includes(t.de)) {
+      await em.texto(`Vi, mas a correção não bateu com o HTML:\n${dados.devolveria.map((d) => `- ${d}`).join('\n')}\n`)
+      return { html, slides, uso: usoTotal, pendente: dados.devolveria.map((d) => `- ${d}`).join('\n') }
+    }
+    corrigido = corrigido.split(t.de).join(t.para)
+  }
+  await em.texto(`Corrigi antes de entregar:\n${dados.devolveria.map((d) => `- ${d}`).join('\n')}\n`)
+  await em.acao('Renderizando de novo')
+  const r = await salvarSlides(ctx, passo, corrigido)
+  return { html: corrigido, slides: r.slides, uso: usoTotal, pendente: r.problemas.length ? textoDaChecagem(r.problemas) : undefined }
 }
 
 /** Composição que vale para toda marca: vem das correções do dono que se repetiam (vazio, desalinhado, número gigante, site no botão). */
@@ -427,8 +497,8 @@ export const designer: Agente = async (ctx, passo, em) => {
     sistema: `${sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título fora da área 1:1.',
-    )}\n\n${COMPOSICAO}`,
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título fora da área 1:1, e o revisor confere as imagens contra o checklist abaixo.',
+    )}\n\n${COMPOSICAO}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
@@ -464,8 +534,10 @@ export const designer: Agente = async (ctx, passo, em) => {
   await em.acao('Renderizando JPEG 1080 × 1350')
   const usoAntes = { ...gerado.uso, tokens_entrada: gerado.uso.tokens_entrada + usoImagens.tokens_entrada, tokens_saida: gerado.uso.tokens_saida + usoImagens.tokens_saida, custo_usd: gerado.uso.custo_usd + usoImagens.custo_usd }
   const r = await renderizarEConferir(ctx, passo, em, html, usoAntes)
+  const c = await autoconferir(ctx, passo, em, r.html, r.slides, r.uso)
+  const checagem = [r.checagem, c.pendente].filter(Boolean).join('\n') || undefined
   const comImagens = geradas.length ? `, com ${geradas.length} ${geradas.length === 1 ? 'imagem gerada' : 'imagens geradas'}` : ''
-  return { saida: { html: r.html, slides: r.slides, checagem: r.checagem, imagens: geradas }, uso: r.uso, entrega: `${r.slides.length} slides renderizados${comImagens}${r.checagem ? ', com pontos da checagem automática' : ''}` }
+  return { saida: { html: c.html, slides: c.slides, checagem, imagens: geradas }, uso: c.uso, entrega: `${c.slides.length} slides renderizados${comImagens}${checagem ? ', com pontos da checagem automática' : ''}` }
 }
 
 // ───────── Cinegrafista (só em Reels) ─────────
@@ -811,12 +883,15 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const pauta = ctx.saidas.chefe as { formato?: string; quantidade_slides?: number; objetivo?: string; fecho?: string } | undefined
   const fotosDaMarca = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao')).map((m) => m.descricao ?? m.tags.join(', '))
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'revisor'),
+    // a reconferência só checa o que ele mesmo apontou: vai no modelo leve
+    modelo: reconferindo ? modeloNaVolta(ctx, 'revisor', 'claude-sonnet-5-5') : modeloDe(ctx, 'revisor'),
     effort: reconferindo ? 'low' : 'medium',
     sistema: sistemaDoAgente(
       ctx,
       'revisor',
-      'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Só aprove se todos os itens passarem. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web. Itens que a equipe não tem como conferir (dados internos, como as receitas do app) não são problema: cite no resumo para o dono conferir. Seja direto: cada problema em uma frase, resumo em até três frases.',
+      reconferindo
+        ? 'Você confere se o que você mesmo apontou na rodada anterior foi resolvido. Olhe as imagens de verdade. Se cada ponto foi resolvido, aprove. Problema novo só entra se for grave: texto cortado, sobreposto ou ilegível, regra aprendida quebrada, fato errado, formato errado. Alinhamento fino, alguns pixels, gosto pessoal: não devolvem o post; se quiser, cite no resumo como sugestão para o dono. Cada devolução custa uma rodada inteira da equipe.'
+        : 'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Devolva o que o dono reprovaria: regra aprendida quebrada, item do checklist que falha, texto cortado, sobreposto ou ilegível, fato errado, formato ou quantidade de slides errados, foto que não é da marca, composição claramente ruim (área grande vazia, foto pequena ou irreconhecível, layout apagado, elementos encostando). Não devolva por detalhe de gosto ou por alguns pixels: isso vai no resumo como sugestão. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web. Itens que a equipe não tem como conferir (dados internos, como as receitas do app) não são problema: cite no resumo para o dono conferir. Seja direto: cada problema em uma frase dizendo o que está errado e como corrigir, sem medidas em pixels; resumo em até três frases.',
     ),
     conteudo: [
       ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
@@ -842,7 +917,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
             : '',
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
-            ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
+            ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido e, se sim, aprove. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
             : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.formato ? ` A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta${pauta.formato === 'foto' ? ' (post de foto é 1 imagem só; regra de carrossel, como quantidade mínima de slides ou "Arraste pro lado", não vale)' : ''}${pauta.objetivo ? ', nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem' : ''}.` : ''}`,
         ]
           .filter(Boolean)
@@ -889,7 +964,7 @@ async function revisarCorrecao(ctx: Parameters<Agente>[0], passo: Parameters<Age
   await em.inicio('Conferindo se o seu ajuste foi aplicado')
   const slides = ctx.post.slides ?? []
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'revisor'),
+    modelo: modeloNaVolta(ctx, 'revisor', 'claude-sonnet-5-5'),
     effort: 'low',
     sistema: sistemaDoAgente(ctx, 'revisor', 'Você confere se um ajuste pedido pelo dono da marca foi aplicado. Olhe só o pedido e se algo visivelmente quebrou (texto cortado, sobreposto, caractere estranho). Não reavalie o resto do post.'),
     conteudo: [
