@@ -10,7 +10,7 @@ import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarSlides } from '../render.js'
 import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
-import { feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
+import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
 const Pauta = z.object({
@@ -165,7 +165,10 @@ const Trocas = z.object({
 })
 
 async function salvarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], html: string) {
-  const imagens = await renderizarSlides(html)
+  // se o render cair, o HTML fica guardado: a próxima tentativa só desenha de novo, sem chamar a IA
+  const imagens = await renderizarSlides(html).catch((e) => {
+    throw new ErroRetomavel(e, { html }, { html_pronto: html })
+  })
   const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
   const slides = []
   for (const [i, img] of imagens.entries()) {
@@ -221,6 +224,13 @@ async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente
 }
 
 export const designer: Agente = async (ctx, passo, em) => {
+  // tentativa depois de o render cair: o HTML já estava escrito, só falta desenhar
+  const pronto = passo.entrada.html_pronto as string | undefined
+  if (pronto) {
+    await em.inicio('Desenhando de novo os slides que já estavam prontos')
+    const slides = await salvarSlides(ctx, passo, pronto)
+    return { saida: { html: pronto, slides }, uso: USO_ZERO, entrega: `${slides.length} slides renderizados` }
+  }
   const correcao = passo.entrada.correcao as Correcao | undefined
   const apontado = passo.entrada.feedback as string | undefined
   const pedido = [correcao ? `Pedido do dono da marca: ${correcao.comentario}\n${correcao.instrucao}` : '', apontado ? `Apontado nesta rodada:\n${apontado}` : '']

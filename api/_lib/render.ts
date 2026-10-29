@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, statfs, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import chromium from '@sparticuz/chromium'
@@ -79,24 +79,54 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
   ]
   let ultimo: unknown
   for (const [n, t] of tentativas.entries()) {
+    const livre = await limparTmp()
     try {
       return await renderizarUmaVez(html, largura, altura, t.espera, t.leve)
     } catch (e) {
       ultimo = e
-      console.warn(`render falhou (tentativa ${n + 1})`, e)
+      console.warn(`render falhou (tentativa ${n + 1}, /tmp com ${livre} MB livres)`, e)
       await new Promise((ok) => setTimeout(ok, 1500))
     }
   }
-  throw ultimo
+  // a primeira linha do erro do Playwright basta; o espaço livre ajuda a entender uma queda do navegador
+  const msg = ultimo instanceof Error ? ultimo.message.split('\n')[0] : String(ultimo)
+  const livre = await limparTmp()
+  throw new Error(`${msg}${livre >= 0 ? ` (espaço livre no servidor: ${livre} MB)` : ''}`)
+}
+
+// Na Vercel o /tmp tem 512 MB e é tudo o que o Chromium tem para perfil, cache e memória compartilhada. O próprio
+// Chromium descompactado ocupa uns 250 MB; cada vez que ele caía, o perfil temporário do Playwright ficava para trás,
+// e numa instância quente o /tmp enchia ("Less than 64MB of free space in temporary directory") e todo render seguinte
+// caía também. Antes de abrir, o que sobrou de perfis antigos sai e o espaço livre fica registrado.
+const SOBRAS = /^(playwright_chromiumdev_profile-|puppeteer_dev_chrome_profile-|\.org\.chromium\.|\.com\.google\.Chrome\.|core\.|narracao-)/
+
+/** Tira do /tmp o que ficou de navegadores anteriores e devolve quantos MB estão livres. */
+export async function limparTmp() {
+  const pasta = tmpdir()
+  try {
+    const nomes = await readdir(pasta)
+    await Promise.all(nomes.filter((n) => SOBRAS.test(n)).map((n) => rm(join(pasta, n), { recursive: true, force: true }).catch(() => {})))
+  } catch {
+    // sem acesso ao /tmp: segue sem limpar
+  }
+  try {
+    const s = await statfs(pasta)
+    return Math.round((s.bavail * s.bsize) / 1e6)
+  } catch {
+    return -1
+  }
 }
 
 /** Abre o Chromium: na Vercel o do @sparticuz/chromium, localmente o de CHROMIUM_PATH. */
 export async function abrirNavegador() {
   const local = process.env.CHROMIUM_PATH
   if (local) return playwright.launch({ executablePath: local, args: ['--no-sandbox'] })
+  const livre = await limparTmp()
+  if (livre >= 0 && livre < 120) console.warn(`/tmp com só ${livre} MB livres antes de abrir o Chromium`)
   const executavel = await chromium.executablePath()
   await instalarFontesReserva()
-  return playwright.launch({ executablePath: executavel, args: [...chromium.args, '--disable-dev-shm-usage', '--disable-gpu'] })
+  // sem cache em disco: cada render é uma página só, e o /tmp é curto
+  return playwright.launch({ executablePath: executavel, args: [...chromium.args, '--disable-gpu', '--disk-cache-size=1', '--media-cache-size=1', '--disable-gpu-shader-disk-cache'] })
 }
 
 async function renderizarUmaVez(html: string, largura: number, altura: number, espera: 'networkidle' | 'load', leve = false): Promise<Buffer[]> {
@@ -122,5 +152,6 @@ async function renderizarUmaVez(html: string, largura: number, altura: number, e
     return imagens
   } finally {
     await navegador.close().catch(() => {})
+    await limparTmp()
   }
 }

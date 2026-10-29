@@ -1,5 +1,5 @@
 import { MUXER_JS } from './muxer-fonte.js'
-import { abrirNavegador, desenharSetas, umNavegadorPorVez } from './render.js'
+import { abrirNavegador, desenharSetas, limparTmp, umNavegadorPorVez } from './render.js'
 
 // Vídeo feito pelo próprio app: o Claude escreve uma animação em HTML/CSS, o Chromium mostra quadro a quadro
 // e o codificador de vídeo do navegador (WebCodecs) monta o MP4. Não depende de serviço de vídeo pago.
@@ -86,5 +86,6 @@ async function gravarAnimacaoAgora(html: string, segundos: number): Promise<Buff
     return Buffer.from(mp4, 'base64')
   } finally {
     await navegador.close().catch(() => {})
+    await limparTmp()
   }
 }

@@ -17,3 +17,14 @@ describe('explicação dos erros para o dono', () => {
     expect(explicarErro('redator', 'algo estranho').titulo).toBe('Algo deu errado')
   })
 })
+
+describe('erros que não são da IA', () => {
+  it('navegador caído não oferece trocar de IA', () => {
+    const e = explicarErro('designer', 'page.evaluate: Target page, context or browser has been closed')
+    expect(e.semTrocaDeIA).toBe(true)
+    expect(e.texto).toMatch(/sem gastar com a IA/)
+  })
+  it('falta de espaço no servidor tem explicação própria', () => {
+    expect(explicarErro('designer', 'page.setContent: Target page closed (espaço livre no servidor: 13 MB)').titulo).toMatch(/espaço/)
+  })
+})

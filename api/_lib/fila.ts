@@ -1,6 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import { chefe, cinegrafista, designer, narrador, pesquisador, redator, revisor } from './agentes/producao.js'
 import { curador, publicador } from './agentes/pos.js'
+import { ErroRetomavel } from './agentes/tipos.js'
 import type { Agente } from './agentes/tipos.js'
 import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
 import { db } from './db.js'
@@ -69,16 +70,19 @@ export async function rodarUmPasso(): Promise<boolean> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error(`passo ${passo.id} (${passo.agente}) falhou (tentativa ${passo.tentativas})`, e)
+    // o que já estava pronto fica no registro do passo e entra na próxima tentativa
+    const guardar = e instanceof ErroRetomavel ? e.saida : {}
+    const entrada = e instanceof ErroRetomavel ? { ...passo.entrada, ...e.entrada } : passo.entrada
     // o publicador não repete sozinho: uma falha de rede depois de publicar faria o post sair duas vezes
     if (passo.agente !== 'publicador' && eErroTransitorio(msg) && passo.tentativas < MAX_TENTATIVAS) {
       // espera um pouco (mais a cada tentativa) e devolve o mesmo passo para a fila; o escritório avisa
       const espera = 5_000 * passo.tentativas
       await em.acao(`Instabilidade no serviço, tentando de novo em ${Math.round(espera / 1000)} s (${passo.tentativas + 1}ª de ${MAX_TENTATIVAS})`)
       await new Promise((ok) => setTimeout(ok, espera))
-      const { error } = await db.from('passos').update({ status: 'pendente', saida: { erro_anterior: msg } }).eq('id', passo.id).eq('status', 'rodando')
+      const { error } = await db.from('passos').update({ status: 'pendente', entrada, saida: { erro_anterior: msg, ...guardar } }).eq('id', passo.id).eq('status', 'rodando')
       if (!error) return true
     }
-    await db.from('passos').update({ status: 'falhou', saida: { erro: msg }, terminado_em: new Date().toISOString() }).eq('id', passo.id)
+    await db.from('passos').update({ status: 'falhou', entrada, saida: { erro: msg, ...guardar }, terminado_em: new Date().toISOString() }).eq('id', passo.id)
     await db.from('posts').update({ status: 'erro' }).eq('id', passo.post_id)
     await em.erro(msg.slice(0, 300))
   }

@@ -6,6 +6,8 @@ export interface Explicacao {
   /** IA que resolve, quando o problema é do serviço de agora */
   trocarPara?: string
   rotuloTroca?: string
+  /** o problema não é da IA: o painel não oferece trocar de IA */
+  semTrocaDeIA?: boolean
 }
 
 /** Traduz o erro técnico para o que aconteceu e o que fazer. */
@@ -26,6 +28,13 @@ export function explicarErro(agente: string, erro: string): Explicacao {
   if (agente === 'publicador' && /token|oauth|session|permiss/.test(e))
     return { titulo: 'O Instagram desconectou', texto: 'A conexão com o Instagram expirou. Reconecte a conta no menu (···) e publique de novo.' }
   if (agente === 'publicador') return { titulo: 'O Instagram não aceitou', texto: 'A publicação foi recusada. Veja o detalhe abaixo e tente de novo, ou volte para aprovação para ajustar.' }
-  if (/chromium|render|navegador|browser has been closed|target page|context or browser/.test(e)) return { titulo: 'O desenho dos slides caiu no meio', texto: 'O navegador que transforma o layout em imagens fechou sozinho, geralmente quando vários posts são desenhados ao mesmo tempo. O texto e o layout estão prontos; tente de novo que ele desenha só as imagens.' }
-  return { titulo: 'Algo deu errado', texto: 'O funcionário parou com um erro. Tente de novo; se repetir, troque de IA.' }
+  if (/free space in temporary|espaço livre no servidor: \d{1,2} mb|no space left|enospc/.test(e))
+    return { titulo: 'Faltou espaço no servidor', texto: 'O servidor que desenha os slides ficou sem espaço temporário e o navegador caiu. A limpeza é automática: tente de novo que ele desenha só as imagens, sem gastar com a IA.', semTrocaDeIA: true }
+  if (/chromium|render|navegador|browser has been closed|target page|context or browser|^page\.\w+:|frame\.\w+:|protocol error|websocket/.test(e))
+    return { titulo: 'O desenho dos slides caiu no meio', texto: 'O navegador que transforma o layout em imagens fechou sozinho no servidor. O texto e o layout estão guardados; tente de novo que ele desenha só as imagens, sem gastar com a IA. A IA não tem a ver com esse erro.', semTrocaDeIA: true }
+  if (/falha ao subir|storage|bucket/.test(e))
+    return { titulo: 'Não deu para guardar o arquivo', texto: 'O arquivo foi feito, mas não subiu para o armazenamento do app. Tente de novo; se repetir, o detalhe técnico abaixo diz o motivo.', semTrocaDeIA: true }
+  if (/fora do formato esperado|schema|json/.test(e))
+    return { titulo: 'A IA respondeu fora do formato', texto: 'A resposta veio incompleta ou num formato que o app não entendeu, mesmo depois de pedir de novo. Tentar de novo costuma resolver; se repetir, troque de IA.' }
+  return { titulo: 'Algo deu errado', texto: 'O funcionário parou com um erro inesperado. Tente de novo; o detalhe técnico abaixo diz o que aconteceu e, se repetir, vale trocar de IA.' }
 }

@@ -67,6 +67,7 @@ export function AcoesDeErro({ post, agente, erro: dado, aoMudar }: { post: Post;
   }
 
   const sugestao = exp.trocarPara && exp.trocarPara !== atual ? exp.trocarPara : null
+  const trocaDeIA = !!f && !exp.semTrocaDeIA
   return (
     <div className="pe-acoes">
       {falhou && <p className="aviso">{falhou}</p>}
@@ -78,9 +79,9 @@ export function AcoesDeErro({ post, agente, erro: dado, aoMudar }: { post: Post;
       <button className={sugestao ? 'secundario' : 'primario'} disabled={!!enviando} onClick={() => agir('tentar_de_novo', ia || undefined)}>
         {enviando === (ia || 'tentar_de_novo')
           ? 'Mandando…'
-          : ia ? `Tentar de novo com ${nomeDaIA(ia)}` : agente === 'publicador' ? 'Publicar de novo agora' : `Tentar de novo${atual && f ? ` com ${nomeDaIA(atual)}` : ''}`}
+          : ia ? `Tentar de novo com ${nomeDaIA(ia)}` : agente === 'publicador' ? 'Publicar de novo agora' : `Tentar de novo${atual && trocaDeIA ? ` com ${nomeDaIA(atual)}` : ''}`}
       </button>
-      {f && (
+      {trocaDeIA && (
         <label className="pe-ia">
           <span>Ou escolha outra IA para o {NOMES[agente]?.toLowerCase() ?? agente}</span>
           <select value={ia} onChange={(e) => setIa(e.target.value)}>
