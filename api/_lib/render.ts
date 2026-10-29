@@ -214,6 +214,27 @@ const MODOS: Modo[] = [
   { espera: 'load', leve: true },
 ]
 
+/** Tempo máximo de um slide, do setContent à foto: passou disso, o navegador é considerado travado. */
+const LIMITE_POR_SLIDE_MS = 90_000
+
+/** Espera `fazer` até `ms`; passou disso, rejeita (quem chamou fecha o navegador, não fica pendurado). */
+export function comLimite<T>(fazer: Promise<T>, ms: number, oQue: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const limite = new Promise<never>((_, falha) => {
+    timer = setTimeout(() => falha(new Error(`${oQue} passou de ${Math.round(ms / 1000)} s`)), ms)
+  })
+  return Promise.race([fazer, limite]).finally(() => clearTimeout(timer))
+}
+
+/**
+ * Fecha o navegador sem ficar preso: um Chromium que caiu pode não responder ao close. Um fechamento pendurado
+ * travava a fila de um navegador por vez e todo render seguinte na mesma instância até o limite da função.
+ */
+export async function fecharNavegador(navegador: Navegador | null) {
+  if (!navegador) return
+  await comLimite(navegador.close(), 5_000, 'fechar o navegador').catch((e) => console.warn(e instanceof Error ? e.message : e))
+}
+
 async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Render> {
   const partes = separarSlides(html)
   if (partes.length === 0) throw new Error('O HTML não tem nenhum <section class="slide">')
@@ -228,7 +249,7 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
         const livre = await limparTmp()
         try {
           navegador ??= await abrirNavegador()
-          const r = await renderizarUmSlide(navegador, parte, largura, altura, modo)
+          const r = await comLimite(renderizarUmSlide(navegador, parte, largura, altura, modo), LIMITE_POR_SLIDE_MS, `render do slide ${i + 1}`)
           imagens.push(r.imagem)
           problemas.push(...r.problemas.map((problema) => ({ slide: i + 1, problema })))
           feito = true
@@ -236,8 +257,8 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
         } catch (e) {
           ultimo = e
           console.warn(`render do slide ${i + 1} falhou (tentativa ${n + 1}, /tmp com ${livre} MB livres)`, e)
-          // o navegador pode ter caído: fecha e abre outro na próxima tentativa
-          await navegador?.close().catch(() => {})
+          // o navegador pode ter caído: fecha (ou mata) e abre outro na próxima tentativa
+          await fecharNavegador(navegador)
           navegador = null
           await new Promise((ok) => setTimeout(ok, 1500))
         }
@@ -251,7 +272,7 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
     }
     return { imagens, problemas }
   } finally {
-    await navegador?.close().catch(() => {})
+    await fecharNavegador(navegador)
     await limparTmp()
   }
 }
@@ -306,7 +327,8 @@ async function renderizarUmSlide(navegador: Navegador, html: string, largura: nu
         new Promise((ok) => setTimeout(ok, 15_000)),
       ]),
     )
-    await pagina.evaluate(() => document.fonts.ready)
+    // fonte do Google que não termina de carregar não segura o slide: 10 s e segue com a fonte que houver
+    await comLimite(pagina.evaluate(() => document.fonts.ready), 10_000, 'carregar as fontes').catch(() => {})
     await pagina.waitForTimeout(300)
     const slide = await pagina.$('section.slide')
     if (!slide) throw new Error('O slide não apareceu na página')
