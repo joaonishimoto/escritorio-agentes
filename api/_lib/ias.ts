@@ -23,8 +23,8 @@ export const PADRAO_TEXTO = {
   chefe: 'claude-sonnet-5-5',
   pesquisador: 'claude-sonnet-5-5',
   redator: 'claude-opus-5-5',
-  designer: 'claude-sonnet-5-5',
-  revisor: 'claude-sonnet-5-5',
+  designer: 'claude-opus-5-5',
+  revisor: 'claude-opus-5-5',
   narrador: 'claude-sonnet-5-5',
 } as const satisfies Record<string, ModeloTexto>
 export type AgenteDeTexto = keyof typeof PADRAO_TEXTO

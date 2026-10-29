@@ -115,7 +115,7 @@ export async function carregarContexto(postId: string): Promise<Contexto> {
 
 // Cada agente recebe só as partes do perfil da marca que usa: menos tokens de entrada em toda chamada.
 const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: boolean; outrasRegras?: boolean }> = {
-  chefe: { tom: true, identidade: true },
+  chefe: { tom: true, identidade: true, outrasRegras: true },
   pesquisador: { tom: true },
   redator: { tom: true, legenda: true },
   designer: { identidade: true },
