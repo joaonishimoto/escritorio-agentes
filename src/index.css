@@ -1244,3 +1244,9 @@ i.falhou { background: var(--danger, #b42318) }
 .gv-info .gv-botoes .primario { margin-top: 0 }
 .gv-ajuste { display: flex; flex-direction: column; gap: 6px; margin-top: 4px }
 .gv-ajuste textarea { width: 100%; box-sizing: border-box; font-size: 14px }
+
+.cal-metricas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0 0 10px }
+.cal-metricas div { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.cal-metricas dt { font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.cal-metricas dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums }
+@media (max-width: 640px) { .cal-metricas { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
