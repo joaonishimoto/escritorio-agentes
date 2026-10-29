@@ -33,9 +33,37 @@ export interface Renderizado {
 /** Renderiza cada slide, confere e sobe no bucket de posts. Devolve a lista na ordem e os problemas achados. */
 export async function renderizarESalvar(html: string, pasta: string): Promise<Renderizado> {
   const url = process.env.VERCEL ? origemDoApp() : null
-  if (url) return renderizarLonge(url, html, pasta)
+  if (url) {
+    try {
+      return await renderizarLonge(url, html, pasta)
+    } catch (e) {
+      // a função de render não respondeu (travou, 504, rede): desenha aqui mesmo em vez de esperar 5 minutos
+      // três vezes; o executor também tem 2 GB e um navegador por vez
+      if (!semResposta(e)) throw e
+      console.warn('render remoto sem resposta, renderizando no executor', e instanceof Error ? e.message : e)
+    }
+  }
   const r = await renderizarSlidesConferindo(html)
   return { slides: await salvarImagens(r.imagens, pasta), problemas: r.problemas }
+}
+
+/** Quanto o executor espera pela função de render: um post de 10 slides leva perto de um minuto. */
+const ESPERA_RENDER_MS = 150_000
+
+class ErroDeRender extends Error {
+  constructor(
+    msg: string,
+    public status: number,
+  ) {
+    super(msg)
+  }
+}
+
+/** Erro que não diz nada sobre o HTML (a função não respondeu), e por isso vale tentar aqui mesmo. */
+export function semResposta(e: unknown) {
+  if (e instanceof ErroDeRender) return e.status >= 500
+  if (e instanceof Error) return e.name === 'TimeoutError' || e.name === 'AbortError' || /fetch failed|ECONNRESET|socket/i.test(e.message)
+  return false
 }
 
 async function renderizarLonge(url: string, html: string, pasta: string): Promise<Renderizado> {
@@ -43,9 +71,10 @@ async function renderizarLonge(url: string, html: string, pasta: string): Promis
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-executor-secret': process.env.EXECUTOR_SECRET ?? '' },
     body: JSON.stringify({ html, pasta }),
+    signal: AbortSignal.timeout(ESPERA_RENDER_MS),
   })
   const json = (await r.json().catch(() => null)) as { slides?: Slide[]; problemas?: ProblemaDoSlide[]; erro?: string } | null
-  if (!r.ok || !json?.slides) throw new Error(json?.erro ?? `Render: HTTP ${r.status}`)
+  if (!r.ok || !json?.slides) throw new ErroDeRender(json?.erro ?? `Render: HTTP ${r.status}`, r.status)
   return { slides: json.slides, problemas: json.problemas ?? [] }
 }
 
