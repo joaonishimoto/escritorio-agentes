@@ -53,6 +53,11 @@ export function desenharSetas(html: string) {
  * Na Vercel usa o Chromium do @sparticuz/chromium; localmente, CHROMIUM_PATH.
  */
 export async function renderizarSlides(html: string, largura = 1080, altura = 1350): Promise<Buffer[]> {
+  return (await renderizarSlidesConferindo(html, largura, altura)).imagens
+}
+
+/** Renderiza e confere cada slide (texto cortado, sobreposto ou pequeno demais). */
+export async function renderizarSlidesConferindo(html: string, largura = 1080, altura = 1350): Promise<Render> {
   return umNavegadorPorVez(() => renderizarSlidesAgora(desenharSetas(html), largura, altura))
 }
 
@@ -88,6 +93,58 @@ export function separarSlides(html: string): string[] {
   })
 }
 
+/** Problema que a checagem automática achou num slide (antes de gastar uma rodada de revisor nisso). */
+export interface ProblemaDoSlide {
+  slide: number
+  problema: string
+}
+
+export interface Render {
+  imagens: Buffer[]
+  problemas: ProblemaDoSlide[]
+}
+
+// Roda dentro da página, depois de fontes e imagens: texto cortado pela borda do slide, texto por cima de outro
+// texto e corpo de texto pequeno demais. É determinístico, então não precisa de modelo para achar.
+const CONFERIR = `(() => {
+  const slide = document.querySelector('section.slide')
+  if (!slide) return []
+  const limite = slide.getBoundingClientRect()
+  const problemas = []
+  const textos = []
+  for (const el of slide.querySelectorAll('*')) {
+    const temTexto = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent.trim().length > 0)
+    if (!temTexto) continue
+    const estilo = getComputedStyle(el)
+    if (estilo.display === 'none' || estilo.visibility === 'hidden' || Number(estilo.opacity) === 0) continue
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) continue
+    const texto = el.textContent.trim().replace(/\\s+/g, ' ')
+    const trecho = texto.length > 40 ? texto.slice(0, 40) + '…' : texto
+    const folga = 2
+    if (r.left < limite.left - folga || r.right > limite.right + folga || r.top < limite.top - folga || r.bottom > limite.bottom + folga) {
+      problemas.push('texto cortado pela borda do slide: "' + trecho + '"')
+    }
+    if (el.scrollHeight > el.clientHeight + 4 && estilo.overflowY !== 'visible') {
+      problemas.push('texto não cabe na caixa (fica cortado): "' + trecho + '"')
+    }
+    const tamanho = parseFloat(estilo.fontSize)
+    if (texto.length >= 60 && tamanho < 28) problemas.push('texto do corpo com ' + Math.round(tamanho) + ' px (mínimo 28): "' + trecho + '"')
+    textos.push({ el, r, trecho })
+  }
+  for (let i = 0; i < textos.length; i++) {
+    for (let j = i + 1; j < textos.length; j++) {
+      const a = textos[i], b = textos[j]
+      if (a.el.contains(b.el) || b.el.contains(a.el)) continue
+      const x = Math.max(0, Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left))
+      const y = Math.max(0, Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top))
+      const menor = Math.min(a.r.width * a.r.height, b.r.width * b.r.height)
+      if (menor > 0 && (x * y) / menor > 0.25) problemas.push('texto sobreposto: "' + a.trecho + '" e "' + b.trecho + '"')
+    }
+  }
+  return Array.from(new Set(problemas)).slice(0, 6)
+})()`
+
 type Modo = { espera: 'networkidle' | 'load'; leve: boolean }
 // até três navegadores novos por slide: a segunda e a terceira vez não esperam a rede parar, e a terceira usa menos memória
 const MODOS: Modo[] = [
@@ -96,10 +153,11 @@ const MODOS: Modo[] = [
   { espera: 'load', leve: true },
 ]
 
-async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Buffer[]> {
+async function renderizarSlidesAgora(html: string, largura: number, altura: number): Promise<Render> {
   const partes = separarSlides(html)
   if (partes.length === 0) throw new Error('O HTML não tem nenhum <section class="slide">')
   const imagens: Buffer[] = []
+  const problemas: ProblemaDoSlide[] = []
   let navegador: Navegador | null = null
   try {
     for (const [i, parte] of partes.entries()) {
@@ -109,7 +167,9 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
         const livre = await limparTmp()
         try {
           navegador ??= await abrirNavegador()
-          imagens.push(await renderizarUmSlide(navegador, parte, largura, altura, modo))
+          const r = await renderizarUmSlide(navegador, parte, largura, altura, modo)
+          imagens.push(r.imagem)
+          problemas.push(...r.problemas.map((problema) => ({ slide: i + 1, problema })))
           feito = true
           break
         } catch (e) {
@@ -128,7 +188,7 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
         throw new Error(`Slide ${i + 1}: ${msg}${livre >= 0 ? ` (espaço livre no servidor: ${livre} MB)` : ''}`)
       }
     }
-    return imagens
+    return { imagens, problemas }
   } finally {
     await navegador?.close().catch(() => {})
     await limparTmp()
@@ -172,7 +232,7 @@ export async function abrirNavegador() {
 
 type Navegador = Awaited<ReturnType<typeof abrirNavegador>>
 
-async function renderizarUmSlide(navegador: Navegador, html: string, largura: number, altura: number, modo: Modo): Promise<Buffer> {
+async function renderizarUmSlide(navegador: Navegador, html: string, largura: number, altura: number, modo: Modo): Promise<{ imagem: Buffer; problemas: string[] }> {
   const pagina = await navegador.newPage({ viewport: { width: largura, height: altura }, deviceScaleFactor: 1 })
   try {
     await pagina.setContent(html, { waitUntil: modo.espera, timeout: 45_000 })
@@ -189,7 +249,10 @@ async function renderizarUmSlide(navegador: Navegador, html: string, largura: nu
     await pagina.waitForTimeout(300)
     const slide = await pagina.$('section.slide')
     if (!slide) throw new Error('O slide não apareceu na página')
-    return await slide.screenshot({ type: 'jpeg', quality: 90 })
+    const imagem = await slide.screenshot({ type: 'jpeg', quality: 90 })
+    // a checagem nunca derruba o render: sem ela, o revisor confere como antes
+    const problemas = await pagina.evaluate<string[]>(CONFERIR).catch(() => [])
+    return { imagem, problemas }
   } finally {
     await pagina.close().catch(() => {})
   }

@@ -1,14 +1,15 @@
 import { z } from 'zod'
-import { gerarJson, gerarTexto } from '../claude.js'
+import { gerarJson, gerarTexto, type Uso } from '../claude.js'
 import { referenciasDoPost, sistemaDoAgente } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
 import { juntarNarracao } from '../ffmpeg.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
-import { modeloDe, motorDeVideo, type MotorVideo } from '../ias.js'
+import { modeloDe, modeloNaVolta, motorDeVideo, type MotorVideo } from '../ias.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
+import { separarSlides, type ProblemaDoSlide } from '../render.js'
 import { CLICHES, ESTRUTURAS, LAYOUTS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
@@ -124,7 +125,8 @@ export const redator: Agente = async (ctx, passo, em) => {
   const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
   const jaUsado = ajuste ? '' : textoJaUsado(await postsRecentes(ctx))
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'redator'),
+    // a volta só troca o que foi apontado: Sonnet dá conta e custa metade do Opus
+    modelo: ajuste ? modeloNaVolta(ctx, 'redator', 'claude-sonnet-5-5') : modeloDe(ctx, 'redator'),
     effort: 'medium',
     sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${CLICHES}`,
     conteudo: [
@@ -167,21 +169,54 @@ const Trocas = z.object({
 async function salvarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], html: string) {
   // se o render cair, o HTML fica guardado: a próxima tentativa só desenha de novo, sem chamar a IA
   const pasta = `${ctx.post.id}/v${passo.tentativas}-${Date.now()}`
-  const slides = await renderizarESalvar(html, pasta).catch((e) => {
+  const r = await renderizarESalvar(html, pasta).catch((e) => {
     throw new ErroRetomavel(e, { html }, { html_pronto: html })
   })
-  await db.from('posts').update({ slides }).eq('id', ctx.post.id)
-  return slides
+  await db.from('posts').update({ slides: r.slides }).eq('id', ctx.post.id)
+  return r
+}
+
+const textoDaChecagem = (problemas: ProblemaDoSlide[]) => problemas.map((p) => `- Slide ${p.slide}: ${p.problema}`).join('\n')
+
+/**
+ * Renderiza e passa a checagem automática (texto cortado, sobreposto ou pequeno). Se achar algo, o designer
+ * corrige uma vez com trocas pequenas e renderiza de novo, sem gastar uma rodada do revisor nisso.
+ * O que sobrar vai na saída, para o revisor e para você verem.
+ */
+async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], html: string, uso: Uso) {
+  let r = await salvarSlides(ctx, passo, html)
+  let usoTotal = uso
+  if (r.problemas.length) {
+    await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
+    await em.texto(`${textoDaChecagem(r.problemas)}\n`)
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Não mude o texto.`, html, { renderizar: false })
+    if (ajuste && ajuste.html !== html) {
+      html = ajuste.html
+      usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
+      await em.acao('Renderizando de novo')
+      r = await salvarSlides(ctx, passo, html)
+    }
+  }
+  const checagem = r.problemas.length ? textoDaChecagem(r.problemas) : undefined
+  if (checagem) await em.texto(`Ainda ficou:\n${checagem}\n`)
+  return { html, slides: r.slides, uso: usoTotal, checagem }
 }
 
 /**
  * Volta para o designer (ajuste seu, devolução do revisor ou texto novo do redator): edita o HTML pronto
  * com trocas pequenas em vez de montar tudo de novo. Devolve null se não deu para editar.
  */
-async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], pedido: string) {
-  const anterior = (ctx.saidas.designer as { html?: string } | undefined)?.html
+async function editarSlides(
+  ctx: Parameters<Agente>[0],
+  passo: Parameters<Agente>[1],
+  em: Parameters<Agente>[2],
+  pedido: string,
+  base?: string,
+  opts: { renderizar: boolean } = { renderizar: true },
+) {
+  const anterior = base ?? (ctx.saidas.designer as { html?: string } | undefined)?.html
   if (!anterior) return null
-  await em.inicio('Editando os slides prontos')
+  if (!base) await em.inicio('Editando os slides prontos')
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'designer'),
     effort: 'low',
@@ -208,12 +243,18 @@ async function editarSlides(ctx: Parameters<Agente>[0], passo: Parameters<Agente
     await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
     ctx.post.legenda = dados.legenda
   }
+  if (!opts.renderizar) return { html, uso, saida: { html, slides: ctx.post.slides }, entrega: 'Ajuste aplicado' }
   let slides = ctx.post.slides
+  let checagem: string | undefined
   if (html !== anterior) {
     await em.acao('Renderizando de novo')
-    slides = await salvarSlides(ctx, passo, html)
+    const r = await renderizarEConferir(ctx, passo, em, html, uso)
+    html = r.html
+    slides = r.slides
+    checagem = r.checagem
+    return { html, uso: r.uso, saida: { html, slides, checagem }, entrega: checagem ? 'Ajuste aplicado; a checagem automática ainda aponta algo' : 'Ajuste aplicado' }
   }
-  return { saida: { html, slides }, uso, entrega: 'Ajuste aplicado' }
+  return { html, uso, saida: { html, slides }, entrega: 'Ajuste aplicado' }
 }
 
 export const designer: Agente = async (ctx, passo, em) => {
@@ -221,8 +262,8 @@ export const designer: Agente = async (ctx, passo, em) => {
   const pronto = passo.entrada.html_pronto as string | undefined
   if (pronto) {
     await em.inicio('Desenhando de novo os slides que já estavam prontos')
-    const slides = await salvarSlides(ctx, passo, pronto)
-    return { saida: { html: pronto, slides }, uso: USO_ZERO, entrega: `${slides.length} slides renderizados` }
+    const r = await renderizarEConferir(ctx, passo, em, pronto, USO_ZERO)
+    return { saida: { html: r.html, slides: r.slides, checagem: r.checagem }, uso: r.uso, entrega: `${r.slides.length} slides renderizados` }
   }
   const correcao = passo.entrada.correcao as Correcao | undefined
   const apontado = passo.entrada.feedback as string | undefined
@@ -232,7 +273,7 @@ export const designer: Agente = async (ctx, passo, em) => {
   // numa volta, quem chega aqui tenta primeiro editar o que já existe (bem mais barato que refazer)
   if (pedido) {
     const r = await editarSlides(ctx, passo, em, pedido)
-    if (r) return r
+    if (r) return { saida: r.saida, uso: r.uso, entrega: r.entrega }
     await em.acao('Não deu para editar direto, refazendo os slides')
   }
   await em.inicio('Escolhendo as fotos aprovadas')
@@ -276,8 +317,8 @@ export const designer: Agente = async (ctx, passo, em) => {
   const html = gerado.texto.replace(/^[\s\S]*?(<!doctype|<html)/i, '$1').replace(/```\s*$/, '').trim()
 
   await em.acao('Renderizando JPEG 1080 × 1350')
-  const slides = await salvarSlides(ctx, passo, html)
-  return { saida: { html, slides }, uso: gerado.uso, entrega: `${slides.length} slides renderizados` }
+  const r = await renderizarEConferir(ctx, passo, em, html, gerado.uso)
+  return { saida: { html: r.html, slides: r.slides, checagem: r.checagem }, uso: r.uso, entrega: `${r.slides.length} slides renderizados${r.checagem ? ', com pontos da checagem automática' : ''}` }
 }
 
 // ───────── Cinegrafista (só em Reels) ─────────
@@ -564,6 +605,16 @@ const Revisao = z.object({
 
 const MAX_VOLTAS = 2
 
+/** Uma marca curta por slide, tirada do HTML dele: muda quando o designer mexe naquele slide. */
+export function marcasDosSlides(html: string | undefined) {
+  if (!html) return []
+  return separarSlides(html).map((parte) => {
+    let h = 0
+    for (let i = 0; i < parte.length; i++) h = (Math.imul(h, 31) + parte.charCodeAt(i)) | 0
+    return (h >>> 0).toString(36)
+  })
+}
+
 export const revisor: Agente = async (ctx, passo, em) => {
   const correcao = passo.entrada.correcao as Correcao | undefined
   if (correcao) return revisarCorrecao(ctx, passo, em, correcao)
@@ -571,7 +622,15 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const anterior = ctx.post.voltas_revisao > 0 ? (ctx.saidas.revisor as z.infer<typeof Revisao> | undefined) : undefined
   const reconferindo = !!anterior?.problemas?.length
   await em.inicio(reconferindo ? 'Conferindo se o que apontei foi resolvido' : `Conferindo o checklist e ${ctx.regras.length} regras aprendidas`)
-  const slides = ctx.post.slides ?? []
+  const todos = [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
+  // cada slide tem uma marca do HTML que o gerou: na reconferência, só vão as imagens que mudaram desde a última vez
+  const marcas = marcasDosSlides((ctx.saidas.designer as { html?: string } | undefined)?.html)
+  const vistas = (anterior as { marcas_vistas?: string[] } | undefined)?.marcas_vistas
+  const mudou = (i: number) => !vistas || !marcas[i] || vistas[i] !== marcas[i]
+  const mudaram = reconferindo && marcas.length === todos.length ? todos.filter((_, i) => mudou(i)) : todos
+  // se o designer tinha algo a corrigir e nenhum slide mudou, o revisor precisa ver todos de novo
+  const slides = mudaram.length === 0 && anterior?.problemas.some((p) => p.agente === 'designer') ? todos : mudaram
+  const iguais = todos.length - slides.length
   const precisaPesquisa = !reconferindo || anterior!.problemas.some((p) => p.agente === 'pesquisador' || p.agente === 'redator')
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'revisor'),
@@ -586,10 +645,15 @@ export const revisor: Agente = async (ctx, passo, em) => {
       {
         type: 'text' as const,
         text: [
-          `Acima estão os ${slides.length} slides, na ordem.`,
+          iguais
+            ? `Acima estão só os slides que mudaram desde a sua última conferência (${slides.map((x) => x.ordem).join(', ') || 'nenhum'}). Os outros ${iguais} não mudaram e já tinham passado.`
+            : `Acima estão os ${slides.length} slides, na ordem.`,
           ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
           ctx.post.video?.narracao ? `## Narração do Reel (narrador)\n${ctx.post.video.narracao.texto}\n\nConfira a fala como texto: fato, tom e português. Problema nela é do narrador.` : '',
           `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
+          (ctx.saidas.designer as { checagem?: string } | undefined)?.checagem
+            ? `## Checagem automática dos slides (medida no navegador)\n${(ctx.saidas.designer as { checagem: string }).checagem}\n\nO designer já tentou corrigir uma vez. Confira nas imagens se isso aparece de verdade; se aparecer, é problema do designer.`
+            : '',
           precisaPesquisa ? `## Pesquisa usada\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? ''}` : '',
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
@@ -607,7 +671,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
     await em.texto(dados.resumo + pendencias)
     return {
-      saida: dados,
+      saida: { ...dados, marcas_vistas: marcas },
       uso,
       entrega: dados.aprovado ? 'Tudo certo. Enviado para sua aprovação' : 'Enviado com pendências para você decidir',
       proximos: null,
@@ -622,7 +686,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
   await em.texto(texto)
   return {
-    saida: dados,
+    saida: { ...dados, marcas_vistas: marcas },
     uso,
     entrega: `Devolvido: ${dados.problemas[0]?.problema.slice(0, 80) ?? 'ajustes'}`,
     proximos: [{ agente: primeiro, entrada: { feedback: texto } }],
