@@ -630,6 +630,9 @@ export const revisor: Agente = async (ctx, passo, em) => {
           ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
           ctx.post.video?.narracao ? `## Narração do Reel (narrador)\n${ctx.post.video.narracao.texto}\n\nConfira a fala como texto: fato, tom e português. Problema nela é do narrador.` : '',
           `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
+          (ctx.saidas.designer as { checagem?: string } | undefined)?.checagem
+            ? `## Checagem automática dos slides (medida no navegador)\n${(ctx.saidas.designer as { checagem: string }).checagem}\n\nO designer já tentou corrigir uma vez. Confira nas imagens se isso aparece de verdade; se aparecer, é problema do designer.`
+            : '',
           precisaPesquisa ? `## Pesquisa usada\n${(ctx.saidas.pesquisador as { notas?: string })?.notas ?? ''}` : '',
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
