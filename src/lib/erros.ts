@@ -17,6 +17,15 @@ export function explicarErro(agente: string, erro: string): Explicacao {
     return { titulo: 'A Kling está sem créditos', texto: 'O vídeo não saiu porque acabou o saldo da conta na Kling. Dá para fazer agora com a animação do Claude, ou recarregar a Kling e tentar de novo.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
   if (/fal\.ai/.test(e) && /saldo|cr[ée]dito|balance|acesso/.test(e))
     return { titulo: 'O fal.ai está sem saldo', texto: 'O serviço de vídeo recusou o pedido por falta de saldo ou de acesso ao modelo. Dá para fazer agora com a animação do Claude.', trocarPara: 'claude', rotuloTroca: 'Fazer o vídeo com o Claude' }
+  if (/elevenlabs/.test(e) && /permiss|permission|id da chave|recusou a chave|falta configurar|créditos/.test(e))
+    return {
+      titulo: /permiss/.test(e) ? 'A chave da ElevenLabs não pode gerar voz' : /créditos/.test(e) ? 'A ElevenLabs está sem créditos' : 'A chave da ElevenLabs não funcionou',
+      texto: /permiss/.test(e)
+        ? 'A chave foi criada sem a permissão "Text to Speech". Na ElevenLabs, em Developers → API Keys, libere essa permissão (ou crie outra chave), troque ELEVENLABS_API_KEY na Vercel e tente de novo. O vídeo já está pronto: dá também para seguir sem narração.'
+        : 'A narração não saiu por causa da conta da ElevenLabs. O vídeo já está pronto: dá para seguir sem narração agora, ou arrumar a chave e tentar de novo.',
+      trocarPara: 'nenhum',
+      rotuloTroca: 'Seguir sem narração',
+    }
   if (/falta configurar|recusou a chave/.test(e))
     return { titulo: 'Falta uma chave de acesso', texto: 'O serviço que este funcionário usa não está configurado na Vercel. Escolha outra IA abaixo ou peça para configurar a chave.' }
   if (/demais sendo gerado|ao mesmo tempo/.test(e))

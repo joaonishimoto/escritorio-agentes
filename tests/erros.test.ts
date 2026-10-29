@@ -13,6 +13,11 @@ describe('explicação dos erros para o dono', () => {
   it('token do Instagram expirado pede para reconectar', () => {
     expect(explicarErro('publicador', 'Token do Instagram expirado ou inválido.').texto).toMatch(/Reconecte/)
   })
+  it('chave da ElevenLabs sem permissão de voz explica e oferece seguir sem narração', () => {
+    const e = explicarErro('narrador', 'ElevenLabs: a chave não tem a permissão "Text to Speech". Na ElevenLabs, em Developers → API Keys, edite a chave.')
+    expect(e.titulo).toMatch(/não pode gerar voz/)
+    expect(e.trocarPara).toBe('nenhum')
+  })
   it('erro desconhecido tem saída genérica', () => {
     expect(explicarErro('redator', 'algo estranho').titulo).toBe('Algo deu errado')
   })
@@ -26,5 +31,15 @@ describe('erros que não são da IA', () => {
   })
   it('falta de espaço no servidor tem explicação própria', () => {
     expect(explicarErro('designer', 'page.setContent: Target page closed (espaço livre no servidor: 13 MB)').titulo).toMatch(/espaço/)
+  })
+})
+
+describe('erros da ElevenLabs', () => {
+  it('permissão que falta vira instrução para liberar Text to Speech', async () => {
+    const { explicarErroElevenLabs } = await import('../api/_lib/elevenlabs')
+    const m = explicarErroElevenLabs(401, 'The API key you used is missing the permission text_to_speech to execute this operation.')
+    expect(m).toMatch(/Text to Speech/)
+    expect(m).not.toMatch(/recusou a chave/)
+    expect(explicarErroElevenLabs(401, 'API key ID used as API key')).toMatch(/sk_/)
   })
 })
