@@ -1,16 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { atualizarMetricas } from './_lib/atualizar-metricas.js'
 import { db } from './_lib/db.js'
 import { enfileirar, rodarAteOLimite } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 import { definirOrigem } from './_lib/render-remoto.js'
 import { fazerLimpeza } from './_lib/limpeza.js'
+import { renovarTokens } from './_lib/renovar-tokens.js'
 
 /** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora (manda para o publicador) ou quando há passo parado na fila (roda a fila). */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const { data: token } = await db.from('config_app').select('valor').eq('chave', 'token_agendador').single()
   if (!token?.valor || req.headers['x-agendador'] !== token.valor) return res.status(401).end()
+  // a cada 6 horas o banco pede as métricas dos posts publicados
+  if ((req.body as { acao?: string } | undefined)?.acao === 'atualizar_metricas') return res.status(200).json({ ok: true, ...(await atualizarMetricas()) })
   definirOrigem(origemDaRequisicao(req))
+  // uma vez por dia o banco pede para renovar os tokens do Instagram antes de vencerem
+  if ((req.body as { acao?: string } | undefined)?.acao === 'renovar_tokens') return res.status(200).json({ ok: true, ...(await renovarTokens()) })
 
   // uma vez por dia o banco pede a faxina (registros e arquivos que ninguém mais vê)
   if ((req.body as { acao?: string } | undefined)?.acao === 'limpeza') return res.status(200).json({ ok: true, ...(await fazerLimpeza()) })

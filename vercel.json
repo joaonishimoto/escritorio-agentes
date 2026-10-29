@@ -34,6 +34,9 @@
     },
     "api/servicos.ts": {
       "maxDuration": 30
+    },
+    "api/marcas.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
