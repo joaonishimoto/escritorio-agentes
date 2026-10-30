@@ -14,7 +14,7 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
@@ -100,13 +100,13 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'pesquisador',
-      'Você levanta fatos confiáveis para o post. Fato histórico precisa de duas fontes; o que divergir, marque como "dizem" ou deixe de fora. Cite as fontes.',
+      'Você levanta fatos confiáveis para o post. Cada fato sai com uma marca na frente: [confirmado] quando duas fontes independentes batem, [dizem] quando só uma fonte afirma ou as fontes divergem (o redator escreve "dizem que" ou "conta-se"), [não achei] quando a busca não confirmou (o redator não afirma). Cite a fonte (link) de cada fato ao fim. Não pesquise receita, dose, preço nem dado interno da marca: isso o dono confere; se um item da lista for assim, responda "[interno] cabe ao dono conferir".',
     ),
     conteudo: devolvido
       ? `Pedido: ${ctx.post.briefing}\n\n## Suas notas anteriores\n${anteriores}\n\nRefaça as notas mantendo tudo o que está certo e corrigindo só o que foi apontado para o pesquisador abaixo. Ignore os pontos de outros agentes. Busque na web só o necessário.${feedback(passo)}`
-      : `Pedido: ${ctx.post.briefing}\n\nPromessa do post: ${pauta?.promessa ?? ''}\nPlano dos slides: ${JSON.stringify(pauta?.plano_slides ?? [])}\n\n## Fatos a confirmar\n${(pauta?.precisa_pesquisa ?? []).map((f) => `- ${f}`).join('\n')}\n\n${referenciasDoPost(ctx).texto}\n\nConfirme só esses fatos, agrupando buscas quando der. Entregue notas curtas e verificadas, em tópicos, com as fontes no fim. Nada de introdução nem resumo.${feedback(passo)}`,
+      : `Pedido: ${ctx.post.briefing}\n\nPromessa do post: ${pauta?.promessa ?? ''}\nPlano dos slides: ${JSON.stringify(pauta?.plano_slides ?? [])}\n\n## Fatos a confirmar\n${(pauta?.precisa_pesquisa ?? []).map((f) => `- ${f}`).join('\n')}\n\n${referenciasDoPost(ctx).texto}\n\nConfirme só esses fatos, agrupando buscas quando der (uma busca boa costuma cobrir dois ou três). Entregue notas curtas, em tópicos, um fato por linha com a marca na frente, e as fontes no fim. Nada de introdução nem resumo.${feedback(passo)}`,
     // a busca com filtro roda várias consultas de uma vez: com 3 usos, um lote só já estourava o limite e nada voltava
-    buscaWeb: devolvido ? 4 : 6,
+    buscaWeb: devolvido ? 3 : 6,
     aoEscrever: (t) => em.texto(t),
     aoBuscar: (q) => em.acao(`Buscando: ${q}`),
   })
@@ -122,24 +122,15 @@ const Texto = z.object({
     z.object({
       tipo: z.enum(['capa', 'conteudo', 'cta']),
       etiqueta: z.string().describe('selo curto de apoio (ex.: categoria, número do passo); deixe vazio na maioria dos slides, não é obrigatório'),
-      titulo: z.string().describe('curto: até 8 palavras na capa, até 10 nos outros slides'),
+      titulo: z.string().describe('curto: até 6 palavras na capa (ela aparece recortada em quadrado na grade), até 10 nos outros slides'),
       destaque: z.string().describe('parte do título que vai na cor de destaque, pode ser vazio'),
       corpo: z.string().describe('texto de apoio, até 30 palavras, pode ser vazio'),
       itens: z.array(z.object({ quantidade: z.string(), item: z.string() })).describe('lista (ex.: ingredientes), pode ser vazia'),
       foto: z.string().describe('descrição da foto ideal, ou vazio se não usa foto'),
     }),
   ),
-  legenda: z.string(),
+  legenda: z.string().describe('a primeira linha é o gancho, com até 12 palavras; o resto desenvolve'),
 })
-
-/** O que vale para o texto de toda marca: vem das correções do dono que se repetiam de marca em marca. */
-const ESCRITA = `## Regras de escrita (todas as marcas)
-- Nunca escreva endereço de site (www, .com, lp., use.) nos slides nem na legenda. Botão e chamada usam palavras comuns de ação ("Link na bio", "Começar grátis", "Baixe o app").
-- @ de perfil do Instagram sempre em minúsculas, como está no perfil.
-- O fecho segue o objetivo da pauta. Só "vender" pede chamada de venda (baixar, assinar, link na bio). "engajar" e "educar" fecham com um convite leve (salvar, mandar pra alguém, comentar) ou fechando a ideia. "marca" não tem chamada de venda nem pedido de contato, e quase não tem texto na arte: a mensagem vai na legenda.
-- Entregue exatamente a quantidade de slides da pauta, um por item do plano. Foto e Reel têm um slide só.
-- Texto que cabe no slide: título curto, corpo curto, uma ideia por slide. O que não couber vai para a legenda.
-- Palavra comum, sem duplo sentido nem termo estranho; se a palavra soa esquisita em voz alta, troque.`
 
 export const redator: Agente = async (ctx, passo, em) => {
   // numa volta (revisor ou correção sua) parte do texto que já existe e mexe só no que foi pedido
@@ -165,7 +156,7 @@ export const redator: Agente = async (ctx, passo, em) => {
       ajuste
         ? `## Seu texto anterior\n${JSON.stringify(anterior)}\n\nDevolva o texto completo, igual ao anterior em tudo o que está certo, mudando só o que os ajustes abaixo pedem (e o que depender de uma pesquisa corrigida).`
         : '',
-      `Use só fatos da pesquisa.${feedback(passo)}`,
+      `Use só fatos da pesquisa, respeitando a marca de cada um ([confirmado], [dizem], [não achei]).${feedback(passo)}`,
     ]
       .filter(Boolean)
       .join('\n\n'),
