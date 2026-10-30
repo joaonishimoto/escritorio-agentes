@@ -71,8 +71,11 @@ export function PainelAgente({
   marcaId,
   aoUsarIdeia,
   porAgente,
+  aoVerPrevia,
 }: {
   post?: Post | null
+  /** abre a prévia do post inteiro (slides, legenda e revisão) como está agora */
+  aoVerPrevia?: () => void
   aoMudar?: () => void
   marcaId?: string | null
   aoUsarIdeia?: (ideia: Ideia, guardadaId?: string) => void
@@ -195,6 +198,9 @@ export function PainelAgente({
                   <p>{acao || 'Começando…'}</p>
                 </div>
               </div>
+            )}
+            {aoVerPrevia && post && (ativo || estado === 'concluido') && (
+              <button className="secundario ag-previa" onClick={aoVerPrevia}>Ver como o post está ficando</button>
             )}
             {!ativo && estado === 'concluido' && fim && (
               <p className="ag-linha-fim">
