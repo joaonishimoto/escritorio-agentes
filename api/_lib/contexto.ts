@@ -48,7 +48,7 @@ export interface Post {
   custo_usd: number
   referencias?: Referencia[]
   /** escolhas do dono no Novo post */
-  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean }
+  preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean; revisar?: boolean }
 }
 
 export type Referencia = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
@@ -156,6 +156,11 @@ export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
   ]
     .filter(Boolean)
     .join('\n\n')
+}
+
+/** O dono pediu para pular o revisor neste post: o que sai do último agente de produção vai direto para a mesa dele. */
+export function pulaRevisor(post: { preferencias?: { revisar?: boolean } | null }) {
+  return post.preferencias?.revisar === false
 }
 
 /** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista e o narrador entram antes do revisor. */

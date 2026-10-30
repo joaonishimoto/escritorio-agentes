@@ -3,7 +3,7 @@ import { chefe, cinegrafista, designer, narrador, pesquisador, redator, revisor 
 import { curador, publicador } from './agentes/pos.js'
 import { ErroRetomavel } from './agentes/tipos.js'
 import type { Agente } from './agentes/tipos.js'
-import { carregarContexto, fluxoDeProducao, type Passo } from './contexto.js'
+import { carregarContexto, fluxoDeProducao, pulaRevisor, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
 import { passouDoTeto, tetoDaMarca } from './teto.js'
@@ -62,7 +62,12 @@ export async function rodarUmPasso(): Promise<boolean> {
       const { correcao, feedback, rota } = passo.entrada as { correcao?: unknown; feedback?: string; rota?: unknown }
       const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato)
       const naRota = Array.isArray(rota) && rota.length ? (rota as string[]) : null
-      const seguinte = naRota ? naRota[0] : fluxo[fluxo.indexOf(passo.agente) + 1]
+      let seguinte: string | undefined = naRota ? naRota[0] : fluxo[fluxo.indexOf(passo.agente) + 1]
+      // sem revisor neste post: o que ficou pronto vai direto para a sua mesa
+      if (seguinte === 'revisor' && pulaRevisor(ctx.post)) {
+        seguinte = undefined
+        await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id).eq('status', 'em_producao')
+      }
       // numa correção sua ou numa devolução do revisor, os próximos agentes continuam sabendo o que foi pedido
       const entrada: Record<string, unknown> = {}
       if (correcao) entrada.correcao = correcao
