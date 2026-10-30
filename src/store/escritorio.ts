@@ -85,6 +85,7 @@ const NOMES_CURTOS: Record<AgenteId, string> = {
   revisor: 'Revisor',
   publicador: 'Publicador',
   curador: 'Curador',
+  social: 'Social Media',
 }
 
 const estadosIniciais = (): Record<AgenteId, Estado> => ({
@@ -97,6 +98,7 @@ const estadosIniciais = (): Record<AgenteId, Estado> => ({
   revisor: 'ocioso',
   publicador: 'ocioso',
   curador: 'ocioso',
+  social: 'ocioso',
 })
 
 export const useEscritorio = create<EscritorioState>((set) => ({

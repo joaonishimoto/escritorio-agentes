@@ -13,7 +13,14 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
   if (req.method === 'GET') return res.status(200).json({ servicos: servicosDisponiveis() })
 
-  const { marca_id, briefing, referencias, preferencias } = (req.body ?? {}) as { marca_id?: string; briefing?: string; referencias?: unknown; preferencias?: Record<string, unknown> }
+  const { marca_id, briefing, referencias, preferencias, vaga_id } = (req.body ?? {}) as {
+    marca_id?: string
+    briefing?: string
+    referencias?: unknown
+    preferencias?: Record<string, unknown>
+    /** a vaga do plano editorial que virou este post */
+    vaga_id?: string
+  }
   if (!marca_id || !briefing?.trim()) return res.status(400).json({ erro: 'Escolha a marca e escreva o pedido' })
   if (!(await eDonoDaMarca(usuario, marca_id))) return res.status(403).json({ erro: 'Essa marca não é sua' })
 
@@ -57,6 +64,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     .single()
   if (error || !post) return res.status(500).json({ erro: error?.message ?? 'Falha ao criar o post' })
 
+  if (typeof vaga_id === 'string') await db.from('vagas').update({ post_id: post.id }).eq('id', vaga_id).eq('marca_id', marca_id)
   await enfileirar(post.id, 'chefe')
   acordarExecutor(origemDaRequisicao(req))
   return res.status(201).json({ post })

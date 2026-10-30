@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { horariosLivres, mudarDia, noMesmoDia, paraCampo, rotuloHorario } from '../lib/agenda'
+import { mudarDia, noMesmoDia, paraCampo } from '../lib/agenda'
 import { chamarApi } from '../lib/api'
 import type { Ideia } from '../lib/ideias'
 import { numero, useMetricas, type Metricas } from '../lib/metricas'
+import { usePlanoAtual, vagasPlanejadas, type Vaga } from '../lib/planos'
+import { PlanoEditorial } from './PlanoEditorial'
 import { useEscritorio, type ItemAgenda } from '../store/escritorio'
 import { VerSlides } from './VerSlides'
 import { MESES, chaveDia, diasDoMes } from '../lib/datas'
@@ -21,8 +23,8 @@ export function Calendario({
   aoPlanejar,
 }: {
   aoAbrirPost: (id: string) => void
-  /** "Planejar a semana": abre o Novo post com a ideia e o horário escolhidos */
-  aoPlanejar?: (ideia: Ideia, quando: Date) => void
+  /** vaga do plano editorial: abre o Novo post com o tema e o horário dela */
+  aoPlanejar?: (ideia: Ideia, quando: Date, vagaId?: string) => void
   aoMudar?: () => void
   /** só os posts desta marca (calendário da parede de uma sala); sem ela, o geral */
   marcaId?: string | null
@@ -41,6 +43,12 @@ export function Calendario({
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [alvo, setAlvo] = useState<string | null>(null)
   const [planejando, setPlanejando] = useState(false)
+  const { plano, recarregar: recarregarPlano } = usePlanoAtual(aoPlanejar ? marcaId : null)
+  const planejadas = vagasPlanejadas(plano)
+  const usarVaga = (v: Vaga) => {
+    focar(null)
+    aoPlanejar?.({ titulo: v.titulo, formato: v.formato, gancho: v.gancho, briefing: v.briefing }, new Date(v.quando), v.id)
+  }
 
   /** Arrastar a capa de um agendado para outro dia: mantém a hora. */
   const soltar = async (dia: Date) => {
@@ -74,7 +82,13 @@ export function Calendario({
     const itens = porDia.get(k) ?? []
     setAberto(itens.length === 1 ? itens[0].id : null)
   }
+  const vagasPorDia = new Map<string, Vaga[]>()
+  for (const v of planejadas) {
+    const k = chaveDia(new Date(v.quando))
+    vagasPorDia.set(k, [...(vagasPorDia.get(k) ?? []), v])
+  }
   const doDia = porDia.get(dia) ?? []
+  const vagasDoDia = vagasPorDia.get(dia) ?? []
   const [a, m, d] = dia.split('-').map(Number)
   const tituloDia = new Date(a, m, d).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
   const proximos = agenda.filter((i) => i.status === 'agendado' && new Date(i.data) >= hoje).length
@@ -105,6 +119,7 @@ export function Calendario({
                 if (!data) return <span key={i} />
                 const k = chaveDia(data)
                 const itens = porDia.get(k) ?? []
+                const vagas = vagasPorDia.get(k) ?? []
                 const passou = data < new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
                 // dois posts da mesma marca no mesmo dia disputam o mesmo público
                 const choque = itens.some((it) => it.status !== 'falhou' && itens.some((o) => o !== it && o.status !== 'falhou' && o.marcaId === it.marcaId))
@@ -123,7 +138,7 @@ export function Calendario({
                       e.preventDefault()
                       soltar(data)
                     }}
-                    aria-label={`${data.getDate()}${itens.length ? `, ${itens.length} post${itens.length > 1 ? 's' : ''}` : ''}`}
+                    aria-label={`${data.getDate()}${itens.length ? `, ${itens.length} post${itens.length > 1 ? 's' : ''}` : ''}${vagas.length ? `, ${vagas.length} planejado${vagas.length > 1 ? 's' : ''}` : ''}`}
                   >
                     <span className="cal-num">{data.getDate()}</span>
                     {itens.length > 0 && (
@@ -153,6 +168,11 @@ export function Calendario({
                         {itens.length > 2 && <small>+{itens.length - 2}</small>}
                       </span>
                     )}
+                    {vagas.length > 0 && itens.length === 0 && (
+                      <span className="cal-capas">
+                        {vagas.slice(0, 2).map((v) => <i key={v.id} className="planejado" title={v.titulo} />)}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -161,21 +181,28 @@ export function Calendario({
               <span><i className="agendado" /> agendado</span>
               <span><i className="publicado" /> publicado</span>
               <span><i className="falhou" /> não publicou</span>
+              {planejadas.length > 0 && <span><i className="planejado" /> planejado</span>}
               <span className="cal-dica">Arraste a capa de um agendado para mudar o dia</span>
             </div>
           </div>
 
           <section className="cal-dia-painel" aria-label={tituloDia}>
             {aoPlanejar && marcaId && (
-              planejando ? (
-                <PlanejarSemana marcaId={marcaId} agenda={agenda} aoFechar={() => setPlanejando(false)} aoUsar={(ideia, quando) => { focar(null); aoPlanejar(ideia, quando) }} />
-              ) : (
-                <button className="secundario cal-planejar" onClick={() => setPlanejando(true)}>Planejar a semana</button>
-              )
+              <button className="secundario cal-planejar" onClick={() => setPlanejando(true)}>
+                {plano?.status === 'aprovado' ? `Plano editorial (${planejadas.length} a criar)` : plano?.status === 'rascunho' ? 'Plano editorial (rascunho)' : 'Plano editorial'}
+              </button>
             )}
             <h3 className="cal-dia-titulo">{tituloDia}</h3>
+            {vagasDoDia.map((v) => (
+              <div key={v.id} className="cal-vaga">
+                <span className="chip">planejado · {new Date(v.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {v.formato}</span>
+                <strong>{v.titulo}</strong>
+                {v.gancho && <span className="muted">“{v.gancho}”</span>}
+                <button className="primario" onClick={() => usarVaga(v)}>Criar este post</button>
+              </div>
+            ))}
             {doDia.length === 0 ? (
-              <p className="muted">Nada agendado ou publicado neste dia.</p>
+              vagasDoDia.length ? null : <p className="muted">Nada agendado ou publicado neste dia.</p>
             ) : (
               doDia.map((it) => (
                 <PostDoDia
@@ -193,6 +220,17 @@ export function Calendario({
           </section>
         </div>
       </div>
+      {planejando && marcaId && (
+        <PlanoEditorial
+          marcaId={marcaId}
+          marcaNome={marcaNome}
+          agenda={agenda}
+          plano={plano}
+          aoMudar={recarregarPlano}
+          aoCriarPost={usarVaga}
+          aoFechar={() => setPlanejando(false)}
+        />
+      )}
     </div>
   )
 }
@@ -318,59 +356,5 @@ function PostDoDia({
       )}
       {vendo !== null && <VerSlides urls={slides} inicial={vendo} aoFechar={() => setVendo(null)} />}
     </article>
-  )
-}
-
-/** Planejar a semana: os próximos horários bons em dias livres, cada um com uma ideia do pesquisador. */
-function PlanejarSemana({ marcaId, agenda, aoFechar, aoUsar }: { marcaId: string; agenda: ItemAgenda[]; aoFechar: () => void; aoUsar: (ideia: Ideia, quando: Date) => void }) {
-  const [horarios] = useState(() => horariosLivres(agenda, marcaId, new Date(), 3))
-  const [linha, setLinha] = useState('')
-  const [ideias, setIdeias] = useState<Ideia[]>([])
-  const [pensando, setPensando] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
-  const pedir = async () => {
-    setPensando(true)
-    setErro(null)
-    try {
-      const r = await chamarApi<{ ideias: Ideia[] }>('ideias', { marca_id: marcaId, linha: linha.trim() || 'variado para a semana: um post educativo, um de lista para salvar e um de bastidor ou opinião' })
-      setIdeias(r.ideias)
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não deu certo')
-    } finally {
-      setPensando(false)
-    }
-  }
-  return (
-    <div className="cal-plano">
-      <div className="cal-plano-topo">
-        <h3>Planejar a semana</h3>
-        <button className="icone" onClick={aoFechar} aria-label="Fechar o plano">×</button>
-      </div>
-      <p className="muted">Os próximos horários bons em dias sem post desta marca. Peça ideias e crie cada post já com o horário marcado.</p>
-      <input type="text" value={linha} onChange={(e) => setLinha(e.target.value)} placeholder="Tema da semana (opcional)" aria-label="Tema da semana" />
-      <button className="secundario" disabled={pensando} onClick={pedir}>
-        {pensando ? 'Pensando…' : ideias.length ? 'Pedir outras ideias' : 'Pedir ideias para estes horários'}
-      </button>
-      {erro && <p className="aviso">{erro}</p>}
-      <ul className="cal-plano-lista">
-        {horarios.map((h, i) => {
-          const ideia = ideias[i]
-          return (
-            <li key={h.toISOString()}>
-              <span className="cal-plano-hora">{rotuloHorario(h)}</span>
-              {ideia ? (
-                <>
-                  <strong>{ideia.titulo}</strong>
-                  <span className="muted">“{ideia.gancho}” · {ideia.formato}</span>
-                  <button className="primario" onClick={() => aoUsar(ideia, h)}>Criar este post</button>
-                </>
-              ) : (
-                <span className="muted">{pensando ? 'Pensando…' : 'Livre'}</span>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
   )
 }

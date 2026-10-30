@@ -62,7 +62,8 @@ export const DECORAR = { x: 12, y: 146, w: 30, h: 28 }
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   chefe: { x: 10, y: 54 },
   pesquisador: { x: 62, y: 54 },
-  curador: { x: 36, y: 104 },
+  curador: { x: 10, y: 104 },
+  social: { x: 62, y: 104 },
   redator: { x: 118, y: 54 },
   designer: { x: 170, y: 54 },
   cinegrafista: { x: 118, y: 104 },
