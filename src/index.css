@@ -161,8 +161,9 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
 }
 
 .palco { position: relative; min-height: 0; background: var(--background) }
-/* menu do escritório: canto do palco, no lugar do antigo header */
-.palco-menu { position: absolute; top: 10px; right: 10px; z-index: 2100 }
+/* menu do escritório: canto do palco, no lugar do antigo header. Fica logo acima do escritório (.pixel é z 0 e isolado)
+   e abaixo de painéis (z 2), etapa e modais, para não passar por cima deles */
+.palco-menu { position: absolute; top: 10px; right: 10px; z-index: 1 }
 .palco-menu .icone { width: 30px; height: 30px; border-radius: 0; background: #fff; color: #1f2330; box-shadow: 0 0 0 2px #1f2330; margin: 4px }
 .palco-menu .icone:hover, .palco-menu .icone[aria-expanded="true"] { background: #eef2f8; color: #1f2330 }
 .carregando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted-foreground) }
