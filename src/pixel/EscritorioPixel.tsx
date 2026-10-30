@@ -88,8 +88,8 @@ export function EscritorioPixel({
   quadros?: Record<string, { dias: number[]; regras: number; referencias?: number; gaveta?: number }>
   /** clique nas referências, no calendário, no branding ou no mural de regras de uma sala */
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
-  /** gastos dos últimos dias (gráfico da parede) e quantas dicas o Financeiro tem para você */
-  financeiro?: { barras: number[]; dicas: number; alerta: boolean }
+  /** gastos dos últimos dias (gráfico da parede) e se o Financeiro tem uma dica importante */
+  financeiro?: { barras: number[]; alerta: boolean }
   /** o que aparece embaixo do cofrinho de cada sala (gasto do mês), por marca */
   cofres?: Record<string, string>
   /** o que os agentes de cada sala estão fazendo no post dela (a sala aberta usa o post aberto, com as pastas andando) */
@@ -604,7 +604,6 @@ export function EscritorioPixel({
         const fy = MESA_FIN.y - 2
         g.drawImage(quadro(VISUAL_FIN, 'baixo', 0, true), fx - 7, fy - 10)
         desenharMesaFin(g, xFin)
-        posicoesEtiqueta.financeiro = [fx, fy - 14]
         posicoesNome.financeiro = [fx, MESA_FIN.y + 18]
       }
 
@@ -1031,15 +1030,6 @@ export function EscritorioPixel({
           {miau[nome] && <div className="pixel-balao gato">{miau[nome]}</div>}
         </div>
       ))}
-      <div
-        className="pixel-etiqueta"
-        ref={(el) => {
-          if (el) etiquetas.current.set('financeiro', el)
-          else etiquetas.current.delete('financeiro')
-        }}
-      >
-        {!!financeiro?.dicas && <div className={`pixel-balao${financeiro.alerta ? ' alerta' : ''}`}>{financeiro.dicas === 1 ? '1 dica para você' : `${financeiro.dicas} dicas para você`}</div>}
-      </div>
       <div
         className="pixel-etiqueta"
         ref={(el) => {
