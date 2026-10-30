@@ -616,12 +616,12 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
     `Pedido: ${ctx.post.briefing}`,
     `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
     `Texto dos slides:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+    (ctx.saidas.pesquisador as { notas?: string } | undefined)?.notas ? `## Pesquisa (como o produto é de verdade)\n${(ctx.saidas.pesquisador as { notas: string }).notas}` : '',
     atual ? `## Vídeo atual\n${atual.prompt}` : '',
     ajustes ? `## Ajustes pedidos nesta rodada\n${ajustes}` : '',
   ]
-
+  const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
   if (motor === 'claude') {
-    const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
     const textoMidias = midias.length
       ? `## Logo e fotos da marca (só estas URLs podem entrar na animação)\n${midias.map((m) => `- ${m.url} (${m.descricao ?? m.tags.join(', ')})`).join('\n')}`
       : '## A marca não tem logo nem fotos na biblioteca: use só tipografia, cor e formas.'
@@ -653,12 +653,16 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   const r = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado.`),
+    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado. O produto aparece como ele é de verdade: o drink no copo certo, com o gelo e a guarnição da receita (use a pesquisa e as descrições das fotos da marca); a peça ou o aparelho com a forma real. Descreva isso no prompt em vez de deixar o gerador inventar.`),
     conteudo: [
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: [...contexto, refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '']
+        text: [
+          ...contexto,
+          midias.length ? `## Como o produto aparece nas fotos aprovadas da marca\n${midias.map((m) => `- ${m.descricao ?? m.tags.join(', ')}`).join('\n')}` : '',
+          refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '',
+        ]
           .filter(Boolean)
           .join('\n\n'),
       },
