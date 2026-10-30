@@ -6,8 +6,8 @@ import { quadro, BONECO, type Visual } from './sprites'
 import { comprimento, noCaminho, type Ponto } from './caminho'
 import { capelo, carta, exclamacao, faiscas, gato, GATOS, pasta, pastaDaMarca, reticencias, seta, type Gato } from './objetos'
 import {
-  ANDAR_H, CAFE, CALENDARIO, DEPTOS, ENTRE_MESAS, PLACA, PLACA_EQUIPE, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, LINHA_MARCA, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y,
-  PORTA_VOCE_X, PORTA_X, PORTA_MARCA, SALA_W, MARCA_W, PASSO_MARCA, PASSO_EQUIPE, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, PLACA_EQUIPE, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, LINHA_MARCA, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y,
+  PORTA_VOCE_X, PORTA_X, PORTA_MARCA, SALA_W, MARCA_W, PASSO_MARCA, PASSO_EQUIPE, VOCE_W, assento, ateOHall, dentroDaSala, deptoDe, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharEquipe, desenharMarca, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
   COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, PAREDE_EXTERNA, desenharParedeExterna, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
 } from './mapa'
@@ -780,13 +780,20 @@ export function EscritorioPixel({
         el.style.opacity = '1'
         // ordem fixa: balões por cima de tudo, depois quem está andando (mais embaixo na tela na frente), depois os sentados
         el.style.zIndex = String(nome ? (emPe.has(id) ? 200 + Math.round(pos[1]) : 100) : 1000)
-        // nome comprido quebra em duas linhas em vez de cobrir o da mesa ao lado
-        if (nome) el.style.maxWidth = `${(ENTRE_MESAS * escala) / dpr - 4}px`
+        const mesa = nome && !emPe.has(id) ? MESAS[id as AgenteId] : undefined
+        const d = mesa && deptoDe(mesa)
+        // na fileira de baixo, nome comprido quebra em duas linhas (cabe embaixo) para os dois da fileira caberem no departamento
+        if (mesa && d) el.style.maxWidth = mesa.y > FILEIRA_DE_CIMA ? `${((d.w / 2 - 2) * escala) / dpr}px` : 'none'
         let sx = (pos[0] - camX) * escala / dpr
         const sy = (pos[1] + offY) * escala / dpr
-        // balão não sai pela borda da tela
-        if (!nome) {
-          const meia = el.offsetWidth / 2
+        const meia = el.offsetWidth / 2
+        if (d) {
+          // o nome de quem está sentado não passa da divisória do departamento
+          const esq = ((d.x + 1 - camX) * escala) / dpr
+          const dir = ((d.x + d.w - 1 - camX) * escala) / dpr
+          if (meia * 2 <= dir - esq) sx = Math.max(esq + meia, Math.min(dir - meia, sx))
+        } else if (!nome) {
+          // balão não sai pela borda da tela
           if (meia * 2 + 12 < cw) sx = Math.max(meia + 6, Math.min(cw - meia - 6, sx))
         }
         el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, ${nome ? '0' : '-100%'})`
@@ -1157,4 +1164,6 @@ export function EscritorioPixel({
 }
 
 const MESA_W2 = 15
+/** mesas com y até aqui ficam na fileira de cima */
+const FILEIRA_DE_CIMA = 80
 const PRIORIDADE: Estado[] = ['erro', 'esperando_voce', 'trabalhando', 'na_fila', 'concluido', 'ocioso']
