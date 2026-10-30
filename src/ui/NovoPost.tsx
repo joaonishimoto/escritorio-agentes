@@ -101,6 +101,7 @@ export function NovoPost({
   inicial,
   agendarPara,
   ideiaGuardadaId,
+  vagaId,
   aoCriar,
   aoFechar,
 }: {
@@ -111,8 +112,10 @@ export function NovoPost({
   /** o pedido já preenchido (vindo de uma ideia do pesquisador) e, se era uma ideia guardada, qual, para sair da lista quando o post for criado */
   inicial?: string | Ideia
   ideiaGuardadaId?: string
-  /** vindo do "Planejar a semana": já marca para agendar neste horário */
+  /** vindo de uma vaga do plano editorial: já marca para agendar neste horário */
   agendarPara?: Date
+  /** a vaga do plano editorial que vira este post */
+  vagaId?: string
   aoCriar: (p: Post) => void
   aoFechar: () => void
 }) {
@@ -223,6 +226,7 @@ export function NovoPost({
         marca_id: marcaId,
         briefing,
         referencias: refs,
+        vaga_id: vagaId,
         preferencias: {
           formato: formato || undefined,
           slides: formato === 'carrossel' && slides ? slides : undefined,

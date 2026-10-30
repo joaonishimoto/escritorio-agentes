@@ -40,6 +40,7 @@ const VISUAL: Record<AgenteId | 'voce', Visual> = {
   revisor: { cabelo: '#9a9a9a', pele: '#f0c7a0', camisa: agentePorId('revisor').cor },
   publicador: { cabelo: '#1c1c1c', pele: '#8d5a3c', camisa: agentePorId('publicador').cor },
   curador: { cabelo: '#b5462f', pele: '#f3cfa8', camisa: agentePorId('curador').cor },
+  social: { cabelo: '#3b2a1e', pele: '#c98e62', camisa: agentePorId('social').cor },
   voce: { cabelo: '#1c1c1c', pele: '#e9c39a', camisa: '#1e3d66', calca: '#262820' },
 }
 

@@ -44,6 +44,7 @@ function Icone({ id }: { id: string }) {
     revisor: (<><circle cx="12" cy="12" r="9" /><path d="m8 12.5 2.7 2.7L16.5 9.5" /></>),
     publicador: (<><path d="M21 3 3 10.5l7 2.5 2.5 7z" /><path d="m10 13 4-4" /></>),
     curador: (<><path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h10" /></>),
+    social: (<><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16M8 14h2M12 14h2M8 17h2" /></>),
   }
   return <svg {...p}>{caminhos[id] ?? <circle cx="12" cy="12" r="8" />}</svg>
 }
@@ -236,6 +237,8 @@ export function PainelAgente({
                       ? `Entra depois do ${agentePorId(anterior).nome.toLowerCase()}.`
                       : id === 'curador'
                         ? 'Entra quando você corrige um post, para virar regra.'
+                        : id === 'social'
+                          ? 'Monta o plano editorial da sala: abra o calendário da parede e clique em Plano editorial.'
                         : 'Quando ele trabalhar, o resultado aparece aqui.'}
                   </p>
                 </div>
