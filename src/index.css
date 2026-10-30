@@ -345,6 +345,7 @@ i.publicado { background: #3f7650 }
 .slide-mini { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-md) }
 .slide-mini:hover img { outline: 2px solid var(--primary); outline-offset: 1px }
 .ver-slides { position: fixed; inset: 0; z-index: 3000; overflow: hidden; background: rgba(15, 18, 26, .9); display: grid; place-items: center; padding: 56px 72px }
+.ver-slides .ver-video { max-width: 100%; max-height: calc(100vh - 140px); aspect-ratio: 9 / 16; background: #000; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5) }
 .ver-slides img { max-width: 100%; max-height: calc(100vh - 140px); aspect-ratio: 4 / 5; object-fit: contain; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5) }
 .ver-seta, .ver-fechar { position: absolute; z-index: 2; border: 0; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; display: grid; place-items: center }
 .ver-seta { top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; font-size: 30px; line-height: 1 }
@@ -1241,6 +1242,7 @@ i.falhou { background: var(--danger, #b42318) }
 .gv-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px }
 .gv-lista li { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface) }
 .gv-capa { position: relative; flex: none; width: 72px; aspect-ratio: 4/5; padding: 0; border: 0; border-radius: var(--radius-md); overflow: hidden; background: var(--muted); cursor: zoom-in }
+.gv-capa video,
 .gv-capa img { width: 100%; height: 100%; object-fit: cover; display: block }
 .gv-capa span { position: absolute; right: 4px; bottom: 4px; font-size: 11px; font-weight: 600; padding: 1px 5px; border-radius: 6px; background: rgba(15, 20, 30, .7); color: #fff }
 .gv-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px }
