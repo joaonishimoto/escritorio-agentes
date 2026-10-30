@@ -36,6 +36,7 @@ const Curadoria = z.object({
       agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos']),
       regra: z.string().describe('curta e verificável, no imperativo'),
       motivo: z.string(),
+      ja_coberta: z.boolean().describe('true se uma regra que já existe para a marca (listadas no sistema) já diz isso com outras palavras; aí ela não entra de novo'),
     }),
   ),
   pontual: z
@@ -52,16 +53,20 @@ export const curador: Agente = async (ctx, passo, em) => {
   const reprovado = passo.entrada.acao === 'reprovar'
   await em.inicio('Transformando sua correção em regra')
   const { dados, uso } = await gerarJson({
-    modelo: 'claude-haiku-5-5',
+    // as regras que ele escreve valem para todos os posts seguintes: vale pagar o Sonnet (centavos por correção)
+    modelo: 'claude-sonnet-5-5',
+    effort: 'low',
     sistema: sistemaDoAgente(
       ctx,
       'curador',
-      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Não duplique regras que já existem; se uma regra parecida existe, não crie outra. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Regra sobre o visual de anúncio é do criativos; sobre o visual de post, do designer; sobre o pacote de textos do anúncio, do redator. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título dentro da área 1:1, áreas seguras do anúncio, número decorativo gigante só quando é o layout, logo de verdade em vez de letra.',
+      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Antes de escrever, compare com as regras que já existem para a marca (listadas acima): se uma já diz o mesmo com outras palavras, marque ja_coberta e não a reescreva. No máximo duas regras por correção, cada uma para o agente que consegue cumpri-la. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post, e sem citar o nome do dono. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Regra sobre o visual de anúncio é do criativos; sobre o visual de post, do designer; sobre o pacote de textos do anúncio, do redator. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título e logo dentro da área 1:1, áreas seguras do anúncio, número decorativo gigante só quando é o layout, logo de verdade em vez de letra, foto do produto grande e com sombra ou sangria em vez de bloco quadrado, texto sem cobrir a foto, selo proporcional ao texto, rodapé numa linha, mockup na proporção real, nada de imagem gerada com tela ou texto, capa com até 6 palavras, primeira linha da legenda com até 12 palavras, números por extenso na narração, cena do vídeo parada por 2 s, sem barra preta.',
     ),
     conteudo: `${ctx.post.anuncio ? 'Isto é um anúncio no Meta (artes do designer de criativos e pacote de textos do redator).\n\n' : ''}Pedido original: ${ctx.post.briefing}\n\n${ctx.post.anuncio?.pacote ? `Pacote atual do anúncio:\n${JSON.stringify(ctx.post.anuncio.pacote)}` : `Legenda atual:\n${ctx.post.legenda ?? ''}`}\n\nCorreção do dono da marca:\n${comentario}`,
     schema: Curadoria,
   })
 
+  const cobertas = dados.regras.filter((r) => r.ja_coberta)
+  dados.regras = dados.regras.filter((r) => !r.ja_coberta)
   if (dados.regras.length) {
     await db.from('regras').insert(
       dados.regras.map((r) => ({
@@ -75,7 +80,7 @@ export const curador: Agente = async (ctx, passo, em) => {
       })),
     )
   }
-  await em.texto(dados.regras.map((r) => `[${r.agente}] ${r.regra}`).join('\n') || 'Nenhuma regra nova.')
+  await em.texto([...dados.regras.map((r) => `[${r.agente}] ${r.regra}`), ...cobertas.map((r) => `Já coberta por uma regra que existe: ${r.regra}`)].join('\n') || 'Nenhuma regra nova.')
 
   if (reprovado || dados.refazer_a_partir_de === 'nenhum') {
     if (!reprovado) await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)

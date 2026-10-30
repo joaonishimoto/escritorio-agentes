@@ -35,7 +35,7 @@ export const AGENTES: Agente[] = [
   { id: 'revisor', nome: 'Revisor', papel: 'Confere texto e imagens contra o checklist e as regras aprendidas.', cor: '#52738a', modelo: 'claude-opus-5-5' },
   { id: 'publicador', nome: 'Publicador', papel: 'Publica ou agenda no Instagram depois do seu ok.', cor: '#4b7ebc', modelo: null },
   { id: 'social', nome: 'Social Media', papel: 'Monta o plano editorial sem repetir o que a marca já postou e coordena a equipe post a post.', cor: '#b0447a', modelo: 'claude-sonnet-5-5' },
-  { id: 'curador', nome: 'Curador', papel: 'Transforma suas correções em regras curtas e verificáveis.', cor: '#74766d', modelo: 'claude-haiku-5-5' },
+  { id: 'curador', nome: 'Curador', papel: 'Transforma suas correções em regras curtas e verificáveis.', cor: '#74766d', modelo: 'claude-sonnet-5-5' },
 ]
 
 export const agentePorId = (id: AgenteId) => AGENTES.find((a) => a.id === id)!

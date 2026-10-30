@@ -5,6 +5,7 @@ import { sistemaDoAgente, type Marca } from './contexto.js'
 import { db } from './db.js'
 import { PADRAO_TEXTO, type ModeloTexto } from './ias.js'
 import { completarMarca } from './marcas/index.js'
+import { CLICHES, ESCRITA } from './variacao.js'
 
 const FORA_DO_POST = 'Agora o dono da marca pede uma tarefa avulsa, fora do fluxo de um post: faça só o que ele pediu, pronto para usar, sem explicar o processo.'
 
@@ -26,7 +27,7 @@ export type AgenteAvulso = keyof typeof PAPEL_AVULSO
 export const eAgenteAvulso = (v: unknown): v is AgenteAvulso => typeof v === 'string' && Object.hasOwn(PAPEL_AVULSO, v)
 
 // quem não troca de IA no Novo post usa o modelo do catálogo
-const MODELO_AVULSO: Record<AgenteAvulso, ModeloTexto> = { ...PADRAO_TEXTO, cinegrafista: 'claude-sonnet-5-5', curador: 'claude-haiku-5-5' }
+const MODELO_AVULSO: Record<AgenteAvulso, ModeloTexto> = { ...PADRAO_TEXTO, cinegrafista: 'claude-sonnet-5-5', curador: 'claude-sonnet-5-5' }
 
 export interface Troca {
   pedido: string
@@ -52,7 +53,8 @@ export async function pedidoAvulso(marcaId: string, agente: AgenteAvulso, pedido
   const ctx = { marca: completarMarca(marca as Marca), etapas: [], regras: regras ?? [] }
   const { texto, uso } = await gerarTexto({
     modelo: MODELO_AVULSO[agente],
-    sistema: sistemaDoAgente(ctx, agente, `${PAPEL_AVULSO[agente]}\n${FORA_DO_POST}`),
+    // o copywriter avulso segue as mesmas regras de escrita do post (sem endereço de site, sem clichê de IA, gancho curto)
+    sistema: `${sistemaDoAgente(ctx, agente, `${PAPEL_AVULSO[agente]}\n${FORA_DO_POST}`)}${agente === 'redator' ? `\n\n${ESCRITA}\n\n${CLICHES}` : ''}`,
     conteudo: conteudoDoPedido(pedido, anteriores),
     buscaWeb: agente === 'pesquisador' ? 3 : undefined,
     effort: agente === 'curador' ? 'low' : 'medium',
