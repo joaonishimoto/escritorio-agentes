@@ -7,6 +7,7 @@ import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
 import { juntarNarracao } from '../ffmpeg.js'
+import { memoriaDaMarca } from '../memoria.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
 import { modeloDe, modeloNaVolta, motorDeImagem, motorDeVideo, type MotorVideo } from '../ias.js'
 import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } from '../imagens.js'
@@ -44,7 +45,8 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   await em.inicio(`Lendo o pedido: ${ctx.post.briefing.slice(0, 90)}`)
   if (refs.tem) await em.acao(`Olhando as ${ctx.post.referencias!.length} referências que você mandou`)
   await em.acao(`Carregando o roteiro e ${ctx.regras.length} regras aprendidas de ${ctx.marca.nome}`)
-  const [recentes, funcionou] = await Promise.all([postsRecentes(ctx), oQueFuncionou(ctx)])
+  const [recentes, funcionou, memoria] = await Promise.all([postsRecentes(ctx), oQueFuncionou(ctx), memoriaDaMarca(ctx.marca.id, 80)])
+  if (memoria) await em.acao('Conferindo o que a marca já publicou para não repetir')
   if (funcionou) await em.acao('Olhando o que mais funcionou no Instagram da marca')
   const caminhos = sugerirCaminhos(recentes)
   const angulos = recentes.map((r) => r.angulo).filter(Boolean)
@@ -65,7 +67,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,

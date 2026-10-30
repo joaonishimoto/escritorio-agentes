@@ -6,6 +6,7 @@ import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { eAgenteAvulso, pedidoAvulso, type Troca } from './_lib/pedido-avulso.js'
 import { completarMarca } from './_lib/marcas/index.js'
+import { memoriaDaMarca } from './_lib/memoria.js'
 
 const Ideias = z.object({
   ideias: z.array(
@@ -39,9 +40,11 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     return res.status(200).json(await pedidoAvulso(marca_id, agente, pedido.trim().slice(0, 8000), trocas))
   }
 
-  const [{ data: marca }, { data: recentes }] = await Promise.all([
+  const [{ data: marca }, { data: recentes }, memoria] = await Promise.all([
     db.from('marcas').select('*').eq('id', marca_id).single(),
-    db.from('posts').select('briefing').eq('marca_id', marca_id).order('criado_em', { ascending: false }).limit(20),
+    // os publicados já estão na memória; aqui entram os que ainda estão em produção, na mesa ou agendados
+    db.from('posts').select('briefing').eq('marca_id', marca_id).neq('status', 'publicado').order('criado_em', { ascending: false }).limit(20),
+    memoriaDaMarca(marca_id),
   ])
   if (!marca) return res.status(404).json({ erro: 'Marca não encontrada' })
   const m = completarMarca(marca as Marca)
@@ -55,7 +58,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     ]
       .filter(Boolean)
       .join('\n\n'),
-    conteudo: `Linha pedida pelo dono: ${linha?.trim() || 'livre, o que fizer mais sentido para a marca agora'}\n\nPosts que já foram feitos (não repita):\n${(recentes ?? []).map((p) => `- ${p.briefing}`).join('\n') || '(nenhum)'}\n\nSugira 6 ideias variadas dentro dessa linha.`,
+    conteudo: `Linha pedida pelo dono: ${linha?.trim() || 'livre, o que fizer mais sentido para a marca agora'}\n\n${memoria || '## Posts que a marca já publicou\n(nenhum na memória)'}\n\n## Posts em andamento ou agendados (não repita)\n${(recentes ?? []).map((p) => `- ${p.briefing.replace(/\s+/g, ' ').slice(0, 200)}`).join('\n') || '(nenhum)'}\n\nSugira 6 ideias variadas dentro dessa linha, que não repitam o tema de nenhum post acima.`,
     schema: Ideias,
   })
   return res.status(200).json({ ideias: dados.ideias, custo_usd: uso.custo_usd })
