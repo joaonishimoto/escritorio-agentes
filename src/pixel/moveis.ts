@@ -456,4 +456,4 @@ export function mesinha(g: Ctx, e: Estilo, x: number, y: number) {
   r(g, '#f2b233', x + 2, y + 3, 4, 5)
 }
 
-/** A sala da equipe (sem os bonecos): Pauta, Criação e Publicação em cima, hall com café embaixo. */
+/** A sala da equipe (sem os bonecos): Planejamento, Criação, Estúdio e Revisão e publicação em cima, hall com café embaixo. */

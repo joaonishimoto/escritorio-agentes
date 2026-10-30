@@ -3,7 +3,7 @@
 import type { AgenteId } from '../agents/catalogo'
 import { comCorDaMarca, COR_EQUIPE, type Estilo, ESTILOS, misturar } from './estilos'
 import { cadeira, celularInstagram, cofrinho, type Ctx, divisoria, escrivaninhaNovoPost, type EstadoInstagram, estante, gaveteiro, janela, kitDecorar, mesa, mesinha, microfone, parede, piso, pisos, planta, quadroBranding, quadroReferencias, quadroRegras, r, tripe } from './moveis'
-import { ANDAR_H, CALENDARIO, CANTOS, COFRINHO, CORREDOR_H, CORREDOR_Y, DECORAR, DEPTOS, GAVETA, INSTAGRAM, MARCA_W, MESA_VOCE, MESAS, NOVO_POST, PAREDE_DEPTO_Y, PAREDE_H, PLACA, PORTA_MARCA, PORTA_X, QUADROS, SALA_H, SALA_W, VOCE_W } from './planta'
+import { ANDAR_H, CAFE, CALENDARIO, CANTOS, COFRINHO, CORREDOR_H, CORREDOR_Y, DECORAR, DEPTOS, ESTUDIO_SET, GAVETA, INSTAGRAM, MARCA_W, MESA_VOCE, MESAS, MESA_W, MESINHA_PUBLICACAO, NOVO_POST, PAREDE_DEPTO_Y, PAREDE_H, PLACA, PORTA_MARCA, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W } from './planta'
 export * from './planta'
 export * from './estilos'
 export type { EstadoInstagram } from './moveis'
@@ -16,17 +16,26 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
   const estilo = comCorDaMarca(ESTILOS.d, COR_EQUIPE)
   const p = pisos(estilo)
   const topoHall = PAREDE_DEPTO_Y + 6
+  const [planejamento, criacao, estudio, publicacao] = DEPTOS
+  // estúdio com carpete grafite, que abafa o som
+  const grafite = { ...estilo, piso: '#4a4f5c', pisoLinha: '#3a3e49' }
   piso(g, p.hall.estilo, x0, SALA_W, topoHall, SALA_H - topoHall, p.hall.padrao)
-  piso(g, p.pauta.estilo, x0, 104, PAREDE_H, topoHall - PAREDE_H, p.pauta.padrao)
-  piso(g, p.criacao.estilo, x0 + 108, 104, PAREDE_H, topoHall - PAREDE_H, p.criacao.padrao)
-  piso(g, p.publicacao.estilo, x0 + 216, 104, PAREDE_H, topoHall - PAREDE_H, p.publicacao.padrao)
+  piso(g, p.pauta.estilo, x0 + planejamento.x, planejamento.w, PAREDE_H, topoHall - PAREDE_H, p.pauta.padrao)
+  piso(g, p.criacao.estilo, x0 + criacao.x, criacao.w, PAREDE_H, topoHall - PAREDE_H, p.criacao.padrao)
+  piso(g, grafite, x0 + estudio.x, estudio.w, PAREDE_H, topoHall - PAREDE_H, 'carpete')
+  piso(g, p.publicacao.estilo, x0 + publicacao.x, publicacao.w, PAREDE_H, topoHall - PAREDE_H, p.publicacao.padrao)
   parede(g, estilo, x0, SALA_W)
-  for (const jx of [10, 58, 112, 188, 222, 296]) janela(g, x0 + jx, 7, jx === 58 || jx === 112 || jx === 188 ? 26 : 18, noite)
-  estante(g, x0 + 150, 2)
+  // uma janela em cima de cada mesa; no Planejamento, a estante; no Estúdio, espuma acústica no lugar das janelas
+  estante(g, x0 + planejamento.x + 6, 2)
+  janela(g, x0 + planejamento.x + 60, 7, 20, noite)
+  for (const d of [criacao, publicacao]) {
+    janela(g, x0 + d.x + 9, 7, 20, noite)
+    janela(g, x0 + d.x + 60, 7, 20, noite)
+  }
+  espumaAcustica(g, x0 + estudio.x + 6, 4, estudio.w - 12)
 
   // divisórias entre os departamentos e a parede do hall, com uma porta em cada
-  divisoria(g, estilo, x0 + 104, PAREDE_H, 4, topoHall - PAREDE_H)
-  divisoria(g, estilo, x0 + 212, PAREDE_H, 4, topoHall - PAREDE_H)
+  for (const d of DEPTOS.slice(1)) divisoria(g, estilo, x0 + d.x - 4, PAREDE_H, 4, topoHall - PAREDE_H)
   let ultimo = 0
   for (const d of DEPTOS) {
     divisoria(g, estilo, x0 + ultimo, PAREDE_DEPTO_Y, d.porta - 15 - ultimo, 6)
@@ -40,23 +49,102 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
     mesa(g, estilo, x0 + m.x, m.y)
     cadeira(g, estilo, x0 + m.x + 9, m.y + 17)
   }
-  tripe(g, x0 + MESAS.cinegrafista.x + 33, MESAS.cinegrafista.y - 4)
+  quadroDaPauta(g, x0 + QUADRO_PAUTA.x, QUADRO_PAUTA.y)
+  fundoDeGravacao(g, x0 + ESTUDIO_SET.x, ESTUDIO_SET.y)
   microfone(g, x0 + MESAS.narrador.x + 2, MESAS.narrador.y - 6)
-  mesinha(g, estilo, x0 + 266, 106)
+  mesinha(g, estilo, x0 + MESINHA_PUBLICACAO.x, MESINHA_PUBLICACAO.y)
+  mesaEmTreinamento(g, x0 + MESAS.paginas.x, MESAS.paginas.y)
 
-  // hall: tapete com a placa da equipe, sofá de espera, café e plantas
-  r(g, '#1f2330', x0 + 107, 184, 106, 30)
-  r(g, estilo.rodape, x0 + 108, 185, 104, 28)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 188, 98, 1)
-  r(g, misturar(estilo.rodape, '#ffffff', 0.3), x0 + 111, 209, 98, 1)
+  // hall: tapete com a placa da equipe, sofá de espera, balcão do café e plantas
+  const tx = x0 + PORTA_X - 53
+  r(g, '#1f2330', tx - 1, 184, 108, 30)
+  r(g, estilo.rodape, tx, 185, 106, 28)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), tx + 3, 188, 100, 1)
+  r(g, misturar(estilo.rodape, '#ffffff', 0.3), tx + 3, 209, 100, 1)
   sofa(g, x0 + 20, 196, 56, '#3d5a80')
   mesaDeCentro(g, x0 + 30, 178, 34)
+  balcaoCafe(g, x0 + CAFE.x, CAFE.y)
   planta(g, x0 + 4, 216)
-  planta(g, x0 + 302, 216)
-  planta(g, x0 + 300, 160)
+  planta(g, x0 + SALA_W - 18, 216)
+  planta(g, x0 + SALA_W - 18, 162)
   r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18, 5)
   r(g, '#1f2330', x0 + PORTA_X + 18, SALA_H - 5, SALA_W - PORTA_X - 18, 5)
   r(g, estilo.rodape, x0 + PORTA_X - 18, SALA_H - 2, 36, 2)
+}
+
+/** Painéis de espuma em cunha na parede do Estúdio. */
+function espumaAcustica(g: Ctx, x: number, y: number, w: number) {
+  r(g, '#1f2330', x - 1, y - 1, w + 2, 24)
+  r(g, '#3a3e49', x, y, w, 22)
+  for (let i = 0; i < w; i += 6)
+    for (let j = 0; j < 22; j += 6) {
+      const vira = (i / 6 + j / 6) % 2 === 0
+      r(g, '#4a4f5c', x + i + 1, y + j + 1, vira ? 4 : 2, vira ? 2 : 4)
+    }
+  // luz de "gravando"
+  r(g, '#1f2330', x + w / 2 - 9, y + 23, 18, 7)
+  r(g, '#b74e45', x + w / 2 - 8, y + 24, 16, 5)
+  r(g, '#f7d9a6', x + w / 2 - 6, y + 26, 12, 1)
+}
+
+/** Quadro da pauta em cavalete: colunas com post-its, no canto livre do Planejamento. */
+function quadroDaPauta(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x + 3, y + 22, 2, 8)
+  r(g, '#1f2330', x + 21, y + 22, 2, 8)
+  r(g, '#1f2330', x - 1, y - 1, 28, 24)
+  r(g, '#ffffff', x, y, 26, 22)
+  r(g, '#d9dde6', x + 8, y + 2, 1, 18)
+  r(g, '#d9dde6', x + 17, y + 2, 1, 18)
+  const notas: [number, number, string][] = [[2, 3, '#f2b233'], [2, 9, '#9fd3a8'], [2, 15, '#f2a6b8'], [11, 3, '#9fc6ea'], [11, 9, '#f2b233'], [20, 3, '#9fd3a8']]
+  for (const [a, b, c] of notas) r(g, c, x + a, y + b, 4, 4)
+}
+
+/** Fundo de gravação verde, luz com softbox e câmera no tripé: o set do Estúdio. */
+function fundoDeGravacao(g: Ctx, x: number, y: number) {
+  r(g, '#1f2330', x - 1, y - 2, 42, 3)
+  r(g, 'rgba(0,0,0,.15)', x + 1, y + 36, 40, 3)
+  r(g, '#1f2330', x - 1, y, 42, 37)
+  r(g, '#3f9e5a', x, y + 1, 40, 35)
+  r(g, '#4fb46a', x + 2, y + 2, 3, 30)
+  r(g, '#358a4d', x, y + 30, 40, 6)
+  // softbox
+  r(g, '#1f2330', x + 47, y + 2, 14, 11)
+  r(g, '#fff6d8', x + 48, y + 3, 12, 9)
+  r(g, '#1f2330', x + 53, y + 13, 2, 20)
+  r(g, '#1f2330', x + 50, y + 32, 8, 2)
+  tripe(g, x + 66, y + 14)
+}
+
+/** Mesa de quem está em treinamento: tela com o rascunho de uma página e livros para estudar. */
+function mesaEmTreinamento(g: Ctx, x: number, y: number) {
+  // rascunho de landing page no monitor: topo, título, imagem e botão
+  r(g, '#e9ecf2', x + 8, y - 8, 14, 9)
+  r(g, '#7a8f2e', x + 8, y - 8, 14, 2)
+  r(g, '#9aa1ad', x + 10, y - 5, 6, 1)
+  r(g, '#c9ced8', x + 10, y - 3, 4, 3)
+  r(g, '#f2b233', x + 16, y - 2, 4, 2)
+  // pilha de livros no lugar da caneca
+  r(g, '#1f2330', x + MESA_W - 9, y + 1, 9, 9)
+  r(g, '#2a5288', x + MESA_W - 8, y + 2, 7, 2)
+  r(g, '#b74e45', x + MESA_W - 9, y + 4, 8, 2)
+  r(g, '#7a8f2e', x + MESA_W - 8, y + 6, 7, 3)
+}
+
+/** Balcão do café com a cafeteira e as xícaras. */
+function balcaoCafe(g: Ctx, x: number, y: number) {
+  r(g, 'rgba(0,0,0,.15)', x + 2, y + 14, 40, 3)
+  r(g, '#1f2330', x - 1, y - 1, 42, 16)
+  r(g, '#5a3a24', x, y, 40, 10)
+  r(g, '#3d2817', x, y + 10, 40, 4)
+  r(g, '#1f2330', x + 4, y - 9, 12, 13) // cafeteira
+  r(g, '#8a929e', x + 5, y - 8, 10, 11)
+  r(g, '#b74e45', x + 7, y - 6, 2, 2)
+  r(g, '#3d2817', x + 8, y - 1, 4, 3)
+  for (const i of [20, 27, 34]) {
+    r(g, '#1f2330', x + i - 1, y + 2, 6, 6)
+    r(g, '#ffffff', x + i, y + 3, 4, 4)
+    r(g, '#6b4f36', x + i + 1, y + 4, 2, 1)
+  }
 }
 
 /** A sala de uma marca: quadros na parede, tapete com o nome, pedidos, Instagram, cofrinho, gaveta e decoração. */
@@ -117,7 +205,7 @@ export function desenharSuaSala(g: Ctx, x0: number) {
   carrinhoBar(g, x0 + 110, 196)
   planta(g, x0 + 4, 138)
   planta(g, x0 + 140, 216)
-  r(g, '#1f2330', x0, SALA_H - 5, PORTA_X - 18 - 32, 5)
+  r(g, '#1f2330', x0, SALA_H - 5, 110, 5)
   r(g, '#1f2330', x0 + 96, SALA_H - 5, VOCE_W - 96, 5)
   r(g, VOCE.rodape, x0 + 62, SALA_H - 2, 34, 2)
 }

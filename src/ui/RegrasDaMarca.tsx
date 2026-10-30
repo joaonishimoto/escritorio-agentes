@@ -11,7 +11,8 @@ interface Proposta {
   ficam: string[]
 }
 
-const GRUPOS = [...AGENTES.map((a) => ({ id: a.id as string, nome: a.nome })), { id: 'todos', nome: 'Toda a equipe' }]
+// quem está em treinamento ainda não trabalha, então não recebe regras
+const GRUPOS = [...AGENTES.filter((a) => !a.emTreinamento).map((a) => ({ id: a.id as string, nome: a.nome })), { id: 'todos', nome: 'Toda a equipe' }]
 const CONHECIDOS = new Set(GRUPOS.map((g) => g.id))
 
 /** Mural de regras da sala: o que a equipe aprendeu com as suas correções, por agente. */

@@ -144,3 +144,13 @@ export function reticencias(g: CanvasRenderingContext2D, x: number, y: number, t
   const n = Math.floor(t * 3) % 4
   for (let i = 0; i < n; i++) g.fillRect(x + 2 + i * 3, y + 1, 2, 2)
 }
+
+/** Capelo de formatura na cabeça de quem está em treinamento (visto de trás). */
+export function capelo(g: CanvasRenderingContext2D, x: number, y: number) {
+  g.fillStyle = '#1f2330'
+  g.fillRect(x, y + 1, 10, 3)
+  g.fillRect(x + 2, y + 3, 6, 3)
+  g.fillStyle = '#f2b233'
+  g.fillRect(x + 9, y + 2, 1, 5)
+  g.fillRect(x + 8, y + 6, 3, 2)
+}
