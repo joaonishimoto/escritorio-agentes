@@ -133,6 +133,7 @@ export function NovoPost({
   const [agendar, setAgendar] = useState(!!agendarPara)
   // duas aprovações por padrão: o texto antes do design e o post pronto
   const [aprovarTexto, setAprovarTexto] = useState(true)
+  const [revisar, setRevisar] = useState(true)
   const [quando, setQuando] = useState(() => (agendarPara ? paraCampo(agendarPara) : amanhaAs19()))
   const [linha, setLinha] = useState('')
   const [ideias, setIdeias] = useState<Ideia[]>([])
@@ -230,6 +231,7 @@ export function NovoPost({
           voz: voz || undefined,
           agendar_para: agendar ? new Date(quando).toISOString() : undefined,
           aprovar_texto: aprovarTexto,
+          revisar,
           ias: Object.keys(iasDoPost).length ? iasDoPost : undefined,
         },
       })
@@ -532,6 +534,13 @@ export function NovoPost({
                   <small>O texto do redator para na sua mesa; o designer só começa depois que você aprovar.</small>
                 </span>
               </label>
+              <label className="np-toggle">
+                <input type="checkbox" checked={revisar} onChange={(e) => setRevisar(e.target.checked)} />
+                <span>
+                  <strong>Passar pelo revisor</strong>
+                  <small>Desligado, o post pronto vem direto para a sua mesa, sem a conferência do revisor nem as idas e voltas dela.</small>
+                </span>
+              </label>
               <div className="np-quando" role="radiogroup" aria-label="Quando publicar">
                 <button type="button" role="radio" aria-checked={!agendar} className={!agendar ? 'ativo' : ''} onClick={() => setAgendar(false)}>
                   <strong>Decido na aprovação</strong>
@@ -561,7 +570,7 @@ export function NovoPost({
                 <dt>Referências</dt>
                 <dd>{refs.length ? `${refs.length} ${refs.length > 1 ? 'itens' : 'item'}` : 'Nenhuma'}</dd>
                 <dt>Aprovações</dt>
-                <dd>{aprovarTexto ? 'Texto e post pronto' : 'Só o post pronto'}</dd>
+                <dd>{[aprovarTexto ? 'Texto e post pronto' : 'Só o post pronto', revisar ? '' : 'sem revisor'].filter(Boolean).join(', ')}</dd>
                 <dt>Publicação</dt>
                 <dd>{quandoTexto}</dd>
               </dl>
@@ -570,7 +579,7 @@ export function NovoPost({
         </div>
 
         <footer className="np-rodape">
-          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {aprovarTexto ? 'você → ' : ''}{formato === 'reel' ? 'vídeo → narração' : 'design'} → revisão → você</p>}
+          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {aprovarTexto ? 'você → ' : ''}{formato === 'reel' ? 'vídeo → narração' : 'design'} → {revisar ? 'revisão → ' : ''}você</p>}
           <button type="button" className="secundario" onClick={aoFechar}>Cancelar</button>
           <button className="primario" disabled={enviando || subindo > 0 || !briefing.trim()}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
         </footer>
