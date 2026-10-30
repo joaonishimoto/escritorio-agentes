@@ -152,7 +152,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (req.method !== 'POST') return res.status(405).end()
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
-  const { acao } = (req.body ?? {}) as { acao?: string }
+  const { acao, indice, titulo } = (req.body ?? {}) as { acao?: string; indice?: number; titulo?: string }
 
   const numeros = await juntarNumeros(usuario)
   const { data: ultima } = await db
@@ -162,6 +162,16 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     .order('criado_em', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (acao === 'dispensar' && ultima) {
+    // o dono deu OK numa dica: ela sai da análise salva e não volta mais
+    const analise = ultima.analise as z.infer<typeof Analise>
+    if (analise.alertas[indice ?? -1]?.titulo === titulo) {
+      const nova = { ...analise, alertas: analise.alertas.filter((_, i) => i !== indice) }
+      await db.from('analises_financeiro').update({ analise: nova }).eq('id', ultima.id).eq('dono_id', usuario)
+      ultima.analise = nova
+    }
+    return res.status(200).json({ numeros, ultima })
+  }
   if (acao !== 'analisar') return res.status(200).json({ numeros, ultima })
   if (!numeros || numeros.posts === 0) return res.status(400).json({ erro: 'Ainda não há posts nos últimos 30 dias para analisar' })
 

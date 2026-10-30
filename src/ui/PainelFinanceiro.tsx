@@ -82,6 +82,14 @@ export function PainelFinanceiro({
     }
   }
 
+  // OK numa dica: some na hora e o servidor tira da análise salva
+  const dispensar = (indice: number) => {
+    if (!dados || !a) return
+    const titulo = a.analise.alertas[indice].titulo
+    aoAtualizar({ ...dados, ultima: { ...a, analise: { ...a.analise, alertas: a.analise.alertas.filter((_, i) => i !== indice) } } })
+    chamarApi<DadosFin>('financeiro', { acao: 'dispensar', indice, titulo }).then(aoAtualizar).catch(() => {})
+  }
+
   const variacao = n && n.total_30_dias_antes_usd > 0 ? Math.round(((n.total_usd - n.total_30_dias_antes_usd) / n.total_30_dias_antes_usd) * 100) : null
   const maxDia = Math.max(0.0001, ...(n?.por_dia.map((d) => d.custo) ?? [0]))
   const maxAgente = Math.max(0.0001, ...(n?.por_agente.map((x) => x.custo) ?? [0]))
@@ -157,7 +165,7 @@ export function PainelFinanceiro({
                     {a.analise.alertas.length === 0 && <p className="ag-vazio">Nada para corrigir agora.</p>}
                     <ol className="fin-dicas">
                       {a.analise.alertas.map((x, i) => (
-                        <li key={i} className={x.gravidade}>
+                        <li key={`${i}-${x.titulo}`} className={x.gravidade}>
                           <div className="fin-dica-topo">
                             <span className="fin-tag">{GRAVIDADE[x.gravidade]}</span>
                             {x.economia_usd_mes > 0 && <span className="fin-ganho">−{usd(x.economia_usd_mes)}/mês</span>}
@@ -168,6 +176,9 @@ export function PainelFinanceiro({
                             <span>O que fazer</span>
                             {x.acao}
                           </p>
+                          <button className="fin-ok" onClick={() => dispensar(i)} aria-label={`OK, dispensar a dica: ${x.titulo}`}>
+                            OK
+                          </button>
                         </li>
                       ))}
                     </ol>

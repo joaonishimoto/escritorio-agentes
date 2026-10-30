@@ -276,7 +276,6 @@ function Painel() {
     const alertas = financeiro.ultima?.analise.alertas ?? []
     return {
       barras: financeiro.numeros.por_dia.slice(-14).map((d) => d.custo),
-      dicas: alertas.length,
       alerta: alertas.some((x) => x.gravidade === 'alta'),
     }
   }, [financeiro])
