@@ -62,6 +62,10 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const [tetoPost, setTetoPost] = useState('')
   const [tetoMes, setTetoMes] = useState('')
   const [gastoMes, setGastoMes] = useState<number | null>(null)
+  // memória da marca: quantos posts publicados os agentes conhecem (null = migração ainda não rodou)
+  const [memoria, setMemoria] = useState<number | null>(null)
+  const [lendoAntigos, setLendoAntigos] = useState(false)
+  const [resultadoAntigos, setResultadoAntigos] = useState<string | null>(null)
   const [base, setBase] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -81,6 +85,22 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
       vivo = false
     }
   }, [aba])
+
+  const lerPostsAntigos = async () => {
+    setLendoAntigos(true)
+    setResultadoAntigos(null)
+    try {
+      const r = await chamarApi<{ lidos: number; novos: number; resumidos: number; total: number; custo_usd: number; aviso?: string }>('marcas', { acao: 'ler_posts_antigos', id: marcaId })
+      setMemoria(r.total)
+      setResultadoAntigos(
+        `${r.lidos} posts lidos no Instagram, ${r.novos} novos na memória, ${r.resumidos} resumidos (US$ ${r.custo_usd.toFixed(2).replace('.', ',')}).${r.aviso ? ` Alguns ficaram sem resumo e entram na próxima leitura: ${r.aviso}` : ''}`,
+      )
+    } catch (e) {
+      setResultadoAntigos(e instanceof Error ? e.message : 'Não deu para ler os posts antigos')
+    } finally {
+      setLendoAntigos(false)
+    }
+  }
 
   const testarServicos = async () => {
     setTestando(true)
@@ -120,10 +140,11 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
   const mudou = perfil !== null && retrato !== base
 
   useEffect(() => {
-    chamarApi<{ marca: Perfil; gasto_mes?: number }>('marcas', { acao: 'ler', id: marcaId })
-      .then(({ marca, gasto_mes }) => {
+    chamarApi<{ marca: Perfil; gasto_mes?: number; memoria_posts?: number | null }>('marcas', { acao: 'ler', id: marcaId })
+      .then(({ marca, gasto_mes, memoria_posts }) => {
         preencher(marca)
         setGastoMes(gasto_mes ?? null)
+        setMemoria(memoria_posts ?? null)
       })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Não deu para abrir a marca'))
   }, [marcaId])
@@ -478,6 +499,19 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                       })()}
                     </p>
                   )}
+
+                  <h3 className="pm-subtitulo">Memória da marca</h3>
+                  <p className="pm-dica">
+                    Uma ficha curta de cada post já publicado (tema, ângulo e gancho), lida pelo chefe de pauta e pelas ideias para não repetir assunto. Os posts do app entram
+                    sozinhos; os feitos direto no Instagram entram quando você lê os posts antigos (até 300 dos mais recentes, alguns centavos no Haiku).
+                  </p>
+                  {memoria !== null && <p className="pm-dica">Na memória agora: <strong>{memoria} {memoria === 1 ? 'post' : 'posts'}</strong></p>}
+                  <div>
+                    <button type="button" className="secundario" disabled={lendoAntigos} onClick={lerPostsAntigos}>
+                      {lendoAntigos ? 'Lendo o Instagram…' : 'Ler posts antigos do Instagram'}
+                    </button>
+                  </div>
+                  {resultadoAntigos && <p className="pm-dica" role="status">{resultadoAntigos}</p>}
                 </section>
               )}
             </>

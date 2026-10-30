@@ -5,6 +5,7 @@ import { enfileirar, rodarAteOLimite } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 import { definirOrigem } from './_lib/render-remoto.js'
 import { fazerLimpeza } from './_lib/limpeza.js'
+import { atualizarMemorias } from './_lib/memoria.js'
 import { renovarTokens } from './_lib/renovar-tokens.js'
 
 /** Chamado pelo banco a cada minuto quando algum post agendado chegou na hora (manda para o publicador) ou quando há passo parado na fila (roda a fila). */
@@ -12,8 +13,12 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (req.method !== 'POST') return res.status(405).end()
   const { data: token } = await db.from('config_app').select('valor').eq('chave', 'token_agendador').single()
   if (!token?.valor || req.headers['x-agendador'] !== token.valor) return res.status(401).end()
-  // a cada 6 horas o banco pede as métricas dos posts publicados
-  if ((req.body as { acao?: string } | undefined)?.acao === 'atualizar_metricas') return res.status(200).json({ ok: true, ...(await atualizarMetricas()) })
+  // a cada 6 horas o banco pede as métricas dos posts publicados; na mesma volta, os posts novos entram na memória da marca
+  if ((req.body as { acao?: string } | undefined)?.acao === 'atualizar_metricas') {
+    const metricas = await atualizarMetricas()
+    const memoria = await atualizarMemorias().catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }))
+    return res.status(200).json({ ok: true, ...metricas, memoria })
+  }
   definirOrigem(origemDaRequisicao(req))
   // uma vez por dia o banco pede para renovar os tokens do Instagram antes de vencerem
   if ((req.body as { acao?: string } | undefined)?.acao === 'renovar_tokens') return res.status(200).json({ ok: true, ...(await renovarTokens()) })

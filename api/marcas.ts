@@ -4,6 +4,7 @@ import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { validarIdentidade } from './_lib/identidade.js'
 import { completarMarca } from './_lib/marcas/index.js'
+import { importarInstagram, resumirPendentes, sincronizarApp } from './_lib/memoria.js'
 import { AGENTES_DE_REGRA, Juntadas, montarProposta, pedidoDeJuntar, SISTEMA_JUNTAR, type RegraAntiga } from './_lib/regras.js'
 import { gastoDoMes } from './_lib/teto.js'
 
@@ -23,6 +24,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   const corpo = (req.body ?? {}) as { acao?: string; id?: string; campos?: Record<string, unknown> }
   if (corpo.acao === 'ler' || corpo.acao === 'salvar') return perfil(res, usuario, corpo)
   if (corpo.acao === 'juntar_regras' || corpo.acao === 'aplicar_regras') return juntarRegras(res, usuario, req.body)
+  if (corpo.acao === 'ler_posts_antigos') return lerPostsAntigos(res, usuario, corpo.id)
 
   const { nome, instagram, cor, tom_de_voz, neutra } = (req.body ?? {}) as {
     nome?: string
@@ -61,7 +63,10 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
   if (!atual) return res.status(404).json({ erro: 'Marca não encontrada' })
   const sem = (m: typeof atual) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'modelo_slides_html')) as Omit<typeof atual, 'modelo_slides_html'>
 
-  if (corpo.acao === 'ler') return res.json({ marca: sem(completarMarca(atual)), gasto_mes: await gastoDoMes(atual.id) })
+  if (corpo.acao === 'ler') {
+    const [gasto_mes, memoria] = await Promise.all([gastoDoMes(atual.id), db.from('memoria_posts').select('id', { count: 'exact', head: true }).eq('marca_id', atual.id)])
+    return res.json({ marca: sem(completarMarca(atual)), gasto_mes, memoria_posts: memoria.error ? null : (memoria.count ?? 0) })
+  }
 
   const c = corpo.campos ?? {}
   const texto = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined)
@@ -148,4 +153,20 @@ async function juntarRegras(res: VercelResponse, usuario: string, corpo: { acao?
   const { error } = await db.from('regras').update({ status: 'arquivada' }).in('id', arquivar)
   if (error) throw new Error(error.message)
   return res.json({ criadas: novas.length, arquivadas: arquivar.length })
+}
+
+/** Memória da marca: lê os posts antigos do Instagram (e os publicados pelo app) e resume cada um numa ficha. */
+async function lerPostsAntigos(res: VercelResponse, usuario: string, id: string | undefined) {
+  const { data: marca } = await db.from('marcas').select('id').eq('id', id ?? '').eq('dono_id', usuario).maybeSingle()
+  if (!marca) return res.status(404).json({ erro: 'Marca não encontrada' })
+  const doApp = await sincronizarApp(marca.id)
+  let instagram: { lidos: number; novos: number }
+  try {
+    instagram = await importarInstagram(marca.id)
+  } catch (e) {
+    return res.status(400).json({ erro: e instanceof Error ? e.message : 'Não consegui ler o Instagram da sala' })
+  }
+  const resumo = await resumirPendentes(marca.id)
+  const { count } = await db.from('memoria_posts').select('id', { count: 'exact', head: true }).eq('marca_id', marca.id)
+  return res.json({ lidos: instagram.lidos, novos: instagram.novos + doApp, resumidos: resumo.resumidos, total: count ?? 0, custo_usd: resumo.custo_usd, aviso: resumo.erro })
 }
