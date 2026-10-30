@@ -30,7 +30,7 @@ export function Gaveta({
 }) {
   const [enviando, setEnviando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
-  const [vendo, setVendo] = useState<string[] | null>(null)
+  const [vendo, setVendo] = useState<{ urls: string[]; video?: string } | null>(null)
   const [ajustando, setAjustando] = useState<string | null>(null)
   const [comentario, setComentario] = useState('')
 
@@ -88,11 +88,17 @@ export function Gaveta({
             {posts.map((p) => {
               const slides = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem).map((s) => s.url)
               const formato = (p as Post & { formato?: string }).formato
+              const video = p.video?.url
               return (
                 <li key={p.id}>
-                  <button className="gv-capa" onClick={() => slides.length && setVendo(slides)} aria-label="Ver os slides" disabled={!slides.length}>
-                    {slides[0] && <img src={slides[0]} alt="" loading="lazy" />}
-                    {slides.length > 1 && <span>{slides.length}</span>}
+                  <button
+                    className="gv-capa"
+                    onClick={() => (slides.length || video) && setVendo({ urls: slides, video })}
+                    aria-label={video ? 'Ver o vídeo' : 'Ver os slides'}
+                    disabled={!slides.length && !video}
+                  >
+                    {slides[0] ? <img src={slides[0]} alt="" loading="lazy" /> : video && <video src={video} muted playsInline preload="metadata" />}
+                    {video ? <span aria-hidden>▶</span> : slides.length > 1 && <span>{slides.length}</span>}
                   </button>
                   <div className="gv-info">
                     <small>
@@ -132,7 +138,7 @@ export function Gaveta({
           </ul>
         )}
       </div>
-      {vendo && <VerSlides urls={vendo} inicial={0} aoFechar={() => setVendo(null)} />}
+      {vendo && <VerSlides urls={vendo.video && !vendo.urls.length ? [''] : vendo.urls} video={vendo.video} inicial={0} aoFechar={() => setVendo(null)} />}
     </aside>
   )
 }

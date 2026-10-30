@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-/** Slides em tela cheia: setas do teclado ou botões passam, Esc fecha. Clique, roda do mouse ou +/− dão zoom. */
-export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial: number; aoFechar: () => void }) {
+/** Slides em tela cheia: setas do teclado ou botões passam, Esc fecha. Clique, roda do mouse ou +/− dão zoom.
+ *  Num Reel, `video` toma o lugar da capa (o slide 1), que vira o pôster do player. */
+export function VerSlides({ urls, inicial, aoFechar, video }: { urls: string[]; inicial: number; aoFechar: () => void; video?: string }) {
   const [i, setI] = useState(inicial)
   const [zoom, setZoom] = useState(1)
   const [origem, setOrigem] = useState('50% 50%')
@@ -40,6 +41,9 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
       {urls.length > 1 && (
         <button className="ver-seta esquerda" onClick={(e) => { e.stopPropagation(); ir(-1) }} aria-label="Slide anterior">‹</button>
       )}
+      {video && i === 0 ? (
+        <video className="ver-video" src={video} poster={urls[0] || undefined} controls autoPlay playsInline onClick={(e) => e.stopPropagation()} />
+      ) : (
       <img
         src={urls[i]}
         alt={`Slide ${i + 1}`}
@@ -56,6 +60,7 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
           ajustar(e.deltaY < 0 ? 1.15 : 1 / 1.15)
         }}
       />
+      )}
       {urls.length > 1 && (
         <button className="ver-seta direita" onClick={(e) => { e.stopPropagation(); ir(1) }} aria-label="Próximo slide">›</button>
       )}
@@ -66,7 +71,7 @@ export function VerSlides({ urls, inicial, aoFechar }: { urls: string[]; inicial
       </div>
       <span className="ver-contador mono">
         {i + 1} / {urls.length}
-        {zoom > 1 ? ` · ${Math.round(zoom * 100)}%` : ' · clique para ampliar'}
+        {video && i === 0 ? ' · vídeo' : zoom > 1 ? ` · ${Math.round(zoom * 100)}%` : ' · clique para ampliar'}
       </span>
     </div>,
     document.body,
