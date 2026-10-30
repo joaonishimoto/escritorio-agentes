@@ -997,11 +997,13 @@ export const revisor: Agente = async (ctx, passo, em) => {
     const pendencias = dados.aprovado ? '' : `\n\nPendências após ${MAX_VOLTAS} voltas:\n${dados.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}`
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
     await em.texto(dados.resumo + pendencias + sugestoes)
+    // o que o revisor devolveu neste post vai para o curador virar aprendizado; o post segue para a mesa do dono sem esperar
+    const devolucoes = ctx.post.voltas_revisao > 0 || dados.problemas.length ? await problemasApontados(ctx.post.id, dados.problemas) : []
     return {
       saida: { ...dados, marcas_vistas: marcas },
       uso,
       entrega: dados.aprovado ? 'Tudo certo. Enviado para sua aprovação' : 'Enviado com pendências para você decidir',
-      proximos: null,
+      proximos: devolucoes.length ? [{ agente: 'curador', entrada: { origem: 'revisor', problemas: devolucoes, sugestoes: dados.sugestoes ?? [], voltas: ctx.post.voltas_revisao } }] : null,
       para: 'voce',
     }
   }
@@ -1018,6 +1020,14 @@ export const revisor: Agente = async (ctx, passo, em) => {
     entrega: `Devolvido: ${dados.problemas[0]?.problema.slice(0, 80) ?? 'ajustes'}`,
     proximos: [{ agente: rota[0], entrada: { feedback: texto, rota: rota.slice(1) } }],
   }
+}
+
+/** Tudo o que o revisor apontou neste post, em todas as rodadas, sem repetir o mesmo texto. */
+async function problemasApontados(postId: string, atuais: { agente: string; problema: string }[]) {
+  const { data } = await db.from('passos').select('saida').eq('post_id', postId).eq('agente', 'revisor').eq('status', 'feito').order('ordem')
+  const todos = [...(data ?? []).flatMap((p) => ((p.saida as { problemas?: { agente: string; problema: string }[] } | null)?.problemas ?? [])), ...atuais]
+  const vistos = new Set<string>()
+  return todos.filter((p) => p?.problema && !vistos.has(p.problema) && vistos.add(p.problema)).map((p) => ({ agente: p.agente, problema: p.problema }))
 }
 
 const ConferenciaDeAjuste = z.object({
