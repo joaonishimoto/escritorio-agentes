@@ -25,7 +25,7 @@ export type AgenteAvulso = keyof typeof PAPEL_AVULSO
 export const eAgenteAvulso = (v: unknown): v is AgenteAvulso => typeof v === 'string' && Object.hasOwn(PAPEL_AVULSO, v)
 
 // quem não troca de IA no Novo post usa o modelo do catálogo
-const MODELO_AVULSO: Record<AgenteAvulso, ModeloTexto> = { ...PADRAO_TEXTO, cinegrafista: 'claude-sonnet-5-5', curador: 'claude-haiku-5-5' }
+const MODELO_AVULSO: Record<AgenteAvulso, ModeloTexto> = { ...PADRAO_TEXTO, cinegrafista: 'claude-sonnet-5-5', curador: 'claude-sonnet-5-5' }
 
 export interface Troca {
   pedido: string
