@@ -4,6 +4,7 @@ import { gerarJson } from './_lib/claude.js'
 import type { Marca } from './_lib/contexto.js'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
+import { eAgenteAvulso, pedidoAvulso, type Troca } from './_lib/pedido-avulso.js'
 import { completarMarca } from './_lib/marcas/index.js'
 
 const Ideias = z.object({
@@ -17,15 +18,26 @@ const Ideias = z.object({
   ),
 })
 
-/** O pesquisador sugere ideias de posts numa linha que você escolhe. Modelo barato e sem busca na web. */
+/**
+ * O pesquisador sugere ideias de posts numa linha que você escolhe (modelo barato e sem busca na web).
+ * Com `agente` e `pedido`, é um pedido avulso a qualquer funcionário (ver _lib/pedido-avulso.ts); mora nesta
+ * mesma rota para não passar do limite de funções da Vercel.
+ */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
 
-  const { marca_id, linha } = (req.body ?? {}) as { marca_id?: string; linha?: string }
+  const { marca_id, linha, agente, pedido, anteriores } = (req.body ?? {}) as { marca_id?: string; linha?: string; agente?: string; pedido?: string; anteriores?: Troca[] }
   if (!marca_id) return res.status(400).json({ erro: 'Escolha a marca' })
   if (!(await eDonoDaMarca(usuario, marca_id))) return res.status(404).json({ erro: 'Marca não encontrada' })
+
+  if (agente !== undefined) {
+    if (!eAgenteAvulso(agente)) return res.status(400).json({ erro: 'Esse funcionário não recebe pedidos avulsos' })
+    if (!pedido?.trim()) return res.status(400).json({ erro: 'Escreva o que você quer pedir' })
+    const trocas = Array.isArray(anteriores) ? anteriores.filter((t) => typeof t?.pedido === 'string' && typeof t?.resposta === 'string') : []
+    return res.status(200).json(await pedidoAvulso(marca_id, agente, pedido.trim().slice(0, 8000), trocas))
+  }
 
   const [{ data: marca }, { data: recentes }] = await Promise.all([
     db.from('marcas').select('*').eq('id', marca_id).single(),

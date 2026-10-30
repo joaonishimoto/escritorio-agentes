@@ -961,6 +961,9 @@ i.falhou { background: var(--danger, #b42318) }
 .ag-tempo p { font-size: 14px; line-height: 1.4 }
 .ag-tempo time { font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums }
 .ag-corpo .ideias { border-top: 0; padding-top: 0 }
+.pa-troca { display: flex; flex-direction: column; gap: 8px }
+.pa-pedido { align-self: flex-end; max-width: 88%; padding: 8px 12px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--cor-agente) 10%, var(--surface)); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere }
+.ag-entrega h3 small { font-weight: 400 }
 @media (min-width: 761px) { .painel.ag { width: min(400px, calc(100% - 24px)) } }
 @media (max-width: 760px) {
   .painel.ag { max-height: 82% }

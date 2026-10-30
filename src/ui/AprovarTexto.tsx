@@ -12,7 +12,7 @@ interface SlideDeTexto {
   itens?: { quantidade: string; item: string }[]
 }
 
-/** Sua mesa, antes do design: o texto do redator para aprovar ou pedir ajuste. Aprovado, o designer começa. */
+/** Sua mesa, antes do design: o texto do copywriter para aprovar ou pedir ajuste. Aprovado, o designer começa. */
 export function AprovarTexto({ post, aoMudar, aoFechar }: { post: Post; aoMudar: () => void; aoFechar: () => void }) {
   const [slides, setSlides] = useState<SlideDeTexto[] | null>(null)
   const [comentario, setComentario] = useState('')
@@ -59,7 +59,7 @@ export function AprovarTexto({ post, aoMudar, aoFechar }: { post: Post; aoMudar:
         </div>
         <button className="fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
       </header>
-      <p className="muted at-dica">O redator terminou. Aprovado o texto, o designer começa os slides; depois o post pronto volta para a sua aprovação final.</p>
+      <p className="muted at-dica">O copywriter terminou. Aprovado o texto, o designer começa os slides; depois o post pronto volta para a sua aprovação final.</p>
 
       <section>
         <h3>Slides</h3>
@@ -101,7 +101,7 @@ export function AprovarTexto({ post, aoMudar, aoFechar }: { post: Post; aoMudar:
       <section className="ap-ajuste">
         <label htmlFor="ajuste-texto">
           <h3>Quer mudar algo no texto?</h3>
-          <span className="muted">Volta para o redator, que mexe só no que você pedir, e o texto passa por aqui de novo.</span>
+          <span className="muted">Volta para o copywriter, que mexe só no que você pedir, e o texto passa por aqui de novo.</span>
         </label>
         <textarea id="ajuste-texto" rows={3} placeholder="Ex.: troque o título da capa por uma pergunta" value={comentario} onChange={(e) => setComentario(e.target.value)} />
         <button className="secundario" disabled={enviando || !comentario.trim()} onClick={() => decidir('ajustar_texto')}>Pedir ajuste no texto</button>

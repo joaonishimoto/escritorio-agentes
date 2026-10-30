@@ -78,7 +78,7 @@ interface EscritorioState {
 const NOMES_CURTOS: Record<AgenteId, string> = {
   chefe: 'Chefe de pauta',
   pesquisador: 'Pesquisador',
-  redator: 'Redator',
+  redator: 'Copywriter',
   designer: 'Designer',
   cinegrafista: 'Cinegrafista',
   narrador: 'Narrador',

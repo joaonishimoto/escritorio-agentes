@@ -19,9 +19,9 @@ const HEX = /^#[0-9a-f]{6}$/i
 // chaves que têm campo próprio ou que o app cuida sozinho
 const FORA_DAS_REGRAS = ['cores', 'fonte', 'cor_sala', 'instagram', 'instagram_conectado_em', 'instagram_token', 'neutra', 'tom_editado']
 const ABAS: { id: Aba; nome: string; quem: string }[] = [
-  { id: 'voz', nome: 'Tom de voz', quem: 'Chefe de pauta, redator e revisor' },
+  { id: 'voz', nome: 'Tom de voz', quem: 'Chefe de pauta, copywriter e revisor' },
   { id: 'visual', nome: 'Visual', quem: 'Designer e revisor' },
-  { id: 'legenda', nome: 'Legenda', quem: 'Redator' },
+  { id: 'legenda', nome: 'Legenda', quem: 'Copywriter' },
   { id: 'revisao', nome: 'Revisão', quem: 'Revisor' },
   { id: 'narracao', nome: 'Narração', quem: 'Narrador (Reels)' },
   { id: 'servicos', nome: 'Serviços', quem: 'Cinegrafista, narrador e publicador' },

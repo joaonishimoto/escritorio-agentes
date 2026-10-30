@@ -35,7 +35,7 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
 ## Como um post anda
 
 1. **Novo post**: você escreve o pedido, manda referências (imagens e links), escolhe formato, estilo e a IA de cada funcionário só para aquele post (`posts.preferencias`). `/api/posts` cria o post e enfileira o chefe de pauta.
-2. **Produção**: chefe de pauta → pesquisador → redator → designer (→ cinegrafista → narrador nos Reels) → revisor. Cada agente lê a versão mais nova do roteiro e as regras ativas da marca quando começa. O revisor devolve até duas vezes para quem precisa refazer.
+2. **Produção**: chefe de pauta → pesquisador → copywriter → designer (→ cinegrafista → narrador nos Reels) → revisor. Cada agente lê a versão mais nova do roteiro e as regras ativas da marca quando começa. O revisor devolve até duas vezes para quem precisa refazer.
 3. **Sua mesa**: o post pronto aparece na sua mesa (de todas as salas). Dali você publica agora, agenda, pede ajuste, reprova ou guarda na **gaveta** da sala para usar depois.
 4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos.
 5. **Publicação**: o publicador usa a Instagram Graph API com o token guardado no Vault do Supabase. Agendados saem na hora marcada: um `pg_cron` no banco chama `/api/publicar-agendados` a cada minuto.

@@ -3,6 +3,8 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { COR_ESTADO, useEscritorio } from '../store/escritorio'
 import { AcoesDeErro } from './PostComErro'
 import { PedirIdeias } from './PedirIdeias'
+import { PedirAoAgente } from './PedirAoAgente'
+import { recebePedido } from '../lib/pedidos'
 import type { Ideia } from '../lib/ideias'
 import type { Post } from '../lib/dados'
 
@@ -61,7 +63,7 @@ function emCampos(texto: string) {
   return blocos.filter((b) => b.texto.trim() || b.rotulo)
 }
 
-type Aba = 'agora' | 'historico' | 'ideias'
+type Aba = 'agora' | 'historico' | 'ideias' | 'pedir'
 
 export function PainelAgente({
   post,
@@ -117,6 +119,7 @@ export function PainelAgente({
     { id: 'agora', nome: ativo ? 'Agora' : 'Neste post' },
     { id: 'historico', nome: 'Histórico', conta: historico.length },
     ...(id === 'pesquisador' && marcaId && aoUsarIdeia ? [{ id: 'ideias' as Aba, nome: 'Ideias de posts' }] : []),
+    ...(marcaId && recebePedido(id) ? [{ id: 'pedir' as Aba, nome: 'Pedir algo' }] : []),
   ]
 
   return (
@@ -255,6 +258,7 @@ export function PainelAgente({
           ))}
 
         {aba === 'ideias' && marcaId && aoUsarIdeia && <PedirIdeias marcaId={marcaId} aoUsar={aoUsarIdeia} />}
+        {aba === 'pedir' && marcaId && <PedirAoAgente marcaId={marcaId} agente={id} nome={a.nome} />}
       </div>
     </aside>
   )
