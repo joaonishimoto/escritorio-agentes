@@ -21,7 +21,7 @@ export interface VagaPedida {
 const Tema = z.object({
   n: z.number().int().describe('o número da vaga'),
   titulo: z.string().describe('nome curto do post'),
-  gancho: z.string().describe('a frase da capa ou dos primeiros segundos'),
+  gancho: z.string().describe('a frase da capa ou dos primeiros segundos, em até 6 palavras (a capa aparece recortada em quadrado na grade)'),
   briefing: z.string().describe('o pedido completo para a equipe produzir o post, em 1 a 3 frases, no formato da vaga'),
   novidade: z.enum(['inedito', 'angulo_novo']).describe('inedito: tema que a marca nunca postou; angulo_novo: tema que já saiu, com um ângulo claramente diferente'),
   parecido_com: z.string().describe('se angulo_novo: o post antigo mais parecido (data e tema, como na lista); se inedito: vazio'),
@@ -51,17 +51,20 @@ export function textoDasVagas(vagas: VagaPedida[]) {
 }
 
 async function contexto(marcaId: string) {
-  const [{ data: marca }, { data: andamento }, memoria] = await Promise.all([
+  const [{ data: marca }, { data: andamento }, memoria, { data: regras }] = await Promise.all([
     db.from('marcas').select('*').eq('id', marcaId).single(),
     // ainda não publicados: em produção, na mesa, agendados ou guardados
     db.from('posts').select('briefing').eq('marca_id', marcaId).not('status', 'in', '(publicado,reprovado)').order('criado_em', { ascending: false }).limit(30),
     memoriaDaMarca(marcaId, 150),
+    // o que o dono já corrigiu em pauta e texto: um tema que esbarra numa regra volta da mesa
+    db.from('regras').select('agente, regra').eq('marca_id', marcaId).eq('status', 'ativa').in('agente', ['chefe', 'redator', 'todos']).order('criado_em').limit(40),
   ])
   if (!marca) throw new Error('Marca não encontrada')
   const m = completarMarca(marca as Marca)
   const sistema = [
     `Você é o Social Media de uma equipe que cria posts de Instagram${m.identidade?.neutra ? '' : ` para a marca ${m.nome}`}. Você monta o plano editorial: um tema por vaga do calendário, variado, bom para salvar e compartilhar, sem repetir o que a marca já publicou nem repetir temas dentro do próprio plano. Escreva em português do Brasil.`,
     m.tom_de_voz ? `## Tom de voz da marca\n${m.tom_de_voz.slice(0, 4000)}` : '',
+    regras?.length ? `## Regras que o dono já deu à equipe (um tema que esbarra nelas volta da mesa)\n${regras.map((r) => `- ${r.regra}`).join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -77,7 +80,7 @@ const REGRAS = `Regras:
 - Tema obrigatório (datas especiais) é para seguir.
 - Nenhum tema repete outro da lista de posts publicados; se voltar a um assunto antigo, o ângulo é claramente novo e marque angulo_novo com o post parecido.
 - Dentro do plano, nenhum tema, gancho ou fecho se repete; alterne objetivos (ensinar, inspirar, entreter, vender) ao longo das semanas.
-- O briefing é o pedido que a equipe recebe: diga o assunto, o ângulo e o que o post entrega, sem descrever o visual.`
+- O briefing é o pedido que a equipe recebe: diga o assunto, o ângulo e o que o post entrega, sem descrever o visual. Comece pelo formato ("Um carrossel sobre…", "Uma foto…", "Um Reel…"), diga se o post vende ou só ensina ou entretém, e peça um post só.`
 
 /** Cria o plano em rascunho com as vagas preenchidas pelo Social Media. */
 export async function gerarPlano(marcaId: string, config: Record<string, unknown>, vagas: VagaPedida[], pedido?: string) {
