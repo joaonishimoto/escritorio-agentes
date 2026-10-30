@@ -88,7 +88,7 @@ export interface Contexto {
 export const NOMES: Record<string, string> = {
   chefe: 'Chefe de pauta',
   pesquisador: 'Pesquisador',
-  redator: 'Redator',
+  redator: 'Copywriter',
   designer: 'Designer',
   cinegrafista: 'Cinegrafista',
   narrador: 'Narrador',
@@ -132,7 +132,7 @@ export function identidadeVisual(identidade: Record<string, unknown> | null | un
 }
 
 /** Monta o prompt de sistema de um agente a partir do roteiro, da marca e das regras aprendidas. */
-export function sistemaDoAgente(ctx: Contexto, agente: string, papel: string) {
+export function sistemaDoAgente(ctx: Pick<Contexto, 'marca' | 'etapas' | 'regras'>, agente: string, papel: string) {
   const etapa = ctx.etapas.find((e) => e.agente === agente)
   const regras = ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos')
   const precisa = PRECISA[agente] ?? { tom: true, identidade: true, legenda: true, outrasRegras: true }

@@ -42,7 +42,7 @@ export const OPCOES_NARRADOR: OpcaoIA[] = [...MODELOS_TEXTO, { id: 'nenhum', nom
 export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; video?: boolean }[] = [
   { agente: 'chefe', nome: 'Chefe de pauta', padrao: 'claude-sonnet-5-5' },
   { agente: 'pesquisador', nome: 'Pesquisador', padrao: 'claude-sonnet-5-5' },
-  { agente: 'redator', nome: 'Redator', padrao: 'claude-opus-5-5' },
+  { agente: 'redator', nome: 'Copywriter', padrao: 'claude-opus-5-5' },
   { agente: 'designer', nome: 'Designer', padrao: 'claude-opus-5-5' },
   { agente: 'imagens', nome: 'Imagens do designer', padrao: 'seedream' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },

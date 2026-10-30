@@ -23,7 +23,7 @@
       "maxDuration": 30
     },
     "api/ideias.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/financeiro.ts": {
       "maxDuration": 60

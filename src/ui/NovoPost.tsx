@@ -531,7 +531,7 @@ export function NovoPost({
                 <input type="checkbox" checked={aprovarTexto} onChange={(e) => setAprovarTexto(e.target.checked)} />
                 <span>
                   <strong>Aprovar o texto antes do design</strong>
-                  <small>O texto do redator para na sua mesa; o designer só começa depois que você aprovar.</small>
+                  <small>O texto do copywriter para na sua mesa; o designer só começa depois que você aprovar.</small>
                 </span>
               </label>
               <label className="np-toggle">

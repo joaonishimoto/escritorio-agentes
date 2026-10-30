@@ -9,7 +9,7 @@ import { explicarErro } from '../lib/erros'
 const NOMES: Record<string, string> = {
   chefe: 'Chefe de pauta',
   pesquisador: 'Pesquisador',
-  redator: 'Redator',
+  redator: 'Copywriter',
   designer: 'Designer',
   cinegrafista: 'Cinegrafista',
   narrador: 'Narrador',
