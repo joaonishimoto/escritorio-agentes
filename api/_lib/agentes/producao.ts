@@ -847,10 +847,20 @@ const Revisao = z.object({
       problema: z.string().describe('o que falhou e como corrigir, citando o item do checklist ou a regra'),
     }),
   ),
+  sugestoes: z
+    .array(z.string())
+    .describe('o que o dono pode querer olhar mas não devolve o post: detalhe de gosto, alinhamento fino, item do checklist que a equipe não tem como conferir (receita, dose, dado interno), fato marcado como "dizem"'),
   resumo: z.string(),
 })
 
 const MAX_VOLTAS = 2
+
+/** Problemas que só o dono consegue conferir (receita, dose, dado do app, quantidade de fontes): viram sugestão em vez de devolver o post. */
+export function soParaODono<T extends { problema: string }>(problemas: T[]) {
+  const interno = /\b(doses?|receita|ingredientes?|preço|dado interno|dados internos|do app\b.*\b(bate|batem|confere|conferir)|duas fontes|segunda fonte|fonte única|uma fonte só|conferir com o dono|o dono (deve|precisa) conferir)\b/i
+  const visivel = /cortad|sobrepost|ilegível|fora da área|vazi[oa]/i
+  return problemas.filter((p) => interno.test(p.problema) && !visivel.test(p.problema))
+}
 
 /** Uma marca curta por slide, tirada do HTML dele: muda quando o designer mexe naquele slide. */
 export function marcasDosSlides(html: string | undefined) {
@@ -893,7 +903,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
       'revisor',
       reconferindo
         ? 'Você confere se o que você mesmo apontou na rodada anterior foi resolvido. Olhe as imagens de verdade. Se cada ponto foi resolvido, aprove. Problema novo só entra se for grave: texto cortado, sobreposto ou ilegível, regra aprendida quebrada, fato errado, formato errado. Alinhamento fino, alguns pixels, gosto pessoal: não devolvem o post; se quiser, cite no resumo como sugestão para o dono. Cada devolução custa uma rodada inteira da equipe.'
-        : 'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Devolva o que o dono reprovaria: regra aprendida quebrada, item do checklist que falha, texto cortado, sobreposto ou ilegível, fato errado, formato ou quantidade de slides errados, foto que não é da marca, composição claramente ruim (área grande vazia, foto pequena ou irreconhecível, layout apagado, elementos encostando). Não devolva por detalhe de gosto ou por alguns pixels: isso vai no resumo como sugestão. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web. Itens que a equipe não tem como conferir (dados internos, como as receitas do app) não são problema: cite no resumo para o dono conferir. Seja direto: cada problema em uma frase dizendo o que está errado e como corrigir, sem medidas em pixels; resumo em até três frases.',
+        : 'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Devolva o que o dono reprovaria: regra aprendida quebrada, item do checklist que falha, texto cortado, sobreposto ou ilegível, fato errado, formato ou quantidade de slides errados, foto que não é da marca, composição claramente ruim (área grande vazia, foto pequena ou irreconhecível, layout apagado, elementos encostando). Não devolva por detalhe de gosto ou por alguns pixels: isso vai no resumo como sugestão. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web; fato que a pesquisa marcou [dizem] e o texto escreveu como "dizem que" está certo, e fato [interno] não é problema de ninguém. Tudo o que não devolve o post vai em "sugestoes", nunca em "problemas": detalhe de gosto, alinhamento fino, item do checklist que a equipe não tem como conferir (receita, dose, preço, dado do app, quantidade de fontes), ideia de melhoria. Com "problemas" vazio o post vai para o dono com as sugestões; é o caminho normal. Seja direto: cada problema em uma frase dizendo o que está errado e como corrigir, sem medidas em pixels; resumo em até três frases.',
     ),
     conteudo: [
       ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
@@ -929,10 +939,18 @@ export const revisor: Agente = async (ctx, passo, em) => {
     schema: Revisao,
   })
 
+  // o que a equipe não consegue conferir não devolve o post, mesmo que o modelo tenha posto em "problemas"
+  const movidos = soParaODono(dados.problemas)
+  if (movidos.length) {
+    dados.problemas = dados.problemas.filter((p) => !movidos.includes(p))
+    dados.sugestoes = [...(dados.sugestoes ?? []), ...movidos.map((p) => p.problema)]
+    if (!dados.problemas.length) dados.aprovado = true
+  }
+  const sugestoes = dados.sugestoes?.length ? `\n\nSugestões (não seguram o post):\n${dados.sugestoes.map((x) => `- ${x}`).join('\n')}` : ''
   if (dados.aprovado || ctx.post.voltas_revisao >= MAX_VOLTAS) {
     const pendencias = dados.aprovado ? '' : `\n\nPendências após ${MAX_VOLTAS} voltas:\n${dados.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}`
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
-    await em.texto(dados.resumo + pendencias)
+    await em.texto(dados.resumo + pendencias + sugestoes)
     return {
       saida: { ...dados, marcas_vistas: marcas },
       uso,
@@ -947,7 +965,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const rota = rotaDaDevolucao(problemas.map((p) => p.agente), fluxoDeProducao(ctx.etapas, ctx.post.formato))
   const texto = problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
-  await em.texto(texto)
+  await em.texto(texto + sugestoes)
   return {
     saida: { ...dados, marcas_vistas: marcas },
     uso,
