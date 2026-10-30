@@ -4,9 +4,9 @@ import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { quadro, BONECO, type Visual } from './sprites'
 import { comprimento, noCaminho, type Ponto } from './caminho'
-import { carta, exclamacao, faiscas, gato, GATOS, pasta, pastaDaMarca, reticencias, seta, type Gato } from './objetos'
+import { capelo, carta, exclamacao, faiscas, gato, GATOS, pasta, pastaDaMarca, reticencias, seta, type Gato } from './objetos'
 import {
-  ANDAR_H, CAFE, CALENDARIO, DEPTOS, PLACA, PLACA_EQUIPE, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, LINHA_MARCA, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y,
+  ANDAR_H, CAFE, CALENDARIO, DEPTOS, ENTRE_MESAS, PLACA, PLACA_EQUIPE, QUADROS, CORREDOR_PES, LINHA_DEPTO, LINHA_HALL, LINHA_MARCA, MESAS, MESA_VOCE, ORDEM_ESTILOS, PAREDE_DEPTO_Y,
   PORTA_VOCE_X, PORTA_X, PORTA_MARCA, SALA_W, MARCA_W, PASSO_MARCA, PASSO_EQUIPE, VOCE_W, assento, ateOHall, dentroDaSala, desenharCalendario, desenharCorredor, desenharMesaVoce,
   desenharParedeEntre, desenharEquipe, desenharMarca, desenharSuaSala, doHallAte, estiloDaSala, type Quadro, type SalaCustom,
   COFRINHO, DECORAR, GAVETA, INSTAGRAM, NOVO_POST, FIN_W, PAREDE_EXTERNA, desenharParedeExterna, GRAFICO_FIN, MESA_FIN, desenharGraficoFin, desenharMesaFin, desenharSalaFin,
@@ -36,6 +36,7 @@ const VISUAL: Record<AgenteId | 'voce', Visual> = {
   redator: { cabelo: '#e3b85a', pele: '#f3cfa8', camisa: agentePorId('redator').cor },
   designer: { cabelo: '#d9667a', pele: '#c98e66', camisa: agentePorId('designer').cor },
   criativos: { cabelo: '#2a1d16', pele: '#e7b48c', camisa: agentePorId('criativos').cor },
+  paginas: { cabelo: '#c98a3a', pele: '#d9a27a', camisa: agentePorId('paginas').cor },
   cinegrafista: { cabelo: '#3b2a4a', pele: '#e0a87c', camisa: agentePorId('cinegrafista').cor },
   narrador: { cabelo: '#5a3a22', pele: '#a86f4c', camisa: agentePorId('narrador').cor },
   revisor: { cabelo: '#9a9a9a', pele: '#f0c7a0', camisa: agentePorId('revisor').cor },
@@ -578,6 +579,7 @@ export function EscritorioPixel({
           const x = m.x + MESA_W2 - BONECO.w / 2
           const y = m.y + 10 + dy
           g.drawImage(quadro(VISUAL[a.id], 'cima', 0, true), x, y)
+          if (a.emTreinamento) capelo(g, x + 2, y - 3)
           if (est === 'na_fila') reticencias(g, x + 2, y - 8, t)
           if (est === 'esperando_voce' || est === 'erro') exclamacao(g, x + 5, y - 12 + Math.round(Math.sin(t * 6)), est === 'erro' ? '#e05a4f' : '#f2b233')
           {
@@ -778,6 +780,8 @@ export function EscritorioPixel({
         el.style.opacity = '1'
         // ordem fixa: balões por cima de tudo, depois quem está andando (mais embaixo na tela na frente), depois os sentados
         el.style.zIndex = String(nome ? (emPe.has(id) ? 200 + Math.round(pos[1]) : 100) : 1000)
+        // nome comprido quebra em duas linhas em vez de cobrir o da mesa ao lado
+        if (nome) el.style.maxWidth = `${(ENTRE_MESAS * escala) / dpr - 4}px`
         let sx = (pos[0] - camX) * escala / dpr
         const sy = (pos[1] + offY) * escala / dpr
         // balão não sai pela borda da tela
@@ -995,7 +999,14 @@ export function EscritorioPixel({
       {nomes.map((id) => {
         const est = id === 'voce' ? null : estados[id]
         const acao = id !== 'voce' && (est === 'trabalhando' || est === 'esperando_voce' || est === 'na_fila') ? acoes[id] : null
-        const nome = id === 'voce' ? 'Você' : id === 'chefe' ? <>Chefe<span className="so-largo"> de pauta</span></> : agentePorId(id).nome
+        const ag = id === 'voce' ? null : agentePorId(id)
+        const nome = !ag ? 'Você' : (
+          <>
+            <span className="so-largo">{ag.nome}</span>
+            <span className="so-estreito">{ag.curto}</span>
+            {ag.emTreinamento && <small>em treinamento</small>}
+          </>
+        )
         return (
           <Fragment key={id}>
             <div
@@ -1015,7 +1026,7 @@ export function EscritorioPixel({
                 else etiquetas.current.delete(`nome:${id}`)
               }}
             >
-              <div className={`pixel-nome${selecionado === id ? ' ativo' : ''}`}>{nome}</div>
+              <div className={`pixel-nome${selecionado === id ? ' ativo' : ''}${ag?.emTreinamento ? ' treinando' : ''}`}>{nome}</div>
             </div>
           </Fragment>
         )
@@ -1051,7 +1062,8 @@ export function EscritorioPixel({
             else etiquetas.current.delete(`depto:${n}`)
           }}
         >
-          {d.nome}
+          <span className="so-largo">{d.nome}</span>
+          <span className="so-estreito">{d.curto}</span>
         </div>
       ))}
       <div

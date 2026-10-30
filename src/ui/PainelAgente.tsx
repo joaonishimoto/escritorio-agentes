@@ -39,6 +39,7 @@ function Icone({ id }: { id: string }) {
     pesquisador: (<><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></>),
     redator: (<><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></>),
     designer: (<><path d="M12 3a9 9 0 1 0 0 18c1.3 0 2-.7 2-1.6 0-1.2-1-1.5-1-2.6 0-1 .8-1.6 1.8-1.6H17c2.3 0 4-1.6 4-4.2C21 6.7 17 3 12 3Z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10.5" cy="7.2" r="1" /><circle cx="15" cy="8" r="1" /></>),
+    paginas: (<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 8h18M7 12h6M7 15h4M15 12h2v4h-2z" /></>),
     criativos: (<><path d="M3 10v4a1 1 0 0 0 1 1h3l5 4V5L7 9H4a1 1 0 0 0-1 1Z" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" /></>),
     cinegrafista: (<><rect x="3" y="7" width="13" height="11" rx="2" /><path d="m16 11 5-3v9l-5-3" /></>),
     narrador: (<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></>),
@@ -147,7 +148,7 @@ export function PainelAgente({
           <span>Status</span>
           <strong className="ag-estado">
             <i />
-            {ROTULO_ESTADO[estado]}
+            {a.emTreinamento ? 'Treinando' : ROTULO_ESTADO[estado]}
           </strong>
         </div>
         <div>
@@ -160,7 +161,7 @@ export function PainelAgente({
         </div>
         <div>
           <span>Modelo</span>
-          <strong>{a.modelo ? MODELO[a.modelo] ?? a.modelo : 'Sem IA'}</strong>
+          <strong>{a.emTreinamento ? '—' : a.modelo ? MODELO[a.modelo] ?? a.modelo : 'Sem IA'}</strong>
         </div>
       </div>
 
@@ -234,9 +235,11 @@ export function PainelAgente({
               !ativo && (
                 <div className="ag-vazio">
                   <span className="ag-vazio-icone"><Icone id={id} /></span>
-                  <strong>{estado === 'ocioso' ? 'Sem tarefa neste post' : 'Nada entregue ainda'}</strong>
+                  <strong>{a.emTreinamento ? 'Em treinamento' : estado === 'ocioso' ? 'Sem tarefa neste post' : 'Nada entregue ainda'}</strong>
                   <p>
-                    {id === 'criativos' && estado === 'ocioso' && !post?.anuncio
+                    {a.emTreinamento
+                      ? 'Já tem mesa na Criação, mas ainda está estudando: não entra nos posts nem recebe pedidos. Quando for liberado, vai montar as landing pages da marca.'
+                      : id === 'criativos' && estado === 'ocioso' && !post?.anuncio
                       ? 'Entra só nos anúncios: na escrivaninha de pedidos da sala, escolha o formato Anúncio.'
                       : estado === 'ocioso' && anterior
                       ? `Entra depois do ${agentePorId(anterior).nome.toLowerCase()}.`
