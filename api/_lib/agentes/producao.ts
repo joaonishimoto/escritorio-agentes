@@ -804,7 +804,7 @@ export const narrador: Agente = async (ctx, passo, em) => {
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'narrador'),
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'narrador', 'Você é o locutor dos Reels: escreve a fala que vai por cima do vídeo, no tom de voz da marca. Fala natural, de quem conversa, que completa o vídeo em vez de descrever o que aparece.'),
+    sistema: sistemaDoAgente(ctx, 'narrador', 'Você é o locutor dos Reels: escreve a fala que vai por cima do vídeo, no tom de voz da marca. Fala natural, de quem conversa, que completa o vídeo em vez de descrever o que aparece. Escreva para ser ouvido: frases curtas, uma ideia por frase, números e medidas por extenso ("duas doses", "cinquenta mililitros", "mil novecentos e vinte"), sem @, hashtag, endereço de site, emoji nem sigla que não se fala. Não leia o título da capa nem a legenda literalmente: a fala acrescenta. Termine fechando a ideia, não pedindo comentário.'),
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
