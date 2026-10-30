@@ -20,6 +20,7 @@ import { ConectarInstagram } from './ui/ConectarInstagram'
 import { NovaSala } from './ui/NovaSala'
 import { PostComErro } from './ui/PostComErro'
 import { ListaDePosts } from './ui/ListaDePosts'
+import { PreviaAoVivo } from './ui/PreviaAoVivo'
 import { useEscritorio } from './store/escritorio'
 import { supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
@@ -296,6 +297,10 @@ function Painel() {
         aberta={listaAberta}
         aoEscolher={(id) => {
           verPost(id)
+          // post em produção abre direto a prévia: dá para ver como está ficando sem esperar chegar na sua mesa
+          const escolhido = posts.find((p) => p.id === id)
+          if (escolhido && ['em_producao', 'aprovado'].includes(escolhido.status)) focar('previa')
+          else if (foco === 'previa') focar(null)
           if (window.matchMedia('(max-width: 760px)').matches) alternarLista(false)
         }}
         aoNovo={marcaId ? () => setNovo(true) : undefined}
@@ -311,7 +316,7 @@ function Painel() {
             <button onClick={() => supabase?.auth.signOut()}>Sair</button>
           </Menu>
         </div>
-        <Etapa estados={estados} aguardando={esperando || textoEsperando} ativo={post?.status === 'em_producao'} />
+        <Etapa estados={estados} aguardando={esperando || textoEsperando} ativo={post?.status === 'em_producao'} aoAbrir={post ? () => focar('previa') : undefined} />
         <Suspense fallback={<Abertura noPalco frase="Montando o escritório…" />}>
           {carregandoMarcas ? (
             <Abertura noPalco frase="Montando o escritório…" />
@@ -398,11 +403,14 @@ function Painel() {
             aoFechar={() => focar(null)}
             aoAbrirFinanceiro={() => focar('financeiro')}
           />
+        ) : foco === 'previa' && post ? (
+          <PreviaAoVivo post={post} aoFechar={() => focar(null)} aoAbrirMesa={() => abrirDaMesa(post)} />
         ) : foco === 'voce' ? (
           <SuaMesa pendentes={naSuaMesa} marcas={marcasNoAndar} aoAbrirPost={abrirDaMesa} />
         ) : (
           <PainelAgente
             post={post}
+            aoVerPrevia={post ? () => focar('previa') : undefined}
             porAgente={custos?.porAgente}
             aoMudar={mudou}
             marcaId={marcaId}

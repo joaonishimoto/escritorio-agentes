@@ -337,6 +337,9 @@ i.publicado { background: #3f7650 }
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1f2330; pointer-events: none }
 .etapa-ponto { width: 6px; height: 6px; background: #6fa3e0; animation: pisca .8s steps(2) infinite }
 .etapa-ponto.voce { background: #f2b233 }
+.etapa-botao { pointer-events: auto; border: 0; border-radius: 0; cursor: pointer }
+.etapa-botao:hover { background: #2c3346 }
+.etapa-ver { margin-left: 4px; padding-left: 6px; border-left: 1px solid #ffffff55; color: #9fc3ee }
 
 /* miniaturas e visualizador de slides */
 .slide-mini { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-md) }
@@ -1291,3 +1294,26 @@ i.falhou { background: var(--danger, #b42318) }
 .np-toggle span { display: flex; flex-direction: column; gap: 3px }
 .np-toggle strong { font-size: 14px; font-weight: 600 }
 .np-toggle small { font-size: 12px; color: var(--muted-foreground); line-height: 1.35 }
+
+/* prévia ao vivo do post */
+.pv .ag-ao-vivo small { text-transform: none; letter-spacing: 0; font-size: 12px }
+.pv-situacao { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--surface-muted); border: 1px solid var(--border); font-size: 14px }
+.pv-nota { font-size: 13px; margin: 0 }
+.pv .slide-mini { position: relative; cursor: zoom-in }
+.pv-novo img { outline: 2px solid var(--success); outline-offset: 1px }
+.pv-selo { position: absolute; top: 4px; left: 4px; background: var(--success); color: #fff; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: var(--radius-sm) }
+.pv-texto summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); margin-top: 4px }
+.pv-texto .at-slides { margin-top: 8px }
+.pv-quando { font-weight: 400 }
+.pv-revisao { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent); background: color-mix(in srgb, var(--warning) 6%, var(--surface)) }
+.pv-revisao.ok { border-color: color-mix(in srgb, var(--success) 25%, transparent); background: color-mix(in srgb, var(--success) 6%, var(--surface)) }
+.pv-revisao > strong { font-size: 14px }
+.pv-apontamentos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.pv-apontamentos li { border-left: 3px solid var(--cor); padding-left: 8px }
+.pv-apontamentos p { margin: 2px 0 0; font-size: 13px; line-height: 1.45 }
+.pv-para { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--cor) }
+.pv-resumo { margin: 0; font-size: 13px; color: var(--muted-foreground); line-height: 1.45 }
+.pv-checagem { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted-foreground) }
+.pv-rodape { font-size: 12px; text-align: center; margin: 0 }
+.ag-previa { width: 100%; min-height: 36px }
+.pv .painel-topo { padding-right: 38px }

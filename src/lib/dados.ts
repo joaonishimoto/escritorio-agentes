@@ -152,6 +152,70 @@ export function usePostAoVivo(postId: string | null) {
   return post
 }
 
+export interface SlideDeTexto {
+  tipo?: string
+  etiqueta?: string
+  titulo?: string
+  destaque?: string
+  corpo?: string
+  itens?: { quantidade: string; item: string }[]
+}
+export interface ApontamentoDoRevisor {
+  agente: string
+  problema: string
+}
+/** O que já ficou pronto dentro do post, tirado da última entrega de cada agente. */
+export interface Andamento {
+  /** texto de cada slide na versão mais nova do redator */
+  textoDosSlides: SlideDeTexto[] | null
+  /** última conferência do revisor; `aprovado` vazio quando foi a conferência de um ajuste seu */
+  revisao: { aprovado: boolean; problemas: ApontamentoDoRevisor[]; resumo: string; quando: string; vez: number } | null
+  /** o que a checagem automática ainda achou nos slides depois da correção do designer */
+  checagem: string | null
+}
+
+/**
+ * Lê as entregas dos agentes do post (só os campos leves, sem o HTML dos slides).
+ * Os passos não entram no Realtime: `gatilho` muda a cada entrega nova e faz buscar de novo.
+ */
+export function useAndamento(postId: string | null, gatilho: number) {
+  const [andamento, setAndamento] = useState<Andamento | null>(null)
+  useEffect(() => {
+    if (!supabase || !postId) return setAndamento(null)
+    let valendo = true
+    supabase
+      .from('passos')
+      .select('agente, ordem, terminado_em, slides:saida->slides, problemas:saida->problemas, resumo:saida->>resumo, aprovado:saida->aprovado, aplicado:saida->aplicado, problema:saida->>problema, checagem:saida->>checagem')
+      .eq('post_id', postId)
+      .eq('status', 'feito')
+      .in('agente', ['redator', 'designer', 'revisor'])
+      .order('ordem')
+      .then(({ data }) => {
+        if (!valendo) return
+        type Linha = { agente: string; terminado_em: string | null; slides: unknown; problemas: unknown; resumo: string | null; aprovado: boolean | null; aplicado: boolean | null; problema: string | null; checagem: string | null }
+        const linhas = (data ?? []) as Linha[]
+        const ultimo = (agente: string) => linhas.filter((l) => l.agente === agente).at(-1)
+        const redator = ultimo('redator')
+        const designer = ultimo('designer')
+        const revisoes = linhas.filter((l) => l.agente === 'revisor')
+        const r = revisoes.at(-1)
+        setAndamento({
+          textoDosSlides: Array.isArray(redator?.slides) ? (redator.slides as SlideDeTexto[]) : null,
+          revisao: r
+            ? r.aplicado !== null
+              ? { aprovado: !!r.aplicado, problemas: r.problema ? [{ agente: 'designer', problema: r.problema }] : [], resumo: r.aplicado ? 'Seu ajuste foi aplicado.' : '', quando: r.terminado_em ?? '', vez: revisoes.length }
+              : { aprovado: !!r.aprovado, problemas: Array.isArray(r.problemas) ? (r.problemas as ApontamentoDoRevisor[]) : [], resumo: r.resumo ?? '', quando: r.terminado_em ?? '', vez: revisoes.length }
+            : null,
+          checagem: designer?.checagem || null,
+        })
+      })
+    return () => {
+      valendo = false
+    }
+  }, [postId, gatilho])
+  return andamento
+}
+
 export function useRegrasPropostas(marcaId: string | null, recarregar: number) {
   const [regras, setRegras] = useState<Regra[]>([])
   useEffect(() => {
