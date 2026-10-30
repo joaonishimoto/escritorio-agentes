@@ -91,8 +91,6 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   curador: lugar(3, 1, 0),
   publicador: lugar(3, 0, 1),
 }
-/** distância entre as duas mesas de uma fileira (a etiqueta do nome não passa disso) */
-export const ENTRE_MESAS = COLUNA[1] - COLUNA[0]
 /** Canto livre de cada departamento que não enche as duas fileiras. */
 export const QUADRO_PAUTA = { x: COLUNA[1] + 2, y: 94, w: 26, h: 28 }
 export const ESTUDIO_SET = { x: DEPTOS[2].x + 6, y: 92 }
