@@ -4,6 +4,7 @@ import { acordarExecutor, enfileirar } from './_lib/fila.js'
 import { origemDaRequisicao, rota } from './_lib/http.js'
 import { limparIas, servicosDisponiveis } from './_lib/ias.js'
 import { gastoDoMes, tetoDaMarca } from './_lib/teto.js'
+import { limparPedidoAnuncio } from './_lib/anuncio.js'
 import { ESTRUTURAS, LAYOUTS, VOZES } from './_lib/variacao.js'
 
 /** POST cria um post e põe o chefe de pauta para trabalhar. GET diz quais IAs têm chave configurada. */
@@ -55,11 +56,19 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   // passar pelo revisor antes da sua mesa: ligado, a não ser que o Novo post desligue
   prefs.revisar = p.revisar !== false
   if (typeof p.agendar_para === 'string' && !Number.isNaN(Date.parse(p.agendar_para))) prefs.agendar_para = new Date(p.agendar_para).toISOString()
+  // anúncio no Meta: uma arte (em 4:5 e 9:16) com objetivo de campanha; não se agenda, fica na gaveta
+  const anuncio = p.formato === 'anuncio' ? limparPedidoAnuncio(p.anuncio) : null
+  if (p.formato === 'anuncio' && !anuncio) return res.status(400).json({ erro: 'Escolha o objetivo do anúncio' })
+  if (anuncio) {
+    prefs.formato = 'foto'
+    delete prefs.slides
+    delete prefs.agendar_para
+  }
 
   const { data: roteiro } = await db.from('roteiro_ativo').select('id').eq('marca_id', marca_id).maybeSingle()
   const { data: post, error } = await db
     .from('posts')
-    .insert({ marca_id, briefing: briefing.trim(), roteiro_id: roteiro?.id ?? null, status: 'em_producao', referencias: refs, preferencias: prefs, ...(prefs.formato ? { formato: prefs.formato } : {}) })
+    .insert({ marca_id, briefing: briefing.trim(), roteiro_id: roteiro?.id ?? null, status: 'em_producao', referencias: refs, preferencias: prefs, ...(anuncio ? { anuncio } : {}), ...(prefs.formato ? { formato: prefs.formato } : {}) })
     .select()
     .single()
   if (error || !post) return res.status(500).json({ erro: error?.message ?? 'Falha ao criar o post' })

@@ -5,7 +5,7 @@ import { z } from 'zod'
 /** Acima disso o app avisa: cada regra entra no prompt do agente em todo post. */
 export const MUITAS_REGRAS = 15
 
-export const AGENTES_DE_REGRA = ['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos'] as const
+export const AGENTES_DE_REGRA = ['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos'] as const
 
 export const Juntadas = z.object({
   regras: z.array(

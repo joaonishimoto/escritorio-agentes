@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { eAnuncio } from './_lib/anuncio.js'
 import { carregarContexto, fluxoDeProducao } from './_lib/contexto.js'
 import { db, eDonoDaMarca, usuarioDaRequisicao } from './_lib/db.js'
 import { acordarExecutor, enfileirar } from './_lib/fila.js'
@@ -18,7 +19,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   if (!post_id || !acao || !ACOES.includes(acao)) return res.status(400).json({ erro: 'Pedido inválido' })
   if ((acao === 'corrigir' || acao === 'reprovar' || acao === 'ajustar_texto') && !comentario?.trim()) return res.status(400).json({ erro: 'Diga o que precisa mudar' })
 
-  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides, preferencias').eq('id', post_id).single()
+  const { data: post } = await db.from('posts').select('id, marca_id, status, agendado_para, slides, preferencias, anuncio').eq('id', post_id).single()
   if (!post || !(await eDonoDaMarca(usuario, post.marca_id))) return res.status(404).json({ erro: 'Post não encontrado' })
 
   // texto do redator esperando você: segue para o próximo do fluxo (o designer) ou volta para o redator ajustar
@@ -28,7 +29,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     if (!mudou?.length) return res.status(409).json({ erro: 'Esse texto já foi decidido' })
     if (acao === 'aprovar_texto') {
       const ctx = await carregarContexto(post_id)
-      const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato)
+      const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato, eAnuncio(ctx.post))
       const seguinte = fluxo[fluxo.indexOf('redator') + 1] ?? 'revisor'
       await db.from('eventos').insert({ post_id, agente: 'voce', tipo: 'entrega', mensagem: 'Texto aprovado', para: seguinte })
       await enfileirar(post_id, seguinte)
@@ -56,8 +57,9 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     let entrada = (falhou?.entrada as Record<string, unknown>) ?? {}
     // o render caiu com o HTML já escrito: a nova tentativa só desenha, sem gastar com a IA
     const htmlGuardado = (falhou?.saida as { html?: string } | null)?.html
-    if (agente === 'designer' && htmlGuardado && !ia) entrada = { ...entrada, html_pronto: htmlGuardado }
-    else if (agente === 'designer') delete entrada.html_pronto
+    const desenha = agente === 'designer' || agente === 'criativos'
+    if (desenha && htmlGuardado && !ia) entrada = { ...entrada, html_pronto: htmlGuardado }
+    else if (desenha) delete entrada.html_pronto
     // tentar de novo com outra IA: troca só a do agente que falhou, e o vídeo começa um pedido novo
     const trocar = ia ? limparIas({ [agente]: ia }) : {}
     if (trocar[agente]) {
@@ -108,6 +110,11 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   // da gaveta também dá para pedir ajuste: o post sai da gaveta e volta para a equipe
   const daGaveta = post.status === 'guardado' && acao === 'corrigir'
   if (post.status !== 'aguardando_aprovacao' && !daGaveta) return res.status(409).json({ erro: 'Esse post não está esperando aprovação' })
+
+  // o anúncio sobe no Gerenciador de Anúncios, com os textos da gaveta: o app não publica nem agenda no Instagram
+  if ((acao === 'aprovar' || acao === 'agendar') && eAnuncio(post)) {
+    return res.status(409).json({ erro: 'Anúncio não é publicado pelo app: guarde na gaveta e suba as artes e os textos no Gerenciador de Anúncios' })
+  }
 
   if (acao === 'agendar') {
     const data = quando ? new Date(quando) : null

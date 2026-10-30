@@ -98,6 +98,12 @@ export function separarSlides(html: string): string[] {
   })
 }
 
+/** Altura de cada slide: a arte de Stories e Reels dos anúncios (`<section class="slide story">`) é 9:16; o resto, a altura pedida. */
+export function alturaDoSlide(parte: string, largura: number, altura: number) {
+  const secao = parte.match(/<section\b[^>]*\bclass\s*=\s*["']([^"']*)["']/i)
+  return secao && /\bstory\b/.test(secao[1]) ? Math.round((largura * 16) / 9) : altura
+}
+
 /** Problema que a checagem automática achou num slide (antes de gastar uma rodada de revisor nisso). */
 export interface ProblemaDoSlide {
   slide: number
@@ -190,20 +196,26 @@ const CONFERIR = `(() => {
       }
     }
   }
-  // corte 1:1 da grade do perfil: o 4:5 perde ~135 px em cima e embaixo; título ali some na miniatura
+  // área segura: no 4:5, o corte 1:1 da grade perde ~135 px em cima e embaixo (título ali some na miniatura);
+  // no 9:16 do anúncio, o Meta cobre os 14% de cima (perfil, "Patrocinado") e os 35% de baixo (texto e botão do anúncio)
+  const story = limite.height > limite.width * 1.6
   const corte = (limite.height - limite.width) / 2
-  if (corte > 40) {
+  const seguro = story
+    ? { de: Math.round(limite.height * 0.14), ate: Math.round(limite.height * 0.65), onde: 'área segura do story (o topo e os 35% de baixo ficam cobertos pelo Meta)' }
+    : { de: corte, ate: limite.height - corte, onde: 'área central 1:1 (some no corte da grade)' }
+  const fora = (r) => r.top - limite.top < seguro.de - 4 || r.bottom - limite.top > seguro.ate + 4
+  if (story || corte > 40) {
     for (const t of textos) {
       if (parseFloat(getComputedStyle(t.el).fontSize) < 40) continue
-      if (t.r.top - limite.top < corte - 4 || limite.bottom - t.r.bottom < corte - 4) problemas.push('título fora da área central 1:1 (some no corte da grade): "' + t.trecho + '"')
+      if (fora(t.r)) problemas.push('título fora da ' + seguro.onde + ': "' + t.trecho + '"')
     }
-    // o logo em destaque também precisa aparecer na miniatura; a assinatura pequena do rodapé pode ficar na faixa cortada
+    // o logo em destaque também precisa aparecer; a assinatura pequena do rodapé pode ficar na faixa cortada
     for (const img of slide.querySelectorAll('img')) {
       const nome = ((img.getAttribute('src') || '') + ' ' + (img.getAttribute('alt') || '') + ' ' + img.className).toLowerCase()
       if (!/logo|icone|icon/.test(nome)) continue
       const r = img.getBoundingClientRect()
       if (Math.max(r.width, r.height) < 80) continue
-      if (r.top - limite.top < corte - 4 || limite.bottom - r.bottom < corte - 4) problemas.push('logo fora da área central 1:1 (some no corte da grade)')
+      if (fora(r)) problemas.push('logo fora da ' + seguro.onde)
     }
   }
   for (let i = 0; i < textos.length; i++) {
@@ -269,7 +281,7 @@ async function renderizarSlidesAgora(html: string, largura: number, altura: numb
           // um navegador novo por slide: com --single-process (o Chromium da Vercel), fechar a última página
           // derruba o navegador, e o slide seguinte caía em "browser.newPage: Target ... has been closed"
           navegador = await abrirNavegador()
-          const r = await comLimite(renderizarUmSlide(navegador, parte, largura, altura, modo), Math.min(LIMITE_POR_SLIDE_MS, resta), `render do slide ${i + 1}`)
+          const r = await comLimite(renderizarUmSlide(navegador, parte, largura, alturaDoSlide(parte, largura, altura), modo), Math.min(LIMITE_POR_SLIDE_MS, resta), `render do slide ${i + 1}`)
           imagens.push(r.imagem)
           problemas.push(...r.problemas.map((problema) => ({ slide: i + 1, problema })))
           feito = true

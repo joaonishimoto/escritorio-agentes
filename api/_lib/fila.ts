@@ -1,15 +1,16 @@
 import { waitUntil } from '@vercel/functions'
-import { chefe, cinegrafista, designer, narrador, pesquisador, redator, revisor } from './agentes/producao.js'
+import { chefe, cinegrafista, criativos, designer, narrador, pesquisador, redator, revisor } from './agentes/producao.js'
 import { curador, publicador } from './agentes/pos.js'
 import { ErroRetomavel } from './agentes/tipos.js'
 import type { Agente } from './agentes/tipos.js'
+import { eAnuncio } from './anuncio.js'
 import { carregarContexto, fluxoDeProducao, pulaRevisor, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
 import { passouDoTeto, tetoDaMarca } from './teto.js'
 import { eErroTransitorio, MAX_TENTATIVAS } from './transitorio.js'
 
-const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, cinegrafista, narrador, revisor, publicador, curador }
+const AGENTES: Record<string, Agente> = { chefe, pesquisador, redator, designer, criativos, cinegrafista, narrador, revisor, publicador, curador }
 
 /** Põe um agente na fila do post, com a próxima `ordem` (o gatilho `passos_ordem` no banco faz o mesmo se ela vier vazia). */
 export async function enfileirar(postId: string, agente: string, entrada: Record<string, unknown> = {}) {
@@ -60,7 +61,7 @@ export async function rodarUmPasso(): Promise<boolean> {
     if (proximos === undefined) {
       // numa devolução do revisor a rota diz quem ainda refaz; sem rota, segue o fluxo do roteiro
       const { correcao, feedback, rota } = passo.entrada as { correcao?: unknown; feedback?: string; rota?: unknown }
-      const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato)
+      const fluxo = fluxoDeProducao(ctx.etapas, ctx.post.formato, eAnuncio(ctx.post))
       const naRota = Array.isArray(rota) && rota.length ? (rota as string[]) : null
       let seguinte: string | undefined = naRota ? naRota[0] : fluxo[fluxo.indexOf(passo.agente) + 1]
       // sem revisor neste post: o que ficou pronto vai direto para a sua mesa

@@ -4,16 +4,18 @@ import { useIdeiasGuardadas, type Ideia } from '../lib/ideias'
 import { CHAVE_DO_SERVICO, FUNCIONARIOS_IA, nomeDaIA, opcoesDe, type Servicos, padraoDe } from '../lib/ias'
 import { supabase } from '../lib/supabase'
 import { ESTRUTURAS, LAYOUTS, VOZES, nomeDe } from '../lib/estilos'
+import { ETAPAS_FUNIL, nomeDoObjetivo, OBJETIVOS_ANUNCIO, type EtapaFunil, type ObjetivoAnuncio } from '../lib/anuncio'
 import type { Post } from '../lib/dados'
 
 type Ref = { tipo: 'imagem'; url: string } | { tipo: 'link'; url: string }
-type Formato = '' | 'carrossel' | 'foto' | 'reel'
+type Formato = '' | 'carrossel' | 'foto' | 'reel' | 'anuncio'
 
 const FORMATOS: { id: Formato; nome: string; desc: string }[] = [
   { id: '', nome: 'A equipe decide', desc: 'Escolhe pelo pedido' },
   { id: 'carrossel', nome: 'Carrossel', desc: '2 a 10 slides' },
   { id: 'foto', nome: 'Foto', desc: 'Uma imagem só' },
   { id: 'reel', nome: 'Reel', desc: 'Vídeo curto com IA' },
+  { id: 'anuncio', nome: 'Anúncio', desc: 'Criativo e textos para o Meta' },
 ]
 
 const PONTOS_DE_PARTIDA = [
@@ -62,6 +64,13 @@ function IconeFormato({ id }: { id: Formato }) {
       <svg {...props}>
         <rect x="5" y="2.5" width="12" height="17" rx="2.5" />
         <path d="m9.5 8 4 3-4 3z" fill="currentColor" stroke="none" />
+      </svg>
+    )
+  if (id === 'anuncio')
+    return (
+      <svg {...props}>
+        <path d="M3 9v4a1 1 0 0 0 1 1h2.5l5 3.5v-13l-5 3.5H4a1 1 0 0 0-1 1Z" />
+        <path d="M15 8.5a3.5 3.5 0 0 1 0 5M17.5 6a7 7 0 0 1 0 10" />
       </svg>
     )
   return (
@@ -121,6 +130,10 @@ export function NovoPost({
 }) {
   const [formato, setFormato] = useState<Formato>(typeof inicial === 'object' && inicial ? formatoDaIdeia(inicial) : '')
   const [slides, setSlides] = useState(0)
+  // anúncio: objetivo da campanha, temperatura do público e para onde o clique leva
+  const [objetivo, setObjetivo] = useState<ObjetivoAnuncio | ''>('')
+  const [etapa, setEtapa] = useState<EtapaFunil>('frio')
+  const [destino, setDestino] = useState('')
   const [briefing, setBriefing] = useState(typeof inicial === 'string' ? inicial : (inicial?.briefing ?? ''))
   // ideia guardada que virou este post: sai da lista quando o post é criado
   const [ideiaUsada, setIdeiaUsada] = useState<string | undefined>(ideiaGuardadaId)
@@ -218,7 +231,10 @@ export function NovoPost({
     e.preventDefault()
     if (!briefing.trim()) return setErro('Escreva o que você quer postar')
     if (neutra && refs.length === 0) return setErro('Na sala neutra, mande pelo menos uma referência')
-    if (agendar && new Date(quando).getTime() < Date.now()) return setErro('O horário para publicar já passou')
+    const anuncio = formato === 'anuncio'
+    if (anuncio && !objetivo) return setErro('Escolha o objetivo do anúncio')
+    if (anuncio && destino.trim() && !/^https?:\/\/\S+$/.test(destino.trim())) return setErro('O link de destino precisa começar com https://')
+    if (!anuncio && agendar && new Date(quando).getTime() < Date.now()) return setErro('O horário para publicar já passou')
     setEnviando(true)
     setErro(null)
     try {
@@ -233,7 +249,8 @@ export function NovoPost({
           estrutura: estrutura || undefined,
           layout: formato === 'reel' ? undefined : layout || undefined,
           voz: voz || undefined,
-          agendar_para: agendar ? new Date(quando).toISOString() : undefined,
+          agendar_para: agendar && !anuncio ? new Date(quando).toISOString() : undefined,
+          anuncio: anuncio ? { objetivo, etapa, destino: destino.trim() || undefined } : undefined,
           aprovar_texto: aprovarTexto,
           revisar,
           ias: Object.keys(iasDoPost).length ? iasDoPost : undefined,
@@ -248,14 +265,21 @@ export function NovoPost({
   }
 
   // o cinegrafista e o narrador só trabalham em Reel; num carrossel ou foto a escolha deles não vale
-  const funcionarios = FUNCIONARIOS_IA.filter((f) => !f.video || formato === 'reel' || formato === '')
+  // num anúncio quem desenha é o designer de criativos; num post, o designer
+  const funcionarios = FUNCIONARIOS_IA.filter(
+    (f) => (!f.video || formato === 'reel' || formato === '') && (formato === 'anuncio' ? f.agente !== 'designer' : f.agente !== 'criativos'),
+  )
   const iasDoPost = Object.fromEntries(Object.entries(ias).filter(([a]) => funcionarios.some((f) => f.agente === a)))
   const resumoIas = Object.entries(iasDoPost).map(([a, id]) => `${FUNCIONARIOS_IA.find((f) => f.agente === a)?.nome}: ${nomeDaIA(id)}`)
   const semChave = (servico: keyof typeof CHAVE_DO_SERVICO) => servicos?.[servico] === false
 
   const escolhasDeEstilo = [nomeDe(ESTRUTURAS, estrutura), formato !== 'reel' ? nomeDe(LAYOUTS, layout) : undefined, nomeDe(VOZES, voz)].filter(Boolean)
-  const resumoFormato = formato ? `${FORMATOS.find((f) => f.id === formato)!.nome}${formato === 'carrossel' && slides ? ` · ${slides} slides` : ''}` : 'A equipe decide'
-  const quandoTexto = agendar
+  const resumoFormato = formato === 'anuncio'
+    ? `Anúncio · ${objetivo ? nomeDoObjetivo(objetivo) : 'escolha o objetivo'}`
+    : formato ? `${FORMATOS.find((f) => f.id === formato)!.nome}${formato === 'carrossel' && slides ? ` · ${slides} slides` : ''}` : 'A equipe decide'
+  const quandoTexto = formato === 'anuncio'
+    ? 'Fica na gaveta para subir no Meta'
+    : agendar
     ? new Date(quando).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     : 'Você escolhe ao aprovar'
 
@@ -332,7 +356,7 @@ export function NovoPost({
       <form className="modal np" onSubmit={enviar} onClick={(e) => e.stopPropagation()} onPaste={colar} aria-label="Novo post">
         <header className="np-topo">
           <div>
-            <h2>Novo post</h2>
+            <h2>{formato === 'anuncio' ? 'Novo anúncio' : 'Novo post'}</h2>
             <p>
               <i className="ponto-marca" style={{ background: marcaCor ?? 'var(--primary)' }} /> {marcaNome ?? 'Marca'}
               {neutra && <span className="chip">sala neutra</span>}
@@ -394,6 +418,35 @@ export function NovoPost({
                     ? 'O Claude faz uma animação com texto na tela, gravada no próprio app. A capa é um slide.'
                     : 'O vídeo é gerado por IA a partir de cenas, sem texto na tela. A capa é um slide.'}
                 </p>
+              )}
+              {formato === 'anuncio' && (
+                <div className="np-anuncio">
+                  <div>
+                    <h4>Objetivo da campanha</h4>
+                    <div className="np-opcoes" role="radiogroup" aria-label="Objetivo da campanha">
+                      {OBJETIVOS_ANUNCIO.map((o) => (
+                        <button key={o.id} type="button" role="radio" aria-checked={objetivo === o.id} title={o.desc} className={objetivo === o.id ? 'ativo' : ''} onClick={() => setObjetivo(o.id)}>
+                          {o.nome}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4>Quem vai ver</h4>
+                    <div className="np-opcoes" role="radiogroup" aria-label="Público">
+                      {ETAPAS_FUNIL.map((e) => (
+                        <button key={e.id} type="button" role="radio" aria-checked={etapa === e.id} title={e.desc} className={etapa === e.id ? 'ativo' : ''} onClick={() => setEtapa(e.id)}>
+                          {e.nome}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4>Link de destino (opcional)</h4>
+                    <input type="url" placeholder="https://… para onde o anúncio leva" value={destino} onChange={(e) => setDestino(e.target.value)} aria-label="Link de destino" />
+                  </div>
+                  <p className="np-nota">O designer de criativos faz a arte em 4:5 (feed) e 9:16 (Stories e Reels), longe do texto que o Meta põe por cima, e o copywriter escreve texto principal, títulos, descrição e botão. Tudo fica na gaveta para baixar e colar no Gerenciador de Anúncios.</p>
+                </div>
               )}
             </Secao>
 
@@ -545,6 +598,7 @@ export function NovoPost({
                   <small>Desligado, o post pronto vem direto para a sua mesa, sem a conferência do revisor nem as idas e voltas dela.</small>
                 </span>
               </label>
+              {formato !== 'anuncio' && (<>
               <div className="np-quando" role="radiogroup" aria-label="Quando publicar">
                 <button type="button" role="radio" aria-checked={!agendar} className={!agendar ? 'ativo' : ''} onClick={() => setAgendar(false)}>
                   <strong>Decido na aprovação</strong>
@@ -556,7 +610,8 @@ export function NovoPost({
                 </button>
               </div>
               {agendar && <input type="datetime-local" className="np-data" value={quando} onChange={(e) => setQuando(e.target.value)} aria-label="Data e hora" />}
-              <p className="np-dica">Nada vai para o Instagram sem você aprovar.</p>
+              </>)}
+              <p className="np-dica">{formato === 'anuncio' ? 'O anúncio não é publicado pelo app: aprovado, ele vai para a gaveta da sala.' : 'Nada vai para o Instagram sem você aprovar.'}</p>
             </Secao>
           </div>
 
@@ -583,7 +638,7 @@ export function NovoPost({
         </div>
 
         <footer className="np-rodape">
-          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {aprovarTexto ? 'você → ' : ''}{formato === 'reel' ? 'vídeo → narração' : 'design'} → {revisar ? 'revisão → ' : ''}você</p>}
+          {erro ? <p className="aviso">{erro}</p> : <p className="np-caminho">Chefe de pauta → pesquisa → texto → {aprovarTexto ? 'você → ' : ''}{formato === 'reel' ? 'vídeo → narração' : formato === 'anuncio' ? 'criativo 4:5 e 9:16' : 'design'} → {revisar ? 'revisão → ' : ''}você</p>}
           <button type="button" className="secundario" onClick={aoFechar}>Cancelar</button>
           <button className="primario" disabled={enviando || subindo > 0 || !briefing.trim()}>{enviando ? 'Chamando a equipe…' : 'Pôr a equipe para trabalhar'}</button>
         </footer>

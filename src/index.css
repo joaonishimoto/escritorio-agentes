@@ -767,7 +767,7 @@ i.falhou { background: var(--danger, #b42318) }
 .np-chips button { height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--muted-foreground); font: inherit; font-size: 13px; cursor: pointer }
 .np-chips button:hover { color: var(--foreground); border-color: var(--border-strong) }
 .np-ideias-botao, .np-ideias-movel { display: none }
-.np-formatos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px }
+.np-formatos { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px }
 .np-formatos button, .np-quando button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-lg);
   background: var(--surface); color: var(--foreground); font: inherit; cursor: pointer; transition: border-color .12s, box-shadow .12s, background-color .12s }
 .np-formatos button svg { color: var(--muted-foreground); margin-bottom: 6px }
@@ -1347,3 +1347,33 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
   .plano-vaga-linha { grid-template-columns: 1fr; gap: 4px }
   .plano-vaga-chips { justify-content: flex-start }
 }
+
+/* pacote do anúncio: artes para baixar e textos para copiar no Gerenciador de Anúncios */
+.pa { display: flex; flex-direction: column; gap: 14px }
+.pa section { display: flex; flex-direction: column; gap: 8px }
+.pa h3 { margin: 0 }
+.pa-objetivo { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 }
+.pa-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.pa-artes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end }
+.pa-artes figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0 }
+.pa-arte { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-muted); cursor: zoom-in; aspect-ratio: 4 / 5 }
+.pa-artes figure.story .pa-arte { aspect-ratio: 9 / 16 }
+.pa-arte img { width: 100%; height: 100%; object-fit: cover; display: block }
+.pa-arte:hover { outline: 2px solid var(--primary); outline-offset: 1px }
+.pa-artes figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px }
+.pa-artes figcaption strong { font-size: 13px }
+.pa-artes figcaption small { font-size: 12px; color: var(--muted-foreground); flex-basis: 100% }
+.pa-artes figcaption button { min-height: 32px; margin-top: 2px }
+.pa-campo { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px }
+.pa-rotulo { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted-foreground) }
+.pa-rotulo span { flex: 1; min-width: 0 }
+.pa-rotulo small { font-family: var(--font-mono); font-weight: 500 }
+.pa-rotulo small.pa-passou { color: var(--danger-strong) }
+.pa-copiar { min-height: 28px; padding: 2px 10px; font-size: 12px }
+.pa-texto { margin: 0; white-space: pre-line; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere }
+.pa-dica { font-size: 12px; margin: 0 }
+.gv-pacote { margin-top: 8px; flex-basis: 100% }
+.gv-lista li.anuncio { flex-wrap: wrap }
+.np-anuncio { display: flex; flex-direction: column; gap: 10px; margin-top: 10px }
+.np-anuncio h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600 }
+.np-anuncio input { width: 100%; box-sizing: border-box }

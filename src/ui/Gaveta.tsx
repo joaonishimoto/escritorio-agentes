@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { chamarApi } from '../lib/api'
+import { nomeDoObjetivo } from '../lib/anuncio'
+import { PacoteAnuncio } from './PacoteAnuncio'
 import { VerSlides } from './VerSlides'
 import type { Post } from '../lib/dados'
 
@@ -14,7 +16,10 @@ function IconeGaveta() {
 
 const FORMATO: Record<string, string> = { carrossel: 'Carrossel', foto: 'Foto', reel: 'Reel' }
 
-/** Gaveta da sala: posts prontos guardados para usar depois. Usar tira da gaveta e leva para a sua mesa. */
+/**
+ * Gaveta da sala: posts prontos guardados para usar depois. Usar tira da gaveta e leva para a sua mesa.
+ * Anúncios ficam aqui de vez: abrem o pacote com as artes para baixar e os textos para copiar no Meta.
+ */
 export function Gaveta({
   posts,
   marcaNome,
@@ -33,6 +38,7 @@ export function Gaveta({
   const [vendo, setVendo] = useState<{ urls: string[]; video?: string } | null>(null)
   const [ajustando, setAjustando] = useState<string | null>(null)
   const [comentario, setComentario] = useState('')
+  const [abertoId, setAbertoId] = useState<string | null>(null)
 
   const pedirAjuste = async (p: Post) => {
     setEnviando(p.id)
@@ -72,7 +78,7 @@ export function Gaveta({
         </span>
         <div className="ag-nome">
           <h2>Gaveta{marcaNome ? ` da ${marcaNome}` : ''}</h2>
-          <p>Posts prontos guardados para usar quando quiser. Na aprovação, use "Guardar na gaveta".</p>
+          <p>Posts prontos guardados para usar quando quiser, e os anúncios com as artes e os textos para subir no Meta.</p>
         </div>
       </header>
       <div className="ag-corpo">
@@ -89,8 +95,9 @@ export function Gaveta({
               const slides = [...(p.slides ?? [])].sort((a, b) => a.ordem - b.ordem).map((s) => s.url)
               const formato = (p as Post & { formato?: string }).formato
               const video = p.video?.url
+              const anuncio = p.anuncio
               return (
-                <li key={p.id}>
+                <li key={p.id} className={anuncio ? 'anuncio' : undefined}>
                   <button
                     className="gv-capa"
                     onClick={() => (slides.length || video) && setVendo({ urls: slides, video })}
@@ -102,7 +109,7 @@ export function Gaveta({
                   </button>
                   <div className="gv-info">
                     <small>
-                      {formato ? `${FORMATO[formato] ?? formato} · ` : ''}guardado {new Date(p.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                      {anuncio ? `Anúncio · ${nomeDoObjetivo(anuncio.objetivo)} · ` : formato ? `${FORMATO[formato] ?? formato} · ` : ''}guardado {new Date(p.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                     </small>
                     <strong>{p.briefing}</strong>
                     {ajustando === p.id ? (
@@ -123,15 +130,26 @@ export function Gaveta({
                       </div>
                     ) : (
                       <div className="gv-botoes">
-                        <button className="primario" disabled={enviando === p.id} onClick={() => usar(p)}>
-                          {enviando === p.id ? 'Tirando da gaveta…' : 'Usar agora'}
-                        </button>
+                        {anuncio ? (
+                          <button className="primario" aria-expanded={abertoId === p.id} onClick={() => setAbertoId(abertoId === p.id ? null : p.id)}>
+                            {abertoId === p.id ? 'Fechar o pacote' : 'Baixar e copiar textos'}
+                          </button>
+                        ) : (
+                          <button className="primario" disabled={enviando === p.id} onClick={() => usar(p)}>
+                            {enviando === p.id ? 'Tirando da gaveta…' : 'Usar agora'}
+                          </button>
+                        )}
                         <button className="secundario" disabled={enviando === p.id} onClick={() => { setAjustando(p.id); setComentario('') }}>
                           Pedir ajuste
                         </button>
                       </div>
                     )}
                   </div>
+                  {anuncio && abertoId === p.id && (
+                    <div className="gv-pacote">
+                      <PacoteAnuncio anuncio={anuncio} slides={p.slides ?? []} />
+                    </div>
+                  )}
                 </li>
               )
             })}

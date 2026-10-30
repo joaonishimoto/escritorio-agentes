@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { gerarJson } from '../claude.js'
-import { sistemaDoAgente } from '../contexto.js'
+import { quemDesenha, sistemaDoAgente } from '../contexto.js'
 import { db } from '../db.js'
 import { publicarCarrossel, publicarReel } from '../instagram.js'
 import { USO_ZERO, type Agente } from './tipos.js'
@@ -9,6 +9,7 @@ import { USO_ZERO, type Agente } from './tipos.js'
 export const publicador: Agente = async (ctx, _passo, em) => {
   await em.inicio('Preparando a publicação')
   const { marca, post } = ctx
+  if (post.anuncio) throw new Error('Anúncio não é publicado pelo app: ele fica na gaveta para subir no Gerenciador de Anúncios.')
   if (!marca.instagram_conta_id || !marca.meta_token_secret_id) {
     throw new Error(`A marca ${marca.nome} ainda não tem conta do Instagram conectada (id da conta e token).`)
   }
@@ -32,7 +33,7 @@ export const publicador: Agente = async (ctx, _passo, em) => {
 const Curadoria = z.object({
   regras: z.array(
     z.object({
-      agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos']),
+      agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos']),
       regra: z.string().describe('curta e verificável, no imperativo'),
       motivo: z.string(),
     }),
@@ -41,8 +42,8 @@ const Curadoria = z.object({
     .boolean()
     .describe('true se a correção é um ajuste pequeno no que já existe (trocar/remover palavra ou letra, mudar uma cor, um tamanho, uma frase da legenda) e não pede novo conteúdo nem nova pesquisa'),
   refazer_a_partir_de: z
-    .enum(['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'nenhum'])
-    .describe('primeiro agente que precisa refazer para atender a correção. Formato ou quantidade errada (pediu um post e veio carrossel, slides a mais ou a menos, era vídeo) ou objetivo errado (post de marca virou venda) é do chefe. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel; narrador é só para mudar a fala da narração de um Reel'),
+    .enum(['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'nenhum'])
+    .describe('primeiro agente que precisa refazer para atender a correção. Formato ou quantidade errada (pediu um post e veio carrossel, slides a mais ou a menos, era vídeo) ou objetivo errado (post de marca virou venda) é do chefe. Prefira o mais adiante possível: só volte ao pesquisador se a correção pedir fatos novos ou corrigir um fato errado; cinegrafista é só para mudar o vídeo de um Reel; narrador é só para mudar a fala da narração de um Reel; criativos é o designer dos anúncios (num anúncio, mudança na arte é do criativos)'),
   instrucao: z.string().describe('o que esse agente deve mudar, em uma ou duas frases'),
 })
 
@@ -55,9 +56,9 @@ export const curador: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'curador',
-      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Não duplique regras que já existem; se uma regra parecida existe, não crie outra. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título dentro da área 1:1, número decorativo gigante só quando é o layout, logo de verdade em vez de letra.',
+      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Não duplique regras que já existem; se uma regra parecida existe, não crie outra. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Regra sobre o visual de anúncio é do criativos; sobre o visual de post, do designer; sobre o pacote de textos do anúncio, do redator. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título dentro da área 1:1, áreas seguras do anúncio, número decorativo gigante só quando é o layout, logo de verdade em vez de letra.',
     ),
-    conteudo: `Pedido original: ${ctx.post.briefing}\n\nLegenda atual:\n${ctx.post.legenda ?? ''}\n\nCorreção do dono da marca:\n${comentario}`,
+    conteudo: `${ctx.post.anuncio ? 'Isto é um anúncio no Meta (artes do designer de criativos e pacote de textos do redator).\n\n' : ''}Pedido original: ${ctx.post.briefing}\n\n${ctx.post.anuncio?.pacote ? `Pacote atual do anúncio:\n${JSON.stringify(ctx.post.anuncio.pacote)}` : `Legenda atual:\n${ctx.post.legenda ?? ''}`}\n\nCorreção do dono da marca:\n${comentario}`,
     schema: Curadoria,
   })
 
@@ -81,14 +82,17 @@ export const curador: Agente = async (ctx, passo, em) => {
     return { saida: dados, uso, entrega: `${dados.regras.length} regra(s) proposta(s) para você aceitar`, proximos: null, para: 'voce' }
   }
   await db.from('posts').update({ status: 'em_producao', voltas_revisao: 0 }).eq('id', ctx.post.id)
-  // ajuste pequeno: o designer edita os slides prontos, sem refazer pesquisa nem texto
-  const pontual = dados.pontual && !!(ctx.saidas.designer as { html?: string } | undefined)?.html
-  const agente = pontual ? 'designer' : dados.refazer_a_partir_de
+  // ajuste pequeno: quem desenha edita os slides prontos, sem refazer pesquisa nem texto
+  const desenha = quemDesenha(ctx.post)
+  const pontual = dados.pontual && !!(ctx.saidas[desenha] as { html?: string } | undefined)?.html
+  // num anúncio quem refaz a arte é o designer de criativos, e num post é o designer, seja qual for o nome que o curador deu
+  const refazer = dados.refazer_a_partir_de === 'designer' || dados.refazer_a_partir_de === 'criativos' ? desenha : dados.refazer_a_partir_de
+  const agente = pontual ? desenha : refazer
   const correcao = { comentario, instrucao: dados.instrucao, pontual }
   return {
     saida: dados,
     uso,
-    entrega: pontual ? 'Ajuste pequeno: direto pro designer' : `Correção repassada ao ${agente}`,
+    entrega: pontual ? `Ajuste pequeno: direto pro ${desenha === 'criativos' ? 'designer de criativos' : 'designer'}` : `Correção repassada ao ${agente}`,
     proximos: [{ agente, entrada: { feedback: `Correção do dono da marca: ${comentario}\n${dados.instrucao}`, correcao } }],
   }
 }

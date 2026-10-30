@@ -44,6 +44,7 @@ export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; vi
   { agente: 'pesquisador', nome: 'Pesquisador', padrao: 'claude-sonnet-5-5' },
   { agente: 'redator', nome: 'Copywriter', padrao: 'claude-opus-5-5' },
   { agente: 'designer', nome: 'Designer', padrao: 'claude-opus-5-5' },
+  { agente: 'criativos', nome: 'Designer de criativos', padrao: 'claude-opus-5-5' },
   { agente: 'imagens', nome: 'Imagens do designer', padrao: 'seedream' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },
   { agente: 'narrador', nome: 'Narrador', padrao: 'claude-sonnet-5-5', video: true },
