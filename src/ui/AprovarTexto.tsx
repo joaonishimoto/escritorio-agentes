@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { chamarApi } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import type { Post } from '../lib/dados'
+import { PacoteAnuncio } from './PacoteAnuncio'
 
 interface SlideDeTexto {
   tipo?: string
@@ -59,10 +60,14 @@ export function AprovarTexto({ post, aoMudar, aoFechar }: { post: Post; aoMudar:
         </div>
         <button className="fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
       </header>
-      <p className="muted at-dica">O copywriter terminou. Aprovado o texto, o designer começa os slides; depois o post pronto volta para a sua aprovação final.</p>
+      <p className="muted at-dica">
+        {post.anuncio
+          ? 'O copywriter terminou o texto da arte e os textos do anúncio. Aprovado, o designer de criativos faz as artes em 4:5 e 9:16; depois o anúncio volta para a sua aprovação final.'
+          : 'O copywriter terminou. Aprovado o texto, o designer começa os slides; depois o post pronto volta para a sua aprovação final.'}
+      </p>
 
       <section>
-        <h3>Slides</h3>
+        <h3>{post.anuncio ? 'Texto da arte' : 'Slides'}</h3>
         {slides === null ? (
           <p className="muted">Carregando o texto…</p>
         ) : (
@@ -85,10 +90,14 @@ export function AprovarTexto({ post, aoMudar, aoFechar }: { post: Post; aoMudar:
         )}
       </section>
 
-      <section>
-        <h3>Legenda</h3>
-        <pre className="rascunho">{post.legenda}</pre>
-      </section>
+      {post.anuncio ? (
+        <PacoteAnuncio anuncio={post.anuncio} slides={[]} />
+      ) : (
+        <section>
+          <h3>Legenda</h3>
+          <pre className="rascunho">{post.legenda}</pre>
+        </section>
+      )}
 
       {erro && <p className="aviso">{erro}</p>}
 

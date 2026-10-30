@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { horariosLivres, noMesmoDia, paraCampo, rotuloHorario } from '../lib/agenda'
 import { chamarApi } from '../lib/api'
 import { useEscritorio } from '../store/escritorio'
+import { PacoteAnuncio } from './PacoteAnuncio'
 import { VerSlides } from './VerSlides'
 import { AGENTES } from '../agents/catalogo'
 import { decidirRegra, type Post, type Regra } from '../lib/dados'
@@ -22,6 +23,8 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
   const agenda = useEscritorio((s) => s.agenda)
   const sugeridos = horariosLivres(agenda, post.marca_id, new Date(), 3, post.id)
   const mesmoDia = quando ? noMesmoDia(agenda, post.marca_id, new Date(quando), post.id) : []
+  // anúncio não sai pelo Instagram: aprovado, vai para a gaveta com as artes e os textos para o Gerenciador de Anúncios
+  const anuncio = post.anuncio
 
   const decidir = async (acao: 'aprovar' | 'agendar' | 'corrigir' | 'reprovar' | 'guardar') => {
     setEnviando(true)
@@ -42,7 +45,7 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
     <aside className="painel painel-aprovacao" aria-label="Aprovação do post">
       <header className="painel-topo">
         <div>
-          <h2>Sua aprovação</h2>
+          <h2>{anuncio ? 'Seu anúncio' : 'Sua aprovação'}</h2>
           <p className="muted">{post.briefing}</p>
         </div>
         <button className="fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
@@ -61,7 +64,8 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
           )}
         </section>
       )}
-      {slides.length > 0 && (
+      {anuncio && <PacoteAnuncio anuncio={anuncio} slides={slides} />}
+      {!anuncio && slides.length > 0 && (
         <div className="slides">
           {slides.map((s, n) => (
             <button key={s.ordem} className="slide-mini" onClick={() => setVendo(n)} aria-label={`Ver slide ${s.ordem}`}>
@@ -72,15 +76,23 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
       )}
       {vendo !== null && <VerSlides urls={slides.map((s) => s.url)} inicial={vendo} aoFechar={() => setVendo(null)} />}
 
-      <section>
-        <h3>Legenda</h3>
-        <pre className="rascunho">{post.legenda}</pre>
-      </section>
+      {!anuncio && (
+        <section>
+          <h3>Legenda</h3>
+          <pre className="rascunho">{post.legenda}</pre>
+        </section>
+      )}
 
       {erro && <p className="aviso">{erro}</p>}
 
       <section className="ap-decidir">
-        {confirmar === 'agora' ? (
+        {anuncio ? (
+          <>
+            <h3>Ficou bom?</h3>
+            <button className="primario ap-largo" disabled={enviando} onClick={() => decidir('guardar')}>Aprovar e guardar na gaveta</button>
+            <p className="muted">O anúncio não é publicado pelo app. Ele fica na gaveta da sala, com as artes e os textos à mão para subir no Gerenciador de Anúncios.</p>
+          </>
+        ) : confirmar === 'agora' ? (
           <div className="confirmar">
             <p>Publicar agora no Instagram? Isso não dá para desfazer daqui.</p>
             <div className="ap-par">
@@ -124,7 +136,7 @@ export function Aprovacao({ post, regras, aoMudar, aoFechar }: { post: Post; reg
       <section className="ap-ajuste">
         <label htmlFor="comentario">
           <h3>Quer mudar algo?</h3>
-          <span className="muted">O que você escrever volta para a equipe e vira regra para os próximos posts.</span>
+          <span className="muted">O que você escrever volta para a equipe e vira regra para os próximos {anuncio ? 'anúncios' : 'posts'}.</span>
         </label>
         <textarea
           id="comentario"

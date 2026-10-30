@@ -70,6 +70,8 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   narrador: { x: 170, y: 104 },
   revisor: { x: 226, y: 54 },
   publicador: { x: 278, y: 54 },
+  // anúncios saem da Publicação: o criativo vai para o Gerenciador de Anúncios, não para a fila de posts
+  criativos: { x: 226, y: 104 },
 }
 export const MESA_W = 30
 

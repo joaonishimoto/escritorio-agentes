@@ -1,3 +1,4 @@
+import type { Anuncio } from './anuncio'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useEscritorio, type Evento } from '../store/escritorio'
@@ -48,6 +49,8 @@ export interface Post {
   preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean; revisar?: boolean } | null
   publicado_em: string | null
   criado_em: string
+  /** só nos anúncios: objetivo, público, destino e o pacote de textos para o Meta (as artes são slides 1 = feed e 2 = story) */
+  anuncio?: Anuncio | null
 }
 
 /** Status de post que param na sua mesa: texto para aprovar, post pronto para aprovar e post com erro. */

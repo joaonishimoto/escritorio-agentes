@@ -6,6 +6,7 @@ export const EXEMPLO_DE_PEDIDO: Partial<Record<AgenteId, string>> = {
   pesquisador: 'Ex.: o que está em alta no meu nicho agora, com fontes',
   redator: 'Ex.: uma copy de anúncio para o Meta divulgando meu produto, com 2 variações',
   designer: 'Ex.: como deve ser o visual de um anúncio em vídeo vertical',
+  criativos: 'Ex.: três ideias de criativo para um anúncio de vendas do meu produto',
   cinegrafista: 'Ex.: roteiro de um Reel de 15 s mostrando o produto em uso',
   narrador: 'Ex.: a locução de 20 s de um anúncio, para gravar',
   revisor: 'Ex.: revise este texto antes de eu publicar: …',

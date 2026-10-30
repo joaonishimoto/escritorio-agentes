@@ -35,6 +35,7 @@ const VISUAL: Record<AgenteId | 'voce', Visual> = {
   pesquisador: { cabelo: '#7a4a2a', pele: '#f3cfa8', camisa: agentePorId('pesquisador').cor },
   redator: { cabelo: '#e3b85a', pele: '#f3cfa8', camisa: agentePorId('redator').cor },
   designer: { cabelo: '#d9667a', pele: '#c98e66', camisa: agentePorId('designer').cor },
+  criativos: { cabelo: '#2a1d16', pele: '#e7b48c', camisa: agentePorId('criativos').cor },
   cinegrafista: { cabelo: '#3b2a4a', pele: '#e0a87c', camisa: agentePorId('cinegrafista').cor },
   narrador: { cabelo: '#5a3a22', pele: '#a86f4c', camisa: agentePorId('narrador').cor },
   revisor: { cabelo: '#9a9a9a', pele: '#f0c7a0', camisa: agentePorId('revisor').cor },

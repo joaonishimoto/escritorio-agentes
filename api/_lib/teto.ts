@@ -34,7 +34,7 @@ export async function gastoDoMes(marcaId: string) {
 }
 
 /** Agentes cujo trabalho conta para o teto do post: produção e revisão. O publicador e o curador sempre seguem. */
-const PRODUCAO = ['chefe', 'pesquisador', 'redator', 'designer', 'cinegrafista', 'narrador', 'revisor']
+const PRODUCAO = ['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'revisor']
 
 /**
  * Se o post passou do teto, a produção para aqui. Exceção: o cinegrafista esperando um vídeo que já foi pago

@@ -11,6 +11,7 @@ const NOMES: Record<string, string> = {
   pesquisador: 'Pesquisador',
   redator: 'Copywriter',
   designer: 'Designer',
+  criativos: 'Designer de criativos',
   cinegrafista: 'Cinegrafista',
   narrador: 'Narrador',
   revisor: 'Revisor',

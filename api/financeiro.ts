@@ -12,6 +12,7 @@ const MODELO_DO_AGENTE: Record<string, string> = {
   pesquisador: 'Sonnet + busca na web (até 3 buscas, US$ 0,01 cada)',
   redator: 'Opus',
   designer: 'Sonnet + render dos slides',
+  criativos: 'Opus + render das artes 4:5 e 9:16 dos anúncios',
   cinegrafista: 'Sonnet + vídeo na IA escolhida (Kling, fal.ai ou animação do Claude)',
   narrador: 'Sonnet + voz na ElevenLabs (cobrada por caractere no plano da ElevenLabs)',
   revisor: 'Sonnet',
@@ -185,7 +186,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     sistema: `Você é o Financeiro de um app em que uma equipe de agentes de IA cria posts de Instagram para as marcas do dono. Você lê os gastos e diz, em português do Brasil, de forma direta e sem enrolar, o que está caro, o que é desperdício e o que dá para mudar.
 
 Como o app funciona, para suas recomendações serem possíveis:
-- Cada post passa por: chefe de pauta → pesquisador → copywriter → designer (nos Reels também cinegrafista e narrador) → revisor → aprovação do dono → publicador. O curador transforma correções do dono em regras.
+- Cada post passa por: chefe de pauta → pesquisador → copywriter → designer (nos Reels também cinegrafista e narrador) → revisor → aprovação do dono → publicador. Nos anúncios, o designer de criativos faz as artes 4:5 e 9:16 no lugar do designer e o copywriter escreve também o pacote de textos para o Meta. O curador transforma correções do dono em regras.
 - Modelos e preços por milhão de tokens (entrada/saída): Opus US$ 4/20, Sonnet US$ 2/10, Haiku US$ 0,10/0,50. Busca na web: US$ 0,01 cada.
 - O revisor pode devolver o post para um agente refazer; cada volta custa de novo. Pedidos de ajuste pequenos do dono vão direto ao designer.
 - Post com erro ou reprovado é gasto sem resultado. Reels gastam com vídeo na Kling por segundo.

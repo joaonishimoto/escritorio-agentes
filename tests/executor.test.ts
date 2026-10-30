@@ -29,6 +29,7 @@ vi.mock('../api/_lib/agentes/producao', () => ({
   pesquisador: falso('pesquisador'),
   redator: falso('redator'),
   designer: falso('designer'),
+  criativos: falso('criativos'),
   cinegrafista: falso('cinegrafista'),
   narrador: falso('narrador'),
   revisor: falso('revisor'),

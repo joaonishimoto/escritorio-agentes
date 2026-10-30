@@ -40,6 +40,10 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
 4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos.
 5. **Publicação**: o publicador usa a Instagram Graph API com o token guardado no Vault do Supabase. Agendados saem na hora marcada: um `pg_cron` no banco chama `/api/publicar-agendados` a cada minuto.
 
+### Anúncios no Meta
+
+No Novo post, o formato **Anúncio** pede o objetivo da campanha (vendas, tráfego, cadastros, app, engajamento, reconhecimento), o público (frio, morno, remarketing) e o link de destino. O fluxo é o mesmo, com duas diferenças: o copywriter escreve também o pacote (textos principais, títulos, descrição, botão e nome do anúncio) e o **Designer de criativos**, na Publicação, faz no lugar do designer a arte em 4:5 (feed) e 9:16 (Stories e Reels), respeitando as áreas que o Meta cobre. O anúncio não é publicado pelo app: aprovado, fica na gaveta da sala, com as artes para baixar e cada texto com botão de copiar. Precisa da migração `20261030000200_anuncios.sql`.
+
 ### A fila
 
 `/api/executar` pega um passo (`pegar_proximo_passo`, sem dois executores pegarem o mesmo), roda o agente, grava os eventos que o escritório anima (Realtime) e se chama de novo enquanto houver fila. Erro passageiro (IA sobrecarregada, timeout, rede, navegador que caiu) devolve o passo para a fila até três vezes antes de marcar o post com erro; erro de verdade aparece na sua mesa explicado em português, com "Tentar de novo" e a opção de trocar a IA. Passos presos voltam para a fila depois de 6 minutos. Com o app aberto, ele cutuca a fila (`/api/acordar`) se um post ficar 45 s sem evento; com o app fechado, o cron do banco faz o mesmo quando há passo pendente parado há mais de 2 minutos.

@@ -6,6 +6,7 @@ export type AgenteId =
   | 'pesquisador'
   | 'redator'
   | 'designer'
+  | 'criativos'
   | 'cinegrafista'
   | 'narrador'
   | 'revisor'
@@ -28,6 +29,7 @@ export const AGENTES: Agente[] = [
   { id: 'pesquisador', nome: 'Pesquisador', papel: 'Busca fatos com duas fontes e consulta os dados da marca.', cor: '#3f7650', modelo: 'claude-sonnet-5-5' },
   { id: 'redator', nome: 'Copywriter', papel: 'Escreve os slides e a legenda no tom de voz da marca.', cor: '#976822', modelo: 'claude-opus-5-5' },
   { id: 'designer', nome: 'Designer', papel: 'Monta os slides no modelo da marca e renderiza os JPEGs.', cor: '#b74e45', modelo: 'claude-opus-5-5' },
+  { id: 'criativos', nome: 'Designer de criativos', papel: 'Só nos anúncios: faz o criativo em 4:5 e 9:16 com o foco do objetivo e longe do texto do anúncio.', cor: '#c46a2b', modelo: 'claude-opus-5-5' },
   { id: 'cinegrafista', nome: 'Cinegrafista', papel: 'Só nos Reels: escreve a cena e gera o vídeo na IA escolhida.', cor: '#6d4f8f', modelo: 'claude-sonnet-5-5' },
   { id: 'narrador', nome: 'Narrador', papel: 'Só nos Reels: escreve a fala, grava a voz da marca na ElevenLabs e põe no vídeo.', cor: '#2f7d7a', modelo: 'claude-sonnet-5-5' },
   { id: 'revisor', nome: 'Revisor', papel: 'Confere texto e imagens contra o checklist e as regras aprendidas.', cor: '#52738a', modelo: 'claude-opus-5-5' },

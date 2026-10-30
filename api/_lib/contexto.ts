@@ -1,3 +1,4 @@
+import type { Anuncio } from './anuncio.js'
 import { db } from './db.js'
 import { completarMarca } from './marcas/index.js'
 
@@ -47,6 +48,8 @@ export interface Post {
   voltas_revisao: number
   custo_usd: number
   referencias?: Referencia[]
+  /** só nos anúncios: objetivo da campanha, público e, depois do copywriter, o pacote de textos para o Meta */
+  anuncio?: Anuncio | null
   /** escolhas do dono no Novo post */
   preferencias?: { formato?: string; estrutura?: string; layout?: string; voz?: string; slides?: number; agendar_para?: string; ias?: Record<string, string>; aprovar_texto?: boolean; revisar?: boolean }
 }
@@ -90,6 +93,7 @@ export const NOMES: Record<string, string> = {
   pesquisador: 'Pesquisador',
   redator: 'Copywriter',
   designer: 'Designer',
+  criativos: 'Designer de criativos',
   cinegrafista: 'Cinegrafista',
   narrador: 'Narrador',
   revisor: 'Revisor',
@@ -119,6 +123,7 @@ const PRECISA: Record<string, { tom?: boolean; identidade?: boolean; legenda?: b
   pesquisador: { tom: true },
   redator: { tom: true, legenda: true },
   designer: { identidade: true },
+  criativos: { identidade: true },
   cinegrafista: { identidade: true },
   narrador: { tom: true },
   revisor: { tom: true, identidade: true, legenda: true, outrasRegras: true },
@@ -134,7 +139,8 @@ export function identidadeVisual(identidade: Record<string, unknown> | null | un
 /** Monta o prompt de sistema de um agente a partir do roteiro, da marca e das regras aprendidas. */
 export function sistemaDoAgente(ctx: Pick<Contexto, 'marca' | 'etapas' | 'regras'>, agente: string, papel: string) {
   const etapa = ctx.etapas.find((e) => e.agente === agente)
-  const regras = ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos')
+  // as regras visuais da marca que o designer aprendeu valem também para o designer de criativos
+  const regras = ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos' || (agente === 'criativos' && r.agente === 'designer'))
   const precisa = PRECISA[agente] ?? { tom: true, identidade: true, legenda: true, outrasRegras: true }
   const outrasRegras = precisa.outrasRegras ? ctx.regras.filter((r) => !regras.includes(r)) : []
   const m = ctx.marca
@@ -142,7 +148,7 @@ export function sistemaDoAgente(ctx: Pick<Contexto, 'marca' | 'etapas' | 'regras
   return [
     m.identidade?.neutra
       ? `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram. ${papel}\nEsta é uma sala neutra: não existe marca fixa. O assunto, o tom e a identidade visual saem do pedido e das referências que o dono enviou com ele. Siga as referências de perto.`
-      : `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram para a marca ${m.nome}${m.instagram_usuario ? ` (@${m.instagram_usuario})` : ''}. ${papel}`,
+      : `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram e anúncios no Meta para a marca ${m.nome}${m.instagram_usuario ? ` (@${m.instagram_usuario})` : ''}. ${papel}`,
     'Escreva sempre em português do Brasil.',
     etapa?.instrucoes ? `## Instruções do roteiro (definidas pelo dono da marca)\n${etapa.instrucoes}` : '',
     regras.length
@@ -163,11 +169,18 @@ export function pulaRevisor(post: { preferencias?: { revisar?: boolean } | null 
   return post.preferencias?.revisar === false
 }
 
-/** Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista e o narrador entram antes do revisor. */
-export function fluxoDeProducao(etapas: Etapa[], formato?: string) {
+/** Quem desenha neste post: nos anúncios, o designer de criativos; nos posts, o designer. */
+export const quemDesenha = (post: { anuncio?: unknown }) => (post.anuncio && typeof post.anuncio === 'object' ? 'criativos' : 'designer')
+
+/**
+ * Agentes do fluxo de produção, na ordem do roteiro, só os ativos. Em Reel, o cinegrafista e o narrador entram antes do revisor.
+ * Num anúncio, o designer de criativos fica no lugar do designer (o roteiro da marca só conhece o designer).
+ */
+export function fluxoDeProducao(etapas: Etapa[], formato?: string, anuncio = false) {
   const producao = ['chefe', 'pesquisador', 'redator', 'designer', 'revisor']
   const ativos = etapas.filter((e) => e.ativo && producao.includes(e.agente)).map((e) => e.agente)
   const ordem = ativos.length ? ativos : producao
+  if (anuncio) return ordem.map((a) => (a === 'designer' ? 'criativos' : a))
   if (formato !== 'reel') return ordem
   const revisor = ordem.indexOf('revisor')
   const video = ['cinegrafista', 'narrador']
@@ -180,9 +193,11 @@ export function fluxoDeProducao(etapas: Etapa[], formato?: string) {
  * Vídeo e narração só entram se forem apontados: ajuste de legenda não refaz o Reel.
  */
 export function rotaDaDevolucao(apontados: string[], fluxo: string[]) {
-  const quem = new Set(apontados)
+  const desenha = fluxo.includes('criativos') ? 'criativos' : 'designer'
+  // o revisor aponta "designer" para o visual; num anúncio quem refaz é o designer de criativos
+  const quem = new Set(apontados.map((a) => (a === 'designer' ? desenha : a)))
   if (quem.has('pesquisador')) quem.add('redator')
-  if (quem.has('redator') && fluxo.includes('designer')) quem.add('designer')
+  if (quem.has('redator') && fluxo.includes(desenha)) quem.add(desenha)
   const rota = fluxo.filter((a) => quem.has(a) && a !== 'revisor')
-  return [...(rota.length ? rota : ['designer']), 'revisor']
+  return [...(rota.length ? rota : [desenha]), 'revisor']
 }

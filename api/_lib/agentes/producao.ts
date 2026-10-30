@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { layoutAprovado } from '../aprovados.js'
 import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
-import { fluxoDeProducao, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente, type Contexto } from '../contexto.js'
+import { arrumarPacote, avisosDoPacote, COMPOSICAO_ANUNCIO, eAnuncio, ESCRITA_ANUNCIO, OBJETIVOS_ANUNCIO, PacoteAnuncio, textoDoAnuncio, type Anuncio } from '../anuncio.js'
+import { fluxoDeProducao, quemDesenha, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente, type Contexto } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
@@ -58,6 +59,8 @@ export const chefe: Agente = async (ctx, _passo, em) => {
     pref.voz && `Voz: ${pref.voz} (${VOZES[pref.voz as keyof typeof VOZES]})`,
     pref.slides && pref.formato !== 'reel' && `Quantidade de slides: ${pref.slides}`,
   ].filter(Boolean)
+  const anuncio = ctx.post.anuncio
+  if (anuncio) escolhas.push('Formato: foto (um anúncio é uma arte só, que o designer de criativos entrega em 4:5 e 9:16)', `Objetivo: ${OBJETIVOS_ANUNCIO[anuncio.objetivo].objetivo}`)
   const textoEscolhas = escolhas.length ? `\n\n## Escolhas do dono para este post (obrigatórias, valem mais que os caminhos sorteados)\n${escolhas.map((e) => `- ${e}`).join('\n')}` : ''
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'chefe'),
@@ -67,13 +70,17 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Capa e plano\n- O item 1 do plano é a capa: diga o gancho em até 6 palavras e o que aparece (foto do produto, só tipografia). A capa é vista recortada em quadrado na grade do perfil, então o gancho precisa funcionar sozinho.\n- Cada item do plano descreve uma ideia só, do tamanho de um título e uma frase de apoio; o que não cabe vai para a legenda.\n\n## O que o pesquisador confere\nEm precisa_pesquisa entram só fatos que existem fora da marca e dão para achar na web (data, origem, número público, tendência). Receita, dose, preço, função do app e qualquer dado interno da marca não entram: a equipe não tem como conferir e o dono confere na mesa.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}${anuncio ? `\n\n${textoDoAnuncio(anuncio)}\nO plano tem um item só: o que a arte mostra e diz. O fecho é a ação do objetivo da campanha, sem "link na bio".` : ''}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Capa e plano\n- O item 1 do plano é a capa: diga o gancho em até 6 palavras e o que aparece (foto do produto, só tipografia). A capa é vista recortada em quadrado na grade do perfil, então o gancho precisa funcionar sozinho.\n- Cada item do plano descreve uma ideia só, do tamanho de um título e uma frase de apoio; o que não cabe vai para a legenda.\n\n## O que o pesquisador confere\nEm precisa_pesquisa entram só fatos que existem fora da marca e dão para achar na web (data, origem, número público, tendência). Receita, dose, preço, função do app e qualquer dado interno da marca não entram: a equipe não tem como conferir e o dono confere na mesa.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
   })
   // o que o dono escolheu não fica a critério do modelo
   if (pref.formato) dados.formato = pref.formato as typeof dados.formato
+  if (anuncio) {
+    dados.formato = 'foto'
+    dados.objetivo = OBJETIVOS_ANUNCIO[anuncio.objetivo].objetivo
+  }
   if (pref.estrutura && pref.estrutura in ESTRUTURAS) dados.estrutura = pref.estrutura as typeof dados.estrutura
   if (pref.layout && pref.layout in LAYOUTS) dados.layout = pref.layout as typeof dados.layout
   if (pref.voz && pref.voz in VOZES) dados.voz = pref.voz as typeof dados.voz
@@ -132,9 +139,16 @@ const Texto = z.object({
   legenda: z.string().describe('a primeira linha é o gancho, com até 12 palavras; o resto desenvolve'),
 })
 
+/** No anúncio, o copywriter entrega também o pacote de textos para o Gerenciador de Anúncios. */
+const TextoDeAnuncio = Texto.extend({
+  legenda: z.string().describe('repita aqui a primeira versão do texto principal'),
+  pacote: PacoteAnuncio,
+})
+
 export const redator: Agente = async (ctx, passo, em) => {
   // numa volta (revisor ou correção sua) parte do texto que já existe e mexe só no que foi pedido
-  const anterior = ctx.saidas.redator as z.infer<typeof Texto> | undefined
+  const anterior = ctx.saidas.redator as (z.infer<typeof Texto> & { pacote?: unknown }) | undefined
+  const anuncio = ctx.post.anuncio
   const ajuste = !!passo.entrada.feedback && !!anterior?.slides?.length
   await em.inicio(ajuste ? 'Ajustando só o que foi apontado no texto' : 'Escrevendo o gancho da capa')
   const pauta = ctx.saidas.chefe as z.infer<typeof Pauta> | undefined
@@ -143,10 +157,13 @@ export const redator: Agente = async (ctx, passo, em) => {
     // a volta só troca o que foi apontado: Sonnet dá conta e custa metade do Opus
     modelo: ajuste ? modeloNaVolta(ctx, 'redator', 'claude-sonnet-5-5') : modeloDe(ctx, 'redator'),
     effort: 'medium',
-    sistema: `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${ESCRITA}\n\n${CLICHES}`,
+    sistema: anuncio
+      ? `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto da arte de um anúncio no Meta e o pacote de textos que o dono cola no Gerenciador de Anúncios, como um redator de resposta direta que conhece a marca, não como um modelo de linguagem.')}\n\n${ESCRITA}\n\n${ESCRITA_ANUNCIO}\nNo anúncio, as regras do pacote valem mais que as de post. Hashtags não entram; o aviso obrigatório da marca, se houver, vai no fim de cada texto principal.\n\n${CLICHES}`
+      : `${sistemaDoAgente(ctx, 'redator', 'Você escreve o texto dos slides e a legenda como um redator humano que conhece a marca, não como um modelo de linguagem.')}\n\n${ESCRITA}\n\n${CLICHES}`,
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
+      anuncio ? textoDoAnuncio(anuncio) : '',
       pauta?.voz && pauta.voz in VOZES ? `## Voz deste post: ${pauta.voz}\n${VOZES[pauta.voz]}` : '',
       pauta?.estrutura && pauta.estrutura in ESTRUTURAS ? `## Estrutura deste post: ${pauta.estrutura}\n${ESTRUTURAS[pauta.estrutura]}` : '',
       pauta?.objetivo && pauta.objetivo in OBJETIVOS ? `## Objetivo deste post: ${pauta.objetivo}\n${OBJETIVOS[pauta.objetivo]}\nFecho combinado: ${pauta.fecho}` : '',
@@ -160,20 +177,28 @@ export const redator: Agente = async (ctx, passo, em) => {
     ]
       .filter(Boolean)
       .join('\n\n'),
-    schema: Texto,
+    schema: anuncio ? TextoDeAnuncio : Texto,
   })
   // foto e Reel têm uma imagem só: um slide a mais do modelo não vira um post a mais
   if (pauta && pauta.formato !== 'carrossel' && dados.slides.length > 1) dados.slides = dados.slides.slice(0, 1)
   for (const [i, s] of dados.slides.entries()) await em.texto(`Slide ${i + 1}: ${s.titulo}\n`)
-  await em.texto(`\nLegenda:\n${dados.legenda}\n`)
-  await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
+  const pacote = anuncio && 'pacote' in dados ? arrumarPacote(dados.pacote as z.infer<typeof PacoteAnuncio>) : undefined
+  if (anuncio && pacote) {
+    // o texto principal faz o papel da legenda nas telas que mostram a legenda
+    dados.legenda = pacote.texto_principal[0] ?? dados.legenda
+    await em.texto(`\nTexto principal:\n${dados.legenda}\n\nTítulos: ${pacote.titulo.join(' | ')}\nDescrição: ${pacote.descricao}\nBotão: ${pacote.botao}\n`)
+    await db.from('posts').update({ legenda: dados.legenda, anuncio: { ...anuncio, pacote } satisfies Anuncio }).eq('id', ctx.post.id)
+  } else {
+    await em.texto(`\nLegenda:\n${dados.legenda}\n`)
+    await db.from('posts').update({ legenda: dados.legenda }).eq('id', ctx.post.id)
+  }
   // com a aprovação do texto ligada, o texto novo (ou ajustado a seu pedido) para na sua mesa antes do designer;
   // devolução do revisor e correção do post pronto seguem direto
   if (ctx.post.preferencias?.aprovar_texto && (!passo.entrada.feedback || passo.entrada.ajuste_texto)) {
     await db.from('posts').update({ status: 'aguardando_texto' }).eq('id', ctx.post.id)
-    return { saida: dados, uso, entrega: 'Texto pronto para você aprovar', proximos: null, para: 'voce' }
+    return { saida: { ...dados, pacote }, uso, entrega: 'Texto pronto para você aprovar', proximos: null, para: 'voce' }
   }
-  return { saida: dados, uso, entrega: 'Texto pronto' }
+  return { saida: { ...dados, pacote }, uso, entrega: pacote ? 'Texto da arte e pacote do anúncio prontos' : 'Texto pronto' }
 }
 
 // ───────── Designer ─────────
@@ -214,7 +239,7 @@ async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters
   if (r.problemas.length) {
     await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
     await em.texto(`${textoDaChecagem(r.problemas)}\n`)
-    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título ou logo fora da área 1:1: traga para dentro de y 135 a 1215 (o fundo e a foto podem continuar sangrando até a borda). Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false, mecanico: true })
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título ou logo fora da área 1:1: traga para dentro de y 135 a 1215 (o fundo e a foto podem continuar sangrando até a borda). Fora da área segura do story: traga para dentro de y 270 a 1250. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false, mecanico: true })
     if (ajuste && ajuste.html !== html) {
       html = ajuste.html
       usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
@@ -239,20 +264,21 @@ async function editarSlides(
   base?: string,
   opts: { renderizar: boolean; mecanico?: boolean } = { renderizar: true },
 ) {
-  const anterior = base ?? (ctx.saidas.designer as { html?: string } | undefined)?.html
+  const eu = quemDesenha(ctx.post)
+  const anterior = base ?? (ctx.saidas[eu] as { html?: string } | undefined)?.html
   if (!anterior) return null
   // as imagens geradas seguem na saída, para uma refação não pagar por elas de novo
-  const imagens = (ctx.saidas.designer as { imagens?: unknown[] } | undefined)?.imagens
+  const imagens = (ctx.saidas[eu] as { imagens?: unknown[] } | undefined)?.imagens
   if (!base) await em.inicio('Editando os slides prontos')
   // o designer vê o slide como está (é o que o dono e o revisor olharam): sem isso, "a foto ficou quadrada" não diz onde mexer
   const renderizados = opts.mecanico ? [] : [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
   const { dados, uso } = await gerarJson({
     // a correção da checagem automática é mecânica e vai no modelo leve; pedido do dono ou do revisor é trabalho de design
-    modelo: opts.mecanico ? modeloNaVolta(ctx, 'designer', 'claude-sonnet-5-5') : modeloDe(ctx, 'designer'),
+    modelo: opts.mecanico ? modeloNaVolta(ctx, eu, 'claude-sonnet-5-5') : modeloDe(ctx, eu),
     effort: opts.mecanico ? 'low' : 'medium',
     sistema: sistemaDoAgente(
       ctx,
-      'designer',
+      eu,
       'Você aplica ajustes em slides prontos. Atenda o pedido por completo, de um jeito que quem pediu veja a diferença no slide renderizado: se o pedido é de composição (tamanho ou posição da foto, moldura, fundo, espaçamento, proporção de um elemento), troque o bloco inteiro de CSS da classe ou o trecho inteiro de HTML envolvido, em vez de mexer num valor só. Fora do que foi pedido, não mude nada. Nunca apague texto que o dono não pediu para tirar. Se o problema é um caractere que saiu como quadradinho (seta, símbolo), mantenha o texto e o caractere: o renderizador já desenha setas →; troque só símbolos que não sejam setas. Se o pedido diz para refazer, ou não dá para atender com trocas no HTML atual, responda refazer: true.',
     ),
     conteudo: [
@@ -310,16 +336,17 @@ const Autoconferencia = z.object({
  */
 async function autoconferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], html: string, slides: NonNullable<Contexto['post']['slides']>, uso: Uso) {
   if (!slides.length) return { html, slides, uso, pendente: undefined as string | undefined }
-  await em.acao('Olhando os slides prontos antes de entregar')
+  await em.acao(eAnuncio(ctx.post) ? 'Olhando as artes prontas antes de entregar' : 'Olhando os slides prontos antes de entregar')
+  const eu = quemDesenha(ctx.post)
   const ordenados = [...slides].sort((a, b) => a.ordem - b.ordem)
   const { dados, uso: usoConferencia } = await gerarJson({
-    modelo: modeloNaVolta(ctx, 'designer', 'claude-sonnet-5-5'),
+    modelo: modeloNaVolta(ctx, eu, 'claude-sonnet-5-5'),
     effort: 'medium',
     sistema: `${sistemaDoAgente(
       ctx,
-      'designer',
-      'Você confere os próprios slides renderizados antes de entregar ao revisor, olhando as imagens como ele e como o dono da marca vão olhar. Procure o que seria devolvido: regra aprendida quebrada, foto pequena ou cortada de um jeito que o drink ou o produto não se reconhece, área grande vazia, layout apagado ou sem contraste, texto encostando em foto ou em outro texto, rodapé em mais de uma linha ou desalinhado, elemento desproporcional ao título, título ou logo fora da área central 1:1. Corrija tudo o que achar numa passada só, com trocas no HTML (pode trocar blocos inteiros). Não mude o texto dos slides nem a legenda.',
-    )}\n\n${COMPOSICAO}`,
+      eu,
+      'Você confere os próprios slides renderizados antes de entregar ao revisor, olhando as imagens como ele e como o dono da marca vão olhar. Procure o que seria devolvido: regra aprendida quebrada, foto pequena ou cortada de um jeito que o drink ou o produto não se reconhece, área grande vazia, layout apagado ou sem contraste, texto encostando em foto ou em outro texto, rodapé em mais de uma linha ou desalinhado, elemento desproporcional ao título, título ou logo fora da área segura (no 4:5, o quadrado central 1:1; no story 9:16, de y 270 a 1250). Corrija tudo o que achar numa passada só, com trocas no HTML (pode trocar blocos inteiros). Não mude o texto dos slides nem a legenda.',
+    )}\n\n${composicaoDe(ctx)}`,
     conteudo: [
       ...ordenados.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
       {
@@ -353,6 +380,9 @@ async function autoconferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente
   const r = await salvarSlides(ctx, passo, corrigido)
   return { html: corrigido, slides: r.slides, uso: usoTotal, pendente: r.problemas.length ? textoDaChecagem(r.problemas) : undefined }
 }
+
+/** Regras de composição de quem desenha: as do post ou, num anúncio, as das duas artes com as áreas seguras do Meta. */
+const composicaoDe = (ctx: Parameters<Agente>[0]) => (eAnuncio(ctx.post) ? COMPOSICAO_ANUNCIO : COMPOSICAO)
 
 /** Composição que vale para toda marca: vem das correções do dono que se repetiam (vazio, desalinhado, número gigante, site no botão). */
 const COMPOSICAO = `## Composição (todas as marcas)
@@ -410,12 +440,13 @@ async function gerarImagensDoPost(
 ): Promise<{ imagens: ImagemGerada[]; uso: Uso }> {
   await em.acao('Vendo se o post precisa de imagens novas')
   const candidatas = [...refsDoPedido.map((url) => ({ url, descricao: 'referência enviada neste pedido', tags: [] as string[] })), ...fotos]
+  const eu = quemDesenha(ctx.post)
   const { dados, uso } = await gerarJson({
-    modelo: modeloDe(ctx, 'designer'),
+    modelo: modeloDe(ctx, eu),
     effort: 'low',
     sistema: sistemaDoAgente(
       ctx,
-      'designer',
+      eu,
       `Você decide quais imagens novas o post precisa antes de montar os slides. Cada imagem custa dinheiro: peça só quando a imagem faz o slide melhor (capa, produto em uso, cena que ilustra o ponto), no máximo ${MAX_IMAGENS_POR_POST}. Se há foto aprovada que já serve, não gere. Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Não peça tela de app, print, desenho técnico, gráfico, placa ou logo: a IA de imagem inventa letras e números distorcidos, e isso já reprovou posts. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado).`,
     ),
     conteudo: [
@@ -447,6 +478,8 @@ async function gerarImagensDoPost(
 }
 
 export const designer: Agente = async (ctx, passo, em) => {
+  const eu = quemDesenha(ctx.post)
+  const anuncio = ctx.post.anuncio
   // tentativa depois de o render cair: o HTML já estava escrito, só falta desenhar
   const pronto = passo.entrada.html_pronto as string | undefined
   if (pronto) {
@@ -477,7 +510,7 @@ export const designer: Agente = async (ctx, passo, em) => {
   if (aprovado) await em.acao('Olhando o último post aprovado da marca')
 
   // imagens novas para o post: numa refação, reaproveita as que já foram geradas em vez de pagar de novo
-  let geradas = (ctx.saidas.designer as { imagens?: ImagemGerada[] } | undefined)?.imagens ?? []
+  let geradas = (ctx.saidas[eu] as { imagens?: ImagemGerada[] } | undefined)?.imagens ?? []
   let usoImagens = USO_ZERO
   const motorImagem = motorDeImagem(ctx)
   if (!geradas.length && motorImagem) {
@@ -489,14 +522,14 @@ export const designer: Agente = async (ctx, passo, em) => {
     geradas = r.imagens
     usoImagens = r.uso
   }
-  await em.acao(ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
+  await em.acao(anuncio ? 'Montando as artes do anúncio em 4:5 e 9:16' : ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
-    modelo: modeloDe(ctx, 'designer'),
+    modelo: modeloDe(ctx, eu),
     sistema: `${sistemaDoAgente(
       ctx,
-      'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área 1:1, e o revisor confere as imagens contra o checklist abaixo. Antes de responder, releia o HTML contra os cinco pontos que mais devolvem post: faixa vazia sem função, foto pequena ou chapada em bloco, texto encostando na foto ou cortado, rodapé em duas linhas ou desalinhado, título ou logo fora de y 135 a 1215.',
-    )}\n\n${COMPOSICAO}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
+      eu,
+      `${anuncio ? 'Você monta as artes de um anúncio pago no Meta em HTML: um criativo com um foco só, o objetivo da campanha, feito para parar quem rola o feed e não segue a marca. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. São duas seções: <section class="slide feed"> de exatamente 1080x1350 px e <section class="slide story"> de exatamente 1080x1920 px, as duas com overflow hidden.' : 'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden.'} Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área segura, e o revisor confere as imagens contra o checklist abaixo. Antes de responder, releia o HTML contra os cinco pontos que mais devolvem post: faixa vazia sem função, foto pequena ou chapada em bloco, texto encostando na foto ou cortado, rodapé em duas linhas ou desalinhado, título ou logo fora da área segura (y 135 a 1215 no 4:5; y 270 a 1250 no 9:16).`,
+    )}\n\n${composicaoDe(ctx)}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
@@ -519,6 +552,7 @@ export const designer: Agente = async (ctx, passo, em) => {
             : '',
           (() => {
             const p = ctx.saidas.chefe as { objetivo?: string; formato?: string; quantidade_slides?: number } | undefined
+            if (anuncio) return `${textoDoAnuncio(anuncio)}\nEntregue as duas artes (feed 4:5 e story 9:16) do mesmo criativo, nesta ordem.`
             return p?.objetivo ? `## Objetivo deste post: ${p.objetivo}\nFormato: ${p.formato}, ${p.quantidade_slides} ${p.quantidade_slides === 1 ? 'imagem' : 'slides'} (nem mais nem menos).` : ''
           })(),
           `## Texto dos slides (não mude o texto)\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto>)?.slides)}`,
@@ -529,14 +563,22 @@ export const designer: Agente = async (ctx, passo, em) => {
   })
   const html = gerado.texto.replace(/^[\s\S]*?(<!doctype|<html)/i, '$1').replace(/```\s*$/, '').trim()
 
-  await em.acao('Renderizando JPEG 1080 × 1350')
+  await em.acao(anuncio ? 'Renderizando as artes 1080 × 1350 e 1080 × 1920' : 'Renderizando JPEG 1080 × 1350')
   const usoAntes = { ...gerado.uso, tokens_entrada: gerado.uso.tokens_entrada + usoImagens.tokens_entrada, tokens_saida: gerado.uso.tokens_saida + usoImagens.tokens_saida, custo_usd: gerado.uso.custo_usd + usoImagens.custo_usd }
   const r = await renderizarEConferir(ctx, passo, em, html, usoAntes)
   const c = await autoconferir(ctx, passo, em, r.html, r.slides, r.uso)
-  const checagem = [r.checagem, c.pendente].filter(Boolean).join('\n') || undefined
+  // o anúncio precisa das duas artes: sem a de 9:16, o revisor devolve ao designer de criativos
+  const semStory = anuncio && !/<section\b[^>]*\bclass\s*=\s*["'][^"']*\bstory\b/i.test(c.html) ? 'Falta a arte de Stories e Reels: um <section class="slide story"> de 1080x1920 depois da arte do feed.' : ''
+  const checagem = [r.checagem, c.pendente, semStory].filter(Boolean).join('\n') || undefined
   const comImagens = geradas.length ? `, com ${geradas.length} ${geradas.length === 1 ? 'imagem gerada' : 'imagens geradas'}` : ''
-  return { saida: { html: c.html, slides: c.slides, checagem, imagens: geradas }, uso: c.uso, entrega: `${c.slides.length} slides renderizados${comImagens}${checagem ? ', com pontos da checagem automática' : ''}` }
+  const quantas = anuncio ? `Artes do anúncio prontas (${c.slides.length === 2 ? 'feed e story' : `${c.slides.length} artes`})` : `${c.slides.length} slides renderizados`
+  return { saida: { html: c.html, slides: c.slides, checagem, imagens: geradas }, uso: c.uso, entrega: `${quantas}${comImagens}${checagem ? ', com pontos da checagem automática' : ''}` }
 }
+
+// ───────── Designer de criativos (só nos anúncios) ─────────
+// Mesmo ofício do designer, outra mesa e outras regras: duas artes (4:5 e 9:16) com as áreas seguras do Meta e o
+// foco no objetivo da campanha. Quem desenha cada post sai de quemDesenha; as regras visuais do designer valem aqui também.
+export const criativos: Agente = designer
 
 // ───────── Cinegrafista (só em Reels) ─────────
 // Gera o vídeo com a IA escolhida no post: Kling direto, um modelo do fal.ai, ou uma animação escrita pelo Claude
@@ -881,7 +923,9 @@ export const revisor: Agente = async (ctx, passo, em) => {
   await em.inicio(reconferindo ? 'Conferindo se o que apontei foi resolvido' : `Conferindo o checklist e ${ctx.regras.length} regras aprendidas`)
   const todos = [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
   // cada slide tem uma marca do HTML que o gerou: na reconferência, só vão as imagens que mudaram desde a última vez
-  const marcas = marcasDosSlides((ctx.saidas.designer as { html?: string } | undefined)?.html)
+  const desenho = ctx.saidas[quemDesenha(ctx.post)] as { html?: string; checagem?: string } | undefined
+  const anuncio = ctx.post.anuncio
+  const marcas = marcasDosSlides(desenho?.html)
   const vistas = (anterior as { marcas_vistas?: string[] } | undefined)?.marcas_vistas
   const mudou = (i: number) => !vistas || !marcas[i] || vistas[i] !== marcas[i]
   const mudaram = reconferindo && marcas.length === todos.length ? todos.filter((_, i) => mudou(i)) : todos
@@ -915,9 +959,11 @@ export const revisor: Agente = async (ctx, passo, em) => {
             : `Acima estão os ${slides.length} slides, na ordem.`,
           ctx.post.video ? `Este post é um Reel: a imagem acima é só a capa. O vídeo foi gerado por IA a partir deste prompt, e você não consegue vê-lo; não aponte problemas do vídeo.\nPrompt: ${ctx.post.video.prompt}` : '',
           ctx.post.video?.narracao ? `## Narração do Reel (narrador)\n${ctx.post.video.narracao.texto}\n\nConfira a fala como texto: fato, tom e português. Problema nela é do narrador.` : '',
-          `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
-          (ctx.saidas.designer as { checagem?: string } | undefined)?.checagem
-            ? `## Checagem automática dos slides (medida no navegador)\n${(ctx.saidas.designer as { checagem: string }).checagem}\n\nO designer já tentou corrigir uma vez. Confira nas imagens se isso aparece de verdade; se aparecer, é problema do designer.`
+          anuncio
+            ? `${textoDoAnuncio(anuncio)}\n\nAs duas imagens são o mesmo criativo: a primeira é a arte do feed (4:5) e a segunda a de Stories e Reels (9:16). Confira se o foco é o objetivo da campanha (não um post comum), se título, oferta e logo estão na área segura (no 4:5, o quadrado central 1:1; no 9:16, de y 270 a 1250, porque o topo e os 35% de baixo ficam cobertos) e se a arte tem pouco texto. Problema na arte é do designer; no pacote, do redator.\n\n## Pacote do anúncio (redator)\n${JSON.stringify(anuncio.pacote ?? {})}${anuncio.pacote && avisosDoPacote(anuncio.pacote).length ? `\nPassou do limite do Meta (é do redator): ${avisosDoPacote(anuncio.pacote).join('; ')}` : ''}\n\n${ESCRITA_ANUNCIO}`
+            : `## Legenda\n${ctx.post.legenda ?? '(sem legenda)'}`,
+          desenho?.checagem
+            ? `## Checagem automática dos slides (medida no navegador)\n${desenho.checagem}\n\nO designer já tentou corrigir uma vez. Confira nas imagens se isso aparece de verdade; se aparecer, é problema do designer.`
             : '',
           precisaPesquisa ? `## Pesquisa usada\n${pesquisa?.notas ?? ''}` : '',
           semBusca
@@ -930,7 +976,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido e, se sim, aprove. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
-            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${pauta?.formato ? ` A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta${pauta.formato === 'foto' ? ' (post de foto é 1 imagem só; regra de carrossel, como quantidade mínima de slides ou "Arraste pro lado", não vale)' : ''}${pauta.objetivo ? ', nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem' : ''}.` : ''}`,
+            : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${anuncio ? ' Itens que só valem para post (legenda, hashtags, carrossel, "salve", "link na bio") não valem para anúncio.' : ''}${pauta?.formato ? ` A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta${pauta.formato === 'foto' ? ' (post de foto é 1 imagem só; regra de carrossel, como quantidade mínima de slides ou "Arraste pro lado", não vale)' : ''}${pauta.objetivo ? ', nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem' : ''}.` : ''}`,
         ]
           .filter(Boolean)
           .join('\n\n'),
@@ -962,7 +1008,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
 
   // devolve só para quem tem o que corrigir (e quem depende dele); vídeo e narração ficam como estão se não foram apontados
   const problemas = semBusca ? dados.problemas.map((p) => (p.agente === 'pesquisador' ? { agente: 'redator' as const, problema: `Sem fonte (a busca falhou): suavize no texto. ${p.problema}` } : p)) : dados.problemas
-  const rota = rotaDaDevolucao(problemas.map((p) => p.agente), fluxoDeProducao(ctx.etapas, ctx.post.formato))
+  const rota = rotaDaDevolucao(problemas.map((p) => p.agente), fluxoDeProducao(ctx.etapas, ctx.post.formato, eAnuncio(ctx.post)))
   const texto = problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
   await em.texto(texto + sugestoes)
@@ -1004,6 +1050,6 @@ async function revisarCorrecao(ctx: Parameters<Agente>[0], passo: Parameters<Age
     saida: dados,
     uso,
     entrega: `Devolvido: ${dados.problema.slice(0, 80)}`,
-    proximos: [{ agente: 'designer', entrada: { feedback: dados.problema, correcao } }],
+    proximos: [{ agente: quemDesenha(ctx.post), entrada: { feedback: dados.problema, correcao } }],
   }
 }

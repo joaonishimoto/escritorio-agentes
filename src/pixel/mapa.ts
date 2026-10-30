@@ -42,7 +42,7 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
   }
   tripe(g, x0 + MESAS.cinegrafista.x + 33, MESAS.cinegrafista.y - 4)
   microfone(g, x0 + MESAS.narrador.x + 2, MESAS.narrador.y - 6)
-  mesinha(g, estilo, x0 + 254, 102)
+  mesinha(g, estilo, x0 + 266, 106)
 
   // hall: tapete com a placa da equipe, sofá de espera, café e plantas
   r(g, '#1f2330', x0 + 107, 184, 106, 30)
