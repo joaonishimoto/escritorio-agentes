@@ -144,7 +144,7 @@ export function EscritorioPixel({
   const estiloDe = (m: MarcaNoAndar, i: number) => estiloDaSala(padraoDe(m, i), corDe(m), m.sala)
 
   // estado que o laço de desenho lê sem precisar renderizar o React de novo
-  const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, porSala, irPara: null as number | null, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
+  const vivo = useRef({ estados, aguardando, selecionado, indiceAtivo, foco, porSala, mudouEm: {} as Record<string, number>, ultimoEstado: {} as Record<string, Estado> })
   vivo.current.porSala = porSala
   vivo.current.estados = estados
   vivo.current.aguardando = aguardando
@@ -248,9 +248,9 @@ export function EscritorioPixel({
   const recebeuEm = useRef<Map<string, number>>(new Map())
   const [pastaChegouEmVoce, setPastaChegouEmVoce] = useState(true)
   const pastaEmVoceRef = useRef(true)
-  const camera = useRef({ x: 0, arrasto: 0, soltouEm: 0 })
-  /** para onde a câmera olhava antes de abrir o calendário */
-  const alvoAntes = useRef<number | null>(null)
+  /** a câmera só anda quando você arrasta, rola ou usa a barra das salas; nada a move sozinha.
+   *  alvo: onde a borda esquerda da vista deve ficar; centro: pedido da barra (ponto do andar a centralizar) */
+  const camera = useRef({ x: 0, alvo: null as number | null, centro: SALA_W / 2 as number | null })
   const geom = useRef({ escala: 3, offY: 0, larguraVista: 0 })
 
   // ── caminhos ──
@@ -315,8 +315,8 @@ export function EscritorioPixel({
       e.preventDefault() // evita o "voltar página" do gesto horizontal
       const passo = e.deltaMode === 1 ? delta * 16 : delta
       const dpr = window.devicePixelRatio || 1
-      camera.current.arrasto += (passo * dpr) / geom.current.escala
-      camera.current.soltouEm = performance.now()
+      const cam = camera.current
+      if (cam.alvo !== null) cam.alvo += (passo * dpr) / geom.current.escala
     }
     c.addEventListener('wheel', rolar, { passive: false })
     return () => c.removeEventListener('wheel', rolar)
@@ -472,22 +472,20 @@ export function EscritorioPixel({
       }
       andantes.current = andantes.current.filter((a) => a.dist >= 0)
 
-      // câmera: fica na sala escolhida (ou na sua / do Financeiro); só sai dali quando você clica ou arrasta
-      // o calendário abre por cima de onde você está (o da sala ou o da sua mesa): a câmera não sai do lugar
-      const alvoX =
-        v.foco === 'calendario' && alvoAntes.current !== null
-          ? alvoAntes.current
-          : v.foco === 'financeiro' ? xFin + FIN_W / 2 : v.foco === 'voce' ? xVoce + VOCE_W / 2 : v.irPara ?? SALA_W / 2
-      alvoAntes.current = alvoX
+      // câmera: fica parada onde você deixou. Abrir painel, chegar pasta ou trocar de marca não a movem;
+      // só arrastar, rolar ou clicar na barra das salas
       const cam = camera.current
-      const livre = agora - cam.soltouEm > 8000
       const maxX = Math.max(inicio, fim - vistaW)
-      // o deslocamento manual não passa das pontas do andar (senão rolar para trás demora a responder)
-      const base = alvoX - vistaW / 2
-      cam.arrasto = Math.max(inicio - base, Math.min(maxX - base, cam.arrasto))
-      const desejado = base + (livre ? 0 : cam.arrasto)
-      if (livre) cam.arrasto *= 0.9
-      cam.x += (desejado - cam.x) * Math.min(1, dt * (livre ? 3 : 10))
+      const primeiraVez = cam.alvo === null
+      if (cam.centro !== null) {
+        cam.alvo = cam.centro - vistaW / 2
+        cam.centro = null
+      }
+      // não passa das pontas do andar (senão rolar para trás demora a responder)
+      const alvo = Math.max(inicio, Math.min(maxX, cam.alvo ?? 0))
+      cam.alvo = alvo
+      if (primeiraVez) cam.x = alvo
+      cam.x += (alvo - cam.x) * Math.min(1, dt * 10)
       const camX = fim - inicio < vistaW ? inicio + (fim - inicio - vistaW) / 2 : Math.max(inicio, Math.min(maxX, cam.x))
 
       g.setTransform(1, 0, 0, 1, 0, 0)
@@ -716,7 +714,7 @@ export function EscritorioPixel({
         posicoesEtiqueta[`gato:${gt.nome}`] = [gt.x, gt.y - 12]
       }
 
-      // folhinhas voando até o calendário da sua sala (a câmera vai junto enquanto voam)
+      // folhinhas voando até o calendário da sua sala
       folhas.current = folhas.current.filter((f) => {
         const k = (agora - f.inicio) / 1800
         if (k < 0) return true
@@ -824,7 +822,6 @@ export function EscritorioPixel({
     }
     // sala da equipe: clicar numa mesa abre o agente
     if (x >= 0 && x < PASSO_EQUIPE) {
-      vivo.current.irPara = null
       for (const a of AGENTES) {
         const m = MESAS[a.id]
         if (x >= m.x && x <= m.x + MESA_W2 * 2 && y >= m.y - 10 && y <= m.y + 28) return selecionar(a.id)
@@ -834,8 +831,6 @@ export function EscritorioPixel({
     const sala = x < 0 ? Math.floor((x - origem) / PASSO_MARCA) : -1
     if (!marcas[sala]) return selecionar(null)
     const lx = x - xMarca(sala)
-    // a câmera fica na sala da marca em que você clicou
-    vivo.current.irPara = xMarca(sala) + MARCA_W / 2
     const dentro = (r: { x: number; y: number; w: number; h: number }, folga = 3) => lx >= r.x - folga && lx <= r.x + r.w + folga && y >= r.y - folga && y <= r.y + r.h + 8
     if (sala !== indiceAtivo) aoEscolherMarca(marcas[sala].id)
     // cofrinho: abre os gastos daquela marca
@@ -862,14 +857,12 @@ export function EscritorioPixel({
   // barra das salas: leva a câmera até a sala, sem abrir nada
   const irPara = (alvo: { marca: string } | 'equipe' | 'voce' | 'financeiro') => {
     focar(null)
-    camera.current.arrasto = 0
-    camera.current.soltouEm = 0
     if (typeof alvo === 'object') {
       const i = marcas.findIndex((m) => m.id === alvo.marca)
-      vivo.current.irPara = i >= 0 ? xMarca(i) + MARCA_W / 2 : null
+      if (i >= 0) camera.current.centro = xMarca(i) + MARCA_W / 2
       return aoEscolherMarca(alvo.marca)
     }
-    vivo.current.irPara = alvo === 'equipe' ? SALA_W / 2 : alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
+    camera.current.centro = alvo === 'equipe' ? SALA_W / 2 : alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
   }
   // arrastar um nome da barra para o lado troca a sala de lugar
   const [arrastandoSala, setArrastandoSala] = useState<{ id: string; ids: string[]; x: number; moveu: boolean } | null>(null)
@@ -966,7 +959,7 @@ export function EscritorioPixel({
         ref={tela}
         className="pixel-tela"
         onPointerDown={(e) => {
-          arrastando.current = { x: e.clientX, inicio: camera.current.arrasto, moveu: false }
+          arrastando.current = { x: e.clientX, inicio: camera.current.alvo ?? camera.current.x, moveu: false }
           ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
@@ -986,8 +979,7 @@ export function EscritorioPixel({
           if (Math.abs(dx) > 4) a.moveu = true
           if (a.moveu) {
             const dpr = window.devicePixelRatio || 1
-            camera.current.arrasto = a.inicio - (dx * dpr) / geom.current.escala
-            camera.current.soltouEm = performance.now()
+            camera.current.alvo = a.inicio - (dx * dpr) / geom.current.escala
           }
         }}
         onPointerUp={(e) => {
