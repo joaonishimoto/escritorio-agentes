@@ -14,7 +14,7 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
@@ -67,7 +67,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Capa e plano\n- O item 1 do plano é a capa: diga o gancho em até 6 palavras e o que aparece (foto do produto, só tipografia). A capa é vista recortada em quadrado na grade do perfil, então o gancho precisa funcionar sozinho.\n- Cada item do plano descreve uma ideia só, do tamanho de um título e uma frase de apoio; o que não cabe vai para a legenda.\n\n## O que o pesquisador confere\nEm precisa_pesquisa entram só fatos que existem fora da marca e dão para achar na web (data, origem, número público, tendência). Receita, dose, preço, função do app e qualquer dado interno da marca não entram: a equipe não tem como conferir e o dono confere na mesa.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
@@ -100,13 +100,13 @@ export const pesquisador: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'pesquisador',
-      'Você levanta fatos confiáveis para o post. Fato histórico precisa de duas fontes; o que divergir, marque como "dizem" ou deixe de fora. Cite as fontes.',
+      'Você levanta fatos confiáveis para o post. Cada fato sai com uma marca na frente: [confirmado] quando duas fontes independentes batem, [dizem] quando só uma fonte afirma ou as fontes divergem (o redator escreve "dizem que" ou "conta-se"), [não achei] quando a busca não confirmou (o redator não afirma). Cite a fonte (link) de cada fato ao fim. Não pesquise receita, dose, preço nem dado interno da marca: isso o dono confere; se um item da lista for assim, responda "[interno] cabe ao dono conferir".',
     ),
     conteudo: devolvido
       ? `Pedido: ${ctx.post.briefing}\n\n## Suas notas anteriores\n${anteriores}\n\nRefaça as notas mantendo tudo o que está certo e corrigindo só o que foi apontado para o pesquisador abaixo. Ignore os pontos de outros agentes. Busque na web só o necessário.${feedback(passo)}`
-      : `Pedido: ${ctx.post.briefing}\n\nPromessa do post: ${pauta?.promessa ?? ''}\nPlano dos slides: ${JSON.stringify(pauta?.plano_slides ?? [])}\n\n## Fatos a confirmar\n${(pauta?.precisa_pesquisa ?? []).map((f) => `- ${f}`).join('\n')}\n\n${referenciasDoPost(ctx).texto}\n\nConfirme só esses fatos, agrupando buscas quando der. Entregue notas curtas e verificadas, em tópicos, com as fontes no fim. Nada de introdução nem resumo.${feedback(passo)}`,
+      : `Pedido: ${ctx.post.briefing}\n\nPromessa do post: ${pauta?.promessa ?? ''}\nPlano dos slides: ${JSON.stringify(pauta?.plano_slides ?? [])}\n\n## Fatos a confirmar\n${(pauta?.precisa_pesquisa ?? []).map((f) => `- ${f}`).join('\n')}\n\n${referenciasDoPost(ctx).texto}\n\nConfirme só esses fatos, agrupando buscas quando der (uma busca boa costuma cobrir dois ou três). Entregue notas curtas, em tópicos, um fato por linha com a marca na frente, e as fontes no fim. Nada de introdução nem resumo.${feedback(passo)}`,
     // a busca com filtro roda várias consultas de uma vez: com 3 usos, um lote só já estourava o limite e nada voltava
-    buscaWeb: devolvido ? 4 : 6,
+    buscaWeb: devolvido ? 3 : 6,
     aoEscrever: (t) => em.texto(t),
     aoBuscar: (q) => em.acao(`Buscando: ${q}`),
   })
@@ -122,24 +122,15 @@ const Texto = z.object({
     z.object({
       tipo: z.enum(['capa', 'conteudo', 'cta']),
       etiqueta: z.string().describe('selo curto de apoio (ex.: categoria, número do passo); deixe vazio na maioria dos slides, não é obrigatório'),
-      titulo: z.string().describe('curto: até 8 palavras na capa, até 10 nos outros slides'),
+      titulo: z.string().describe('curto: até 6 palavras na capa (ela aparece recortada em quadrado na grade), até 10 nos outros slides'),
       destaque: z.string().describe('parte do título que vai na cor de destaque, pode ser vazio'),
       corpo: z.string().describe('texto de apoio, até 30 palavras, pode ser vazio'),
       itens: z.array(z.object({ quantidade: z.string(), item: z.string() })).describe('lista (ex.: ingredientes), pode ser vazia'),
       foto: z.string().describe('descrição da foto ideal, ou vazio se não usa foto'),
     }),
   ),
-  legenda: z.string(),
+  legenda: z.string().describe('a primeira linha é o gancho, com até 12 palavras; o resto desenvolve'),
 })
-
-/** O que vale para o texto de toda marca: vem das correções do dono que se repetiam de marca em marca. */
-const ESCRITA = `## Regras de escrita (todas as marcas)
-- Nunca escreva endereço de site (www, .com, lp., use.) nos slides nem na legenda. Botão e chamada usam palavras comuns de ação ("Link na bio", "Começar grátis", "Baixe o app").
-- @ de perfil do Instagram sempre em minúsculas, como está no perfil.
-- O fecho segue o objetivo da pauta. Só "vender" pede chamada de venda (baixar, assinar, link na bio). "engajar" e "educar" fecham com um convite leve (salvar, mandar pra alguém, comentar) ou fechando a ideia. "marca" não tem chamada de venda nem pedido de contato, e quase não tem texto na arte: a mensagem vai na legenda.
-- Entregue exatamente a quantidade de slides da pauta, um por item do plano. Foto e Reel têm um slide só.
-- Texto que cabe no slide: título curto, corpo curto, uma ideia por slide. O que não couber vai para a legenda.
-- Palavra comum, sem duplo sentido nem termo estranho; se a palavra soa esquisita em voz alta, troque.`
 
 export const redator: Agente = async (ctx, passo, em) => {
   // numa volta (revisor ou correção sua) parte do texto que já existe e mexe só no que foi pedido
@@ -165,7 +156,7 @@ export const redator: Agente = async (ctx, passo, em) => {
       ajuste
         ? `## Seu texto anterior\n${JSON.stringify(anterior)}\n\nDevolva o texto completo, igual ao anterior em tudo o que está certo, mudando só o que os ajustes abaixo pedem (e o que depender de uma pesquisa corrigida).`
         : '',
-      `Use só fatos da pesquisa.${feedback(passo)}`,
+      `Use só fatos da pesquisa, respeitando a marca de cada um ([confirmado], [dizem], [não achei]).${feedback(passo)}`,
     ]
       .filter(Boolean)
       .join('\n\n'),
@@ -370,11 +361,14 @@ const COMPOSICAO = `## Composição (todas as marcas)
 - Área segura do 4:5 (1080x1350): o slide inteiro aparece no feed, mas a grade do perfil e alguns lugares (Explorar, compartilhamento, prévia) mostram só o quadrado central 1:1, de y 135 a y 1215, e a grade nova em 3:4 ainda come uns 35 px de cada lateral. Título, logo em destaque, chamada, preço e o rosto ou produto principal ficam dentro de x 80 a 1000 e y 135 a 1215. As faixas de cima (y 0 a 135) e de baixo (y 1215 a 1350) servem para fundo, foto sangrando e a assinatura pequena do rodapé (ícone e @), nunca para algo que precisa ser lido na miniatura.
 - O canto de cima à direita (cerca de 220 x 120 px) fica coberto pelo contador "1/5" do carrossel, e o canto de baixo à esquerda pelo ícone de marcação: nada importante ali.
 - A capa (slide 1) é a que aparece na grade: o título dela precisa funcionar sozinho recortado em 1:1, grande e centralizado no quadrado.
-- Selo ou pílula é opcional; quando entrar, alinhe na mesma margem do título e varie a posição entre posts. Rodapé numa linha só, itens alinhados pela mesma base.
+- Foto do produto (drink, peça, aparelho): grande, inteira e reconhecível, com copo, guarnição ou bordas dentro do quadro, nunca cortada a ponto de não se reconhecer. Nunca em bloco quadrado chapado e centralizado: recorte com sombra suave, sangria por uma borda ou leve ângulo, para dar volume. Foto e texto ocupam áreas separadas, com pelo menos 40 px de respiro: texto não encosta nem cobre o produto. Foto pequena no meio de um cartão branco largo é o erro mais apontado.
+- Vida: contraste forte, a cor de destaque da marca presente e o fundo em sintonia com a foto (ambiente, cor dominante). Fundo claro e vazio, cinza sobre cinza e cartão branco solto deixam o post apagado.
+- Selo ou pílula é opcional; quando entrar, alinhe na mesma margem do título, com altura parecida com a do texto de apoio (nunca do tamanho do título) e varie a posição entre posts. Rodapé numa linha só, itens alinhados pela mesma base; o aviso legal cabe numa linha (encurte a fonte até 28 px, não quebre em duas) e com cor que se lê sobre o fundo.
 - Número ou palavra gigante decorativa no fundo só no layout numero-gigante, e nunca cortado na borda.
 - Botão e chamada com palavras comuns ("Link na bio", "Começar grátis"), nunca endereço de site.
 - A marca aparece com o arquivo de imagem do logo ou ícone (na identidade ou no modelo), nunca com uma letra ou inicial no lugar.
-- Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide.
+- Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide nem com palavra pela metade. O cartão ou a moldura tem o tamanho exato do print: nada de faixa vazia em cima ou embaixo da tela.
+- Imagem gerada por IA serve para cena, ambiente, produto em uso e textura. Nunca para tela de app, texto, desenho técnico, gráfico ou logo: sai com letras e números distorcidos, e o público percebe. Se uma imagem gerada mostra texto ilegível, não a use; fique com a foto aprovada ou com tipografia e cor.
 - Post com objetivo "marca": pouco texto na arte, a marca em destaque.`
 
 // favicon e ícone em vários tamanhos são o mesmo desenho: no prompt eles só gastam token e confundem a escolha
@@ -422,7 +416,7 @@ async function gerarImagensDoPost(
     sistema: sistemaDoAgente(
       ctx,
       'designer',
-      `Você decide quais imagens novas o post precisa antes de montar os slides. Cada imagem custa dinheiro: peça só quando a imagem faz o slide melhor (capa, produto em uso, cena que ilustra o ponto), no máximo ${MAX_IMAGENS_POR_POST}. Se há foto aprovada que já serve, não gere. Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado).`,
+      `Você decide quais imagens novas o post precisa antes de montar os slides. Cada imagem custa dinheiro: peça só quando a imagem faz o slide melhor (capa, produto em uso, cena que ilustra o ponto), no máximo ${MAX_IMAGENS_POR_POST}. Se há foto aprovada que já serve, não gere. Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Não peça tela de app, print, desenho técnico, gráfico, placa ou logo: a IA de imagem inventa letras e números distorcidos, e isso já reprovou posts. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado).`,
     ),
     conteudo: [
       `## Plano dos slides\n${JSON.stringify((ctx.saidas.chefe as { plano_slides?: string[] } | undefined)?.plano_slides ?? [])}`,
@@ -501,7 +495,7 @@ export const designer: Agente = async (ctx, passo, em) => {
     sistema: `${sistemaDoAgente(
       ctx,
       'designer',
-      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área 1:1, e o revisor confere as imagens contra o checklist abaixo.',
+      'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden. Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área 1:1, e o revisor confere as imagens contra o checklist abaixo. Antes de responder, releia o HTML contra os cinco pontos que mais devolvem post: faixa vazia sem função, foto pequena ou chapada em bloco, texto encostando na foto ou cortado, rodapé em duas linhas ou desalinhado, título ou logo fora de y 135 a 1215.',
     )}\n\n${COMPOSICAO}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
     conteudo: [
       ...refsDesign.blocos,
@@ -622,12 +616,12 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
     `Pedido: ${ctx.post.briefing}`,
     `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
     `Texto dos slides:\n${JSON.stringify((ctx.saidas.redator as z.infer<typeof Texto> | undefined)?.slides ?? [])}`,
+    (ctx.saidas.pesquisador as { notas?: string } | undefined)?.notas ? `## Pesquisa (como o produto é de verdade)\n${(ctx.saidas.pesquisador as { notas: string }).notas}` : '',
     atual ? `## Vídeo atual\n${atual.prompt}` : '',
     ajustes ? `## Ajustes pedidos nesta rodada\n${ajustes}` : '',
   ]
-
+  const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
   if (motor === 'claude') {
-    const midias = (await midiasDaMarca(ctx)).filter((m) => !m.tags.includes('inspiracao'))
     const textoMidias = midias.length
       ? `## Logo e fotos da marca (só estas URLs podem entrar na animação)\n${midias.map((m) => `- ${m.url} (${m.descricao ?? m.tags.join(', ')})`).join('\n')}`
       : '## A marca não tem logo nem fotos na biblioteca: use só tipografia, cor e formas.'
@@ -659,12 +653,16 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
   const r = await gerarJson({
     modelo: 'claude-sonnet-5-5',
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado.`),
+    sistema: sistemaDoAgente(ctx, 'cinegrafista', `Você dirige o vídeo do Reel: descreve a cena para um gerador de vídeo por IA (${NOME_DO_MOTOR(motor)}). O texto do post vai na capa e na legenda, não no vídeo. Peça uma cena só, vertical 9:16 ocupando o quadro inteiro, fotorrealista, com o assunto no centro e folga em cima e embaixo, câmera lenta e estável; nada de cortes rápidos, ilustração, letreiro ou logo inventado. O produto aparece como ele é de verdade: o drink no copo certo, com o gelo e a guarnição da receita (use a pesquisa e as descrições das fotos da marca); a peça ou o aparelho com a forma real. Descreva isso no prompt em vez de deixar o gerador inventar.`),
     conteudo: [
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: [...contexto, refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '']
+        text: [
+          ...contexto,
+          midias.length ? `## Como o produto aparece nas fotos aprovadas da marca\n${midias.map((m) => `- ${m.descricao ?? m.tags.join(', ')}`).join('\n')}` : '',
+          refs.tem ? `${refs.texto}\n\nSe houver imagem de referência, a primeira vira o primeiro quadro do vídeo: descreva o movimento a partir dela.` : '',
+        ]
           .filter(Boolean)
           .join('\n\n'),
       },
@@ -806,7 +804,7 @@ export const narrador: Agente = async (ctx, passo, em) => {
   const { dados, uso } = await gerarJson({
     modelo: modeloDe(ctx, 'narrador'),
     effort: 'low',
-    sistema: sistemaDoAgente(ctx, 'narrador', 'Você é o locutor dos Reels: escreve a fala que vai por cima do vídeo, no tom de voz da marca. Fala natural, de quem conversa, que completa o vídeo em vez de descrever o que aparece.'),
+    sistema: sistemaDoAgente(ctx, 'narrador', 'Você é o locutor dos Reels: escreve a fala que vai por cima do vídeo, no tom de voz da marca. Fala natural, de quem conversa, que completa o vídeo em vez de descrever o que aparece. Escreva para ser ouvido: frases curtas, uma ideia por frase, números e medidas por extenso ("duas doses", "cinquenta mililitros", "mil novecentos e vinte"), sem @, hashtag, endereço de site, emoji nem sigla que não se fala. Não leia o título da capa nem a legenda literalmente: a fala acrescenta. Termine fechando a ideia, não pedindo comentário.'),
     conteudo: [
       `Pedido: ${ctx.post.briefing}`,
       `Pauta:\n${JSON.stringify(ctx.saidas.chefe)}`,
@@ -849,10 +847,20 @@ const Revisao = z.object({
       problema: z.string().describe('o que falhou e como corrigir, citando o item do checklist ou a regra'),
     }),
   ),
+  sugestoes: z
+    .array(z.string())
+    .describe('o que o dono pode querer olhar mas não devolve o post: detalhe de gosto, alinhamento fino, item do checklist que a equipe não tem como conferir (receita, dose, dado interno), fato marcado como "dizem"'),
   resumo: z.string(),
 })
 
 const MAX_VOLTAS = 2
+
+/** Problemas que só o dono consegue conferir (receita, dose, dado do app, quantidade de fontes): viram sugestão em vez de devolver o post. */
+export function soParaODono<T extends { problema: string }>(problemas: T[]) {
+  const interno = /\b(doses?|receita|ingredientes?|preço|dado interno|dados internos|do app\b.*\b(bate|batem|confere|conferir)|duas fontes|segunda fonte|fonte única|uma fonte só|conferir com o dono|o dono (deve|precisa) conferir)\b/i
+  const visivel = /cortad|sobrepost|ilegível|fora da área|vazi[oa]/i
+  return problemas.filter((p) => interno.test(p.problema) && !visivel.test(p.problema))
+}
 
 /** Uma marca curta por slide, tirada do HTML dele: muda quando o designer mexe naquele slide. */
 export function marcasDosSlides(html: string | undefined) {
@@ -895,7 +903,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
       'revisor',
       reconferindo
         ? 'Você confere se o que você mesmo apontou na rodada anterior foi resolvido. Olhe as imagens de verdade. Se cada ponto foi resolvido, aprove. Problema novo só entra se for grave: texto cortado, sobreposto ou ilegível, regra aprendida quebrada, fato errado, formato errado. Alinhamento fino, alguns pixels, gosto pessoal: não devolvem o post; se quiser, cite no resumo como sugestão para o dono. Cada devolução custa uma rodada inteira da equipe.'
-        : 'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Devolva o que o dono reprovaria: regra aprendida quebrada, item do checklist que falha, texto cortado, sobreposto ou ilegível, fato errado, formato ou quantidade de slides errados, foto que não é da marca, composição claramente ruim (área grande vazia, foto pequena ou irreconhecível, layout apagado, elementos encostando). Não devolva por detalhe de gosto ou por alguns pixels: isso vai no resumo como sugestão. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web. Itens que a equipe não tem como conferir (dados internos, como as receitas do app) não são problema: cite no resumo para o dono conferir. Seja direto: cada problema em uma frase dizendo o que está errado e como corrigir, sem medidas em pixels; resumo em até três frases.',
+        : 'Você confere o post antes de ir para o dono da marca. Olhe as imagens de verdade. Devolva o que o dono reprovaria: regra aprendida quebrada, item do checklist que falha, texto cortado, sobreposto ou ilegível, fato errado, formato ou quantidade de slides errados, foto que não é da marca, composição claramente ruim (área grande vazia, foto pequena ou irreconhecível, layout apagado, elementos encostando). Não devolva por detalhe de gosto ou por alguns pixels: isso vai no resumo como sugestão. Atribua cada problema ao agente que consegue resolver: visual, layout, texto cortado ou sobreposto é do designer; erro de texto ou legenda é do redator. Só aponte o pesquisador se um fato estiver errado ou sem fonte e der para corrigir com busca na web; fato que a pesquisa marcou [dizem] e o texto escreveu como "dizem que" está certo, e fato [interno] não é problema de ninguém. Tudo o que não devolve o post vai em "sugestoes", nunca em "problemas": detalhe de gosto, alinhamento fino, item do checklist que a equipe não tem como conferir (receita, dose, preço, dado do app, quantidade de fontes), ideia de melhoria. Com "problemas" vazio o post vai para o dono com as sugestões; é o caminho normal. Seja direto: cada problema em uma frase dizendo o que está errado e como corrigir, sem medidas em pixels; resumo em até três frases.',
     ),
     conteudo: [
       ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
@@ -931,10 +939,18 @@ export const revisor: Agente = async (ctx, passo, em) => {
     schema: Revisao,
   })
 
+  // o que a equipe não consegue conferir não devolve o post, mesmo que o modelo tenha posto em "problemas"
+  const movidos = soParaODono(dados.problemas)
+  if (movidos.length) {
+    dados.problemas = dados.problemas.filter((p) => !movidos.includes(p))
+    dados.sugestoes = [...(dados.sugestoes ?? []), ...movidos.map((p) => p.problema)]
+    if (!dados.problemas.length) dados.aprovado = true
+  }
+  const sugestoes = dados.sugestoes?.length ? `\n\nSugestões (não seguram o post):\n${dados.sugestoes.map((x) => `- ${x}`).join('\n')}` : ''
   if (dados.aprovado || ctx.post.voltas_revisao >= MAX_VOLTAS) {
     const pendencias = dados.aprovado ? '' : `\n\nPendências após ${MAX_VOLTAS} voltas:\n${dados.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}`
     await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)
-    await em.texto(dados.resumo + pendencias)
+    await em.texto(dados.resumo + pendencias + sugestoes)
     return {
       saida: { ...dados, marcas_vistas: marcas },
       uso,
@@ -949,7 +965,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const rota = rotaDaDevolucao(problemas.map((p) => p.agente), fluxoDeProducao(ctx.etapas, ctx.post.formato))
   const texto = problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')
   await db.from('posts').update({ voltas_revisao: ctx.post.voltas_revisao + 1 }).eq('id', ctx.post.id)
-  await em.texto(texto)
+  await em.texto(texto + sugestoes)
   return {
     saida: { ...dados, marcas_vistas: marcas },
     uso,

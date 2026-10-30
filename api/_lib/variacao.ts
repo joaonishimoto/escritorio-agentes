@@ -50,6 +50,18 @@ export type Voz = keyof typeof VOZES
 export type Objetivo = keyof typeof OBJETIVOS
 
 /** Vícios de texto que denunciam IA. Vale para todas as marcas, mesmo com o tom editado pelo app. */
+/** O que vale para o texto de toda marca: vem das correções do dono que se repetiam de marca em marca. */
+export const ESCRITA = `## Regras de escrita (todas as marcas)
+- Nunca escreva endereço de site (www, .com, lp., use.) nos slides nem na legenda. Botão e chamada usam palavras comuns de ação ("Link na bio", "Começar grátis", "Baixe o app").
+- @ de perfil do Instagram sempre em minúsculas, como está no perfil.
+- O fecho segue o objetivo da pauta. Só "vender" pede chamada de venda (baixar, assinar, link na bio). "engajar" e "educar" fecham com um convite leve (salvar, mandar pra alguém, comentar) ou fechando a ideia. "marca" não tem chamada de venda nem pedido de contato, e quase não tem texto na arte: a mensagem vai na legenda.
+- Entregue exatamente a quantidade de slides da pauta, um por item do plano. Foto e Reel têm um slide só.
+- Texto que cabe no slide: título curto, corpo curto, uma ideia por slide. O que não couber vai para a legenda.
+- Palavra comum, sem duplo sentido nem termo estranho; se a palavra soa esquisita em voz alta, troque.
+- A primeira linha da legenda é o gancho: até 12 palavras, abrindo com um detalhe concreto (cheiro, cor, gesto, cena), não com pergunta genérica nem com o nome do post. É o que aparece antes do "mais".
+- Fatos: afirme só o que a pesquisa marcou [confirmado]. O que está [dizem] entra como "dizem que" ou "conta-se"; o que está [não achei] ou sem fonte não vira afirmação, vira algo geral. Número, data e causa só com fonte.
+- Não repita a estrutura dos últimos posts (pergunta na abertura e pergunta no fecho, por exemplo): se a lista de "já usado" mostra um padrão, fuja dele.`
+
 export const CLICHES = `## Evite (soa como texto de IA)
 - "Não é só X, é Y", "Mais do que X, Y", "E o melhor:", "O segredo é", "Descubra", "Você sabia que".
 - Trio de palavras ou frases em sequência ("Simples. Rápido. Gostoso.").
