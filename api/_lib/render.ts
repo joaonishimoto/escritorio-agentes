@@ -197,6 +197,14 @@ const CONFERIR = `(() => {
       if (parseFloat(getComputedStyle(t.el).fontSize) < 40) continue
       if (t.r.top - limite.top < corte - 4 || limite.bottom - t.r.bottom < corte - 4) problemas.push('título fora da área central 1:1 (some no corte da grade): "' + t.trecho + '"')
     }
+    // o logo em destaque também precisa aparecer na miniatura; a assinatura pequena do rodapé pode ficar na faixa cortada
+    for (const img of slide.querySelectorAll('img')) {
+      const nome = ((img.getAttribute('src') || '') + ' ' + (img.getAttribute('alt') || '') + ' ' + img.className).toLowerCase()
+      if (!/logo|icone|icon/.test(nome)) continue
+      const r = img.getBoundingClientRect()
+      if (Math.max(r.width, r.height) < 80) continue
+      if (r.top - limite.top < corte - 4 || limite.bottom - r.bottom < corte - 4) problemas.push('logo fora da área central 1:1 (some no corte da grade)')
+    }
   }
   for (let i = 0; i < textos.length; i++) {
     for (let j = i + 1; j < textos.length; j++) {
