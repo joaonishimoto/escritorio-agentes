@@ -31,6 +31,7 @@ import { Etapa } from './ui/Etapa'
 import type { Quadro } from './andar/planta'
 import type { Ideia } from './lib/ideias'
 import { Abertura } from './ui/Abertura'
+import { MenuTema } from './ui/MenuTema'
 
 export default function App() {
   const [sessao, setSessao] = useState<Session | null>(null)
@@ -278,6 +279,8 @@ function Painel() {
         <div className="palco-menu">
           <Menu>
             <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
+            <hr />
+            <MenuTema />
             <hr />
             <button onClick={() => setTrocarSenha(true)}>Trocar senha</button>
             <button onClick={() => supabase?.auth.signOut()}>Sair</button>
