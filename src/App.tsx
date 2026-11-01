@@ -1,7 +1,8 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { avisoDoToken } from './lib/token'
 import type { Session } from '@supabase/supabase-js'
 import { EscritorioPixel } from './pixel/EscritorioPixel'
+const Escritorio3D = lazy(() => import('./tres/Escritorio3D').then((m) => ({ default: m.Escritorio3D })))
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
@@ -63,6 +64,13 @@ function Painel() {
 
   const [versaoMarcas, setVersaoMarcas] = useState(0)
   const [novaSala, setNovaSala] = useState(false)
+  // vista do escritório: a maquete 3D ou o pixel art (fica guardado neste navegador)
+  const [visao, setVisao] = useState<'3d' | '2d'>(() => (localStorage.getItem('escritorio-visao') === '2d' ? '2d' : '3d'))
+  const trocarVisao = () => {
+    const nova = visao === '3d' ? '2d' : '3d'
+    setVisao(nova)
+    localStorage.setItem('escritorio-visao', nova)
+  }
   // lista de posts na lateral: aberta por padrão no computador, lembrada entre visitas
   const [listaAberta, setListaAberta] = useState(() => {
     try {
@@ -286,6 +294,7 @@ function Painel() {
     return x
   }, [andar.mes, custos, marcaId])
 
+  const Escritorio = visao === '3d' ? Escritorio3D : EscritorioPixel
   return (
     <div className="app">
 
@@ -308,6 +317,9 @@ function Painel() {
       />
       <main className="palco">
         <div className="palco-menu">
+          <button className={`visao-botao${visao === '3d' ? ' tres-ativo' : ''}`} onClick={trocarVisao} title={visao === '3d' ? 'Ver o escritório em pixel art' : 'Ver o escritório em 3D'}>
+            {visao === '3d' ? '2D' : '3D'}
+          </button>
           <Menu>
             <button onClick={() => setNovaSala(true)}>+ Nova sala</button>
             <hr />
@@ -320,7 +332,7 @@ function Painel() {
           {carregandoMarcas ? (
             <Abertura noPalco frase="Montando o escritório…" />
           ) : (
-            <EscritorioPixel
+            <Escritorio
               marcas={marcasNoAndar}
               marcaAtiva={marcaId ?? marcas[0]?.id ?? marcasNoAndar[0]?.id ?? null}
               aoEscolherMarca={escolherMarca}

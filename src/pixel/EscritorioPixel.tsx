@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { tocarAviso } from '../lib/som'
+import { BarraSalas, type AlvoDaBarra } from './BarraSalas'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
-import { quadro, BONECO, type Visual } from './sprites'
+import { quadro, BONECO } from './sprites'
+import { VISUAL, VISUAL_FIN } from './visual'
 import { comprimento, noCaminho, type Ponto } from './caminho'
 import { capelo, carta, exclamacao, faiscas, gato, GATOS, pasta, pastaDaMarca, reticencias, seta, type Gato } from './objetos'
 import {
@@ -27,24 +29,6 @@ export interface MarcaNoAndar {
   instagramAviso?: string | null
 }
 
-const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
-
-// cada agente tem um cabelo e um tom de pele, para dar para reconhecer de longe
-const VISUAL: Record<AgenteId | 'voce', Visual> = {
-  chefe: { cabelo: '#2b2420', pele: '#e9b98f', camisa: agentePorId('chefe').cor },
-  pesquisador: { cabelo: '#7a4a2a', pele: '#f3cfa8', camisa: agentePorId('pesquisador').cor },
-  redator: { cabelo: '#e3b85a', pele: '#f3cfa8', camisa: agentePorId('redator').cor },
-  designer: { cabelo: '#d9667a', pele: '#c98e66', camisa: agentePorId('designer').cor },
-  criativos: { cabelo: '#2a1d16', pele: '#e7b48c', camisa: agentePorId('criativos').cor },
-  paginas: { cabelo: '#c98a3a', pele: '#d9a27a', camisa: agentePorId('paginas').cor },
-  cinegrafista: { cabelo: '#3b2a4a', pele: '#e0a87c', camisa: agentePorId('cinegrafista').cor },
-  narrador: { cabelo: '#5a3a22', pele: '#a86f4c', camisa: agentePorId('narrador').cor },
-  revisor: { cabelo: '#9a9a9a', pele: '#f0c7a0', camisa: agentePorId('revisor').cor },
-  publicador: { cabelo: '#1c1c1c', pele: '#8d5a3c', camisa: agentePorId('publicador').cor },
-  curador: { cabelo: '#b5462f', pele: '#f3cfa8', camisa: agentePorId('curador').cor },
-  social: { cabelo: '#3b2a1e', pele: '#c98e62', camisa: agentePorId('social').cor },
-  voce: { cabelo: '#1c1c1c', pele: '#e9c39a', camisa: '#1e3d66', calca: '#262820' },
-}
 
 const VELOCIDADE = 58 // pixels por segundo
 const DEPURAR = typeof location !== 'undefined' && new URLSearchParams(location.search).has('depurar')
@@ -867,7 +851,7 @@ export function EscritorioPixel({
   }
 
   // barra das salas: leva a câmera até a sala, sem abrir nada
-  const irPara = (alvo: { marca: string } | 'equipe' | 'voce' | 'financeiro') => {
+  const irPara = (alvo: AlvoDaBarra) => {
     focar(null)
     if (typeof alvo === 'object') {
       const i = marcas.findIndex((m) => m.id === alvo.marca)
@@ -876,97 +860,11 @@ export function EscritorioPixel({
     }
     camera.current.centro = alvo === 'equipe' ? SALA_W / 2 : alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
   }
-  // arrastar um nome da barra para o lado troca a sala de lugar
-  const [arrastandoSala, setArrastandoSala] = useState<{ id: string; ids: string[]; x: number; moveu: boolean } | null>(null)
-  const arrasteRef = useRef(arrastandoSala)
-  arrasteRef.current = arrastandoSala
-  useEffect(() => {
-    if (!arrastandoSala) return
-    const mover = (e: PointerEvent) => {
-      const a = arrasteRef.current!
-      if (!a.moveu && Math.abs(e.clientX - a.x) < 6) return
-      const alvo = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-sala]')?.dataset.sala
-      const ids = [...a.ids]
-      if (alvo && alvo !== a.id) {
-        ids.splice(ids.indexOf(a.id), 1)
-        ids.splice(a.ids.indexOf(alvo), 0, a.id)
-      }
-      setArrastandoSala({ ...a, ids, moveu: true })
-    }
-    const soltar = () => {
-      const a = arrasteRef.current!
-      setArrastandoSala(null)
-      if (a.moveu && a.ids.join() !== marcas.map((m) => m.id).join()) aoReordenar?.(a.ids)
-      if (!a.moveu) irPara({ marca: a.id })
-    }
-    window.addEventListener('pointermove', mover)
-    window.addEventListener('pointerup', soltar, { once: true })
-    return () => {
-      window.removeEventListener('pointermove', mover)
-      window.removeEventListener('pointerup', soltar)
-    }
-  }, [!!arrastandoSala]) // eslint-disable-line react-hooks/exhaustive-deps
-  const naBarra = arrastandoSala ? arrastandoSala.ids.map((id) => marcas.find((m) => m.id === id)!).filter(Boolean) : marcas
-  const situacao = (m: MarcaNoAndar, i: number) => {
-    const lista = Object.values(i === indiceAtivo ? estados : porSala?.[m.id] ?? {})
-    return lista.includes('erro') ? 'erro' : lista.some((e) => e === 'trabalhando' || e === 'na_fila') ? 'trabalhando' : lista.includes('esperando_voce') ? 'voce' : null
-  }
   const nomes: (AgenteId | 'voce')[] = [...AGENTES.map((a) => a.id), 'voce']
 
   return (
     <div className="pixel" ref={caixa}>
-      <nav className="pixel-salas" aria-label="Ir para a sala">
-        {naBarra.map((m) => {
-          const i = marcas.indexOf(m)
-          const sit = situacao(m, i)
-          return (
-            <button
-              key={m.id}
-              data-sala={m.id}
-              className={`${i === indiceAtivo ? 'ativo' : ''}${arrastandoSala?.moveu && arrastandoSala.id === m.id ? ' arrastando' : ''}`}
-              style={{ ['--cor' as string]: corDe(m) }}
-              title={aoReordenar ? 'Clique para ir até a sala. Arraste para mudar a ordem.' : undefined}
-              onPointerDown={(e) => {
-                if (e.button !== 0) return
-                if (!aoReordenar) return
-                e.preventDefault()
-                setArrastandoSala({ id: m.id, ids: marcas.map((x) => x.id), x: e.clientX, moveu: false })
-              }}
-              onClick={(e) => (!aoReordenar || e.detail === 0) && irPara({ marca: m.id })}
-              onKeyDown={(e) => {
-                if (!aoReordenar || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
-                const ids = marcas.map((x) => x.id)
-                const de = ids.indexOf(m.id)
-                const para = Math.max(0, Math.min(ids.length - 1, de + (e.key === 'ArrowLeft' ? -1 : 1)))
-                if (de === para) return
-                ids.splice(de, 1)
-                ids.splice(para, 0, m.id)
-                aoReordenar(ids)
-              }}
-            >
-              <i aria-hidden />
-              {m.nome}
-              {sit && <span className={`pixel-salas-sit ${sit}`} title={sit === 'erro' ? 'Parou com erro' : sit === 'trabalhando' ? 'Trabalhando agora' : 'Esperando você'} />}
-            </button>
-          )
-        })}
-        <button style={{ ['--cor' as string]: '#2a5288' }} onClick={() => irPara('equipe')}>
-          <i aria-hidden />
-          Equipe
-          {AGENTES.some((a) => estados[a.id] === 'trabalhando' || Object.values(porSala ?? {}).some((p) => p[a.id] === 'trabalhando')) && (
-            <span className="pixel-salas-sit trabalhando" title="Trabalhando agora" />
-          )}
-        </button>
-        <button style={{ ['--cor' as string]: '#f2b233' }} onClick={() => irPara('voce')}>
-          <i aria-hidden />
-          Sua sala
-          {naSuaMesa > 0 && <span className="pixel-salas-conta">{naSuaMesa}</span>}
-        </button>
-        <button style={{ ['--cor' as string]: '#3f8f5b' }} onClick={() => irPara('financeiro')}>
-          <i aria-hidden />
-          Financeiro
-        </button>
-      </nav>
+      <BarraSalas marcas={marcas} indiceAtivo={indiceAtivo} estados={estados} porSala={porSala} naSuaMesa={naSuaMesa} aoReordenar={aoReordenar} irPara={irPara} corDe={corDe} />
       <canvas
         ref={tela}
         className="pixel-tela"

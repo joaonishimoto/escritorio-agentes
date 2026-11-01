@@ -1189,7 +1189,7 @@ i.falhou { background: var(--danger, #b42318) }
 
 
 /* barra das salas, no alto do andar */
-.pixel-salas { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; gap: 6px; max-width: calc(100% - 120px); overflow-x: auto; scrollbar-width: none; padding: 4px }
+.pixel-salas { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; gap: 6px; max-width: calc(100% - 190px); overflow-x: auto; scrollbar-width: none; padding: 4px }
 .pixel-salas::-webkit-scrollbar { display: none }
 .pixel-salas button { flex: none; display: inline-flex; align-items: center; gap: 7px; font-family: 'Pixelify Sans', monospace; font-size: 13px; line-height: 1; padding: 6px 10px 7px; background: #fff; color: #1f2330; border: 0; border-radius: 0; box-shadow: 0 0 0 2px #1f2330; cursor: pointer; white-space: nowrap }
 .pixel-salas button:hover { background: #eef2f8 }
@@ -1384,3 +1384,26 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 .np-anuncio { display: flex; flex-direction: column; gap: 10px; margin-top: 10px }
 .np-anuncio h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600 }
 .np-anuncio input { width: 100%; box-sizing: border-box }
+
+/* ───────── escritório em 3D (maquete clara) ───────── */
+.tres { background: #eceef3; font-variant-ligatures: normal; font-feature-settings: normal }
+.tres-tela { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none }
+.tres-etiqueta { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; white-space: nowrap; user-select: none; font-family: 'Inter', var(--font-sans); will-change: transform }
+.tres .nome { font-family: 'Inter', var(--font-sans); font-size: 11px; font-weight: 600; border: 0; border-radius: 999px; padding: 4px 9px 4px 7px; box-shadow: 0 2px 8px rgba(30,40,60,.18); transition: none }
+.tres .nome.ativo { background: #f2b233 }
+.tres .nome small { font-size: .8em; font-weight: 500; color: #976822; margin-left: 2px }
+.tres .nome.instagram { background: linear-gradient(100deg, #f9ce34, #ee2a7b 55%, #6228d7); color: #fff }
+.tres .nome.instagram-aviso { background: #ffd84d; color: #3d2e00 }
+.tres .ponto { border: 0; width: 7px; height: 7px }
+.tres .balao { font-family: 'Inter', var(--font-sans); border: 0; border-radius: 12px; box-shadow: 0 4px 14px rgba(30,40,60,.22); font-size: 12px }
+.tres .balao::after { border: 0; box-shadow: 3px 3px 6px rgba(30,40,60,.08) }
+.tres-depto { font: 700 10px/1 'Inter', var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: #1f2330; padding: 5px 8px; border-radius: 6px }
+.tres-placa { font: 700 13px/1 'Inter', var(--font-sans); color: #fff; padding: 7px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(30,40,60,.25) }
+.tres .pixel-salas button { font-family: 'Inter', var(--font-sans); font-weight: 600; border-radius: 999px; box-shadow: 0 2px 8px rgba(30,40,60,.18); padding: 7px 12px }
+.tres .pixel-salas i { border-radius: 50%; box-shadow: none }
+.tres-dica { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font: 500 11px/1 'Inter', var(--font-sans); color: #5b6270; background: rgba(255,255,255,.8); padding: 6px 10px; border-radius: 999px; pointer-events: none; white-space: nowrap }
+.palco-menu { display: flex; align-items: center }
+.visao-botao { font: 600 12px/1 'Inter', var(--font-sans); background: #fff; color: #1f2330; border: 0; box-shadow: 0 0 0 2px #1f2330; padding: 9px 10px; margin: 4px; cursor: pointer }
+.visao-botao:hover { background: #eef2f8 }
+.visao-botao.tres-ativo { border-radius: 999px; box-shadow: 0 2px 8px rgba(30,40,60,.18) }
+@media (max-width: 760px) { .tres-dica { display: none } .tres .nome { font-size: 10px; padding: 3px 7px 3px 6px } .tres-depto { font-size: 8px } }

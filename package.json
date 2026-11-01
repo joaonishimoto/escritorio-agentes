@@ -21,6 +21,7 @@
     "playwright-core": "^1.64.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "three": "^0.170.0",
     "zod": "^4.6.7",
     "zustand": "^5.0.1"
   },
@@ -30,6 +31,7 @@
     "@types/node": "^22.10.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@types/three": "^0.170.0",
     "@vercel/node": "^23.0.1",
     "@vitejs/plugin-react": "^4.4.1",
     "eslint": "^9.25.0",
