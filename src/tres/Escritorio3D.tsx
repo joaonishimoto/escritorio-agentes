@@ -11,11 +11,11 @@ import { BarraSalas, type AlvoDaBarra } from '../andar/BarraSalas'
 import { VISUAL, VISUAL_FIN } from '../andar/visual'
 import { comprimento, noCaminho, type Ponto } from '../andar/caminho'
 import {
-  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DECORAR, DEPTOS, ESTUDIO_SET, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, MESINHA_PUBLICACAO,
+  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ESTUDIO_SET, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, MESINHA_PUBLICACAO,
   MURAL_DESIGN, NOVO_POST, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PLACA_SALA_Y, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VISTA_MIN, VOCE_W,
   caminhoAteOCafe, type MarcaNoAndar, type Quadro,
 } from '../andar/planta'
-import { ORDEM_ESTILOS, estiloDaSala, misturar, pisos, type SalaCustom } from '../andar/estilos'
+import { COR_EQUIPE, COR_FINANCEIRO, COR_VOCE, PADRAO, misturar } from '../andar/cores'
 import { contarRecebidos } from '../lib/emails'
 import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
 
@@ -25,9 +25,7 @@ const VELOCIDADE = 58
 const TEMPO_MINIMO_NA_MESA = 1600
 const PRIORIDADE: Estado[] = ['erro', 'esperando_voce', 'trabalhando', 'na_fila', 'concluido', 'ocioso']
 const ALTURA_PAREDE = 2.4
-const COR_EQUIPE = '#2a5288'
 /** piso de cada sala da equipe: Pauta e texto, Design, Estúdio (carpete grafite), Revisão e Publicação */
-const PISOS_SALA = ['#f3e3c2', '#f3d9d2', '#4a4f5c', '#dcdcef', '#d3e8df']
 
 export interface Props {
   marcas: MarcaNoAndar[]
@@ -45,8 +43,6 @@ export interface Props {
   porSala?: Record<string, Partial<Record<string, Estado>>>
   /** quantos posts de todas as marcas estão esperando você */
   naSuaMesa?: number
-  /** clique no kit de decoração de uma sala */
-  aoEditarSala?: (marcaId: string) => void
   /** arrastar os nomes da barra muda a ordem das salas (ids da esquerda para a direita) */
   aoReordenar?: (ids: string[]) => void
   /** clique no balcão de pedidos de uma sala: abre um post novo para aquela marca */
@@ -54,7 +50,10 @@ export interface Props {
   /** clique no celular: conecta (ou mostra) o Instagram daquela marca */
   aoConectarInstagram?: (marcaId: string) => void
 }
-export type { SalaCustom }
+
+/** a cor de uma sala em seis tons, do claro ao escuro: livros, post-its e amostras da parede */
+const tons = (cor: string) => [misturar(cor, '#ffffff', 0.7), misturar(cor, '#ffffff', 0.45), misturar(cor, '#ffffff', 0.2), cor, misturar(cor, '#1f2330', 0.25), misturar(cor, '#1f2330', 0.5)]
+const TONS_EQUIPE = tons(COR_EQUIPE)
 
 /** Quem foi tomar café: anda até o balcão, para um pouco e volta para a mesa. */
 interface Andante {
@@ -91,21 +90,12 @@ export function Escritorio3D({
   cofres,
   porSala,
   naSuaMesa = 0,
-  aoEditarSala,
   aoReordenar,
   aoNovoPost,
   aoConectarInstagram,
 }: Props) {
   const caixaRef = useRef<HTMLDivElement>(null)
   const etiquetas = useRef<Map<string, HTMLDivElement>>(new Map())
-  const estilosAntigos = useMemo<Record<string, string>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('estilos-pixel') ?? '{}')
-    } catch {
-      return {}
-    }
-  }, [])
-
   const estados = useEscritorio((s) => s.estados)
   const acoes = useEscritorio((s) => s.acaoAtual)
   const aguardando = useEscritorio(selecionarEsperandoVoce)
@@ -122,7 +112,6 @@ export function Escritorio3D({
   const xFin = xVoce + VOCE_W + 16
   const largura = xFin + FIN_W
   const corDe = (m: MarcaNoAndar) => m.cor ?? COR_EQUIPE
-  const estiloDe = (m: MarcaNoAndar, i: number) => estiloDaSala(estilosAntigos[m.id] ?? ORDEM_ESTILOS[(m.ordem ?? i) % ORDEM_ESTILOS.length], corDe(m), m.sala)
 
   const diasMarcados = useMemo(() => {
     const hoje = new Date()
@@ -270,7 +259,7 @@ export function Escritorio3D({
       const acao: Acao = { tipo: 'agente', id: a.id }
       const { tela } = mesaDeTrabalho(vivos, wx(m.x + 15), wz(m.y + 8), '#ffffff', acao)
       telas[a.id] = tela
-      cadeira(vivos, wx(m.x + 15), wz(m.y + 27), misturar(a.cor, '#1f2330', 0.15), acao)
+      cadeira(vivos, wx(m.x + 15), wz(m.y + 27), PADRAO.estofado, acao)
       const b = boneco(vivos, VISUAL[a.id], acao, a.emTreinamento)
       b.grupo.position.set(wx(m.x + 15), 0, wz(m.y + 26))
       bonecos[a.id] = b
@@ -392,13 +381,13 @@ export function Escritorio3D({
     {
       const [pauta, design, estudio, revisao, publicacao] = DEPTOS
       DEPTOS.forEach((d, i) => {
-        chao(c, wx(d.x), zFundo, wx(d.w), zFrente - zFundo, PISOS_SALA[i], 1)
-        parede(wx(d.x), wx(d.w), d === estudio ? '#3a3e49' : '#ffffff')
-        rodape(d.x, d.w, COR_EQUIPE)
-        frente(d.x, d.w, d.porta, '#ffffff')
+        chao(c, wx(d.x), zFundo, wx(d.w), zFrente - zFundo, PADRAO.piso, 1)
+        parede(wx(d.x), wx(d.w), PADRAO.parede)
+        rodape(d.x, d.w, PADRAO.rodape)
+        frente(d.x, d.w, d.porta, PADRAO.parede)
         if (i < DEPTOS.length - 1) paredeEntre(d.x + d.w)
         // tapete na frente das mesas, com o nome da sala por cima (etiqueta HTML)
-        chao(c, wx(d.porta - 40), wz(PLACA_SALA_Y - 12), wx(80), wz(24), d === estudio ? '#2a2e38' : misturar(PISOS_SALA[i], COR_EQUIPE, 0.75), 3)
+        chao(c, wx(d.porta - 40), wz(PLACA_SALA_Y - 12), wx(80), wz(24), COR_EQUIPE, 3)
       })
       // janelas em cima das mesas (o Estúdio tem espuma acústica no lugar)
       for (const d of [design, revisao, publicacao]) {
@@ -411,13 +400,13 @@ export function Escritorio3D({
       {
         const cx = wx(pauta.x + 27)
         caixa(c, 0.9, 1.6, 0.32, PALETA.madeiraClara, cx, 0.8, zFundo + 0.18, 0.02)
-        const cores = ['#b74e45', '#2a5288', '#f2b233', '#3f7650', '#6d4f8f', '#c46a2b']
+        const cores = TONS_EQUIPE
         for (let f = 0; f < 3; f++) for (let k = 0; k < 7; k++) caixa(c, 0.08, 0.3 + ((k * 7 + f) % 3) * 0.03, 0.22, cores[(k + f) % 6], cx - 0.32 + k * 0.105, 0.35 + f * 0.48, zFundo + 0.2)
         const qx = wx(QUADRO_PAUTA.x + 13)
         const qz = wz(QUADRO_PAUTA.y + 16)
         caixa(c, 0.9, 0.62, 0.04, '#ffffff', qx, 1.15, qz, 0.01)
         for (const sx of [-1, 1]) caixa(c, 0.03, 1.5, 0.03, '#8a8f99', qx + sx * 0.4, 0.75, qz + 0.02)
-        const notas = ['#ffd36b', '#ff9b85', '#9fd1ff', '#b6e3a8', '#ffd36b', '#d9b8ff']
+        const notas = TONS_EQUIPE
         notas.forEach((cor, k) => caixa(c, 0.14, 0.12, 0.01, cor, qx - 0.3 + (k % 3) * 0.3, 1.27 - Math.floor(k / 3) * 0.22, qz + 0.03))
         planta(c, wx(pauta.x + pauta.w - 12), wz(226), 0.8)
       }
@@ -427,14 +416,14 @@ export function Escritorio3D({
         const cz = wz(MURAL_DESIGN.y + 14)
         caixa(c, 1.0, 0.8, 0.05, '#fbfaf6', cx, 1.15, cz, 0.01)
         for (const sx of [-1, 1]) caixa(c, 0.03, 1.55, 0.03, PALETA.madeiraClara, cx + sx * 0.44, 0.78, cz + 0.03)
-        const amostras = ['#b74e45', '#f2b233', '#2a5288', '#3f7650', '#e9a4a4', '#9fb7d9', '#c46a2b', '#7a8f2e']
+        const amostras = [...TONS_EQUIPE, ...TONS_EQUIPE.slice(0, 2)]
         amostras.forEach((cor, k) => caixa(c, 0.18, 0.16, 0.01, cor, cx - 0.33 + (k % 4) * 0.22, 1.3 - Math.floor(k / 4) * 0.26, cz + 0.03))
         planta(c, wx(design.x + 12), wz(226), 0.8)
         planta(c, wx(design.x + design.w - 12), wz(226), 0.8)
       }
       // Estúdio: espuma na parede, fundo verde encostado nela, refletor, tripé virado para o fundo e microfone
       {
-        caixa(c, wx(estudio.w - 12), 0.9, 0.05, mat('#4a4f5c', { roughness: 1 }), wx(estudio.x + estudio.w / 2), 1.75, zFundo + 0.02)
+        caixa(c, wx(estudio.w - 12), 0.9, 0.05, mat(misturar(COR_EQUIPE, '#1f2330', 0.35), { roughness: 1 }), wx(estudio.x + estudio.w / 2), 1.75, zFundo + 0.02)
         const cx = wx(ESTUDIO_SET.x + 30)
         const zParede = zFundo + 0.06
         const verde = mat('#3fa66b', { roughness: 0.95 })
@@ -462,9 +451,9 @@ export function Escritorio3D({
       {
         const cx = wx(revisao.x + 30)
         caixa(c, 1.2, 0.9, 0.35, PALETA.madeiraClara, cx, 0.45, wz(182), 0.02)
-        const pastas = ['#52738a', '#74766d', '#3f7650', '#b74e45', '#f2b233', '#2a5288', '#52738a', '#74766d']
+        const pastas = [COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec']
         pastas.forEach((cor, k) => caixa(c, 0.1, 0.3, 0.24, cor, cx - 0.45 + k * 0.13, 1.05, wz(182), 0.01))
-        sofa(c, wx(revisao.x + 84), wz(206), 1.3, '#52738a')
+        sofa(c, wx(revisao.x + 84), wz(206), 1.3, PADRAO.estofado)
         planta(c, wx(revisao.x + 12), wz(226), 0.8)
       }
       // Publicação: mesinha com celular e notebook, café da equipe e sofá
@@ -477,11 +466,11 @@ export function Escritorio3D({
         caixa(c, 0.12, 0.02, 0.22, '#1d1f25', mx + 0.22, 0.54, mz, 0.01)
         const cx = wx(CAFE.x + 20)
         const cz = wz(CAFE.y + 6)
-        caixa(c, 1.6, 0.95, 0.5, '#6b4a32', cx, 0.475, cz, 0.03)
+        caixa(c, 1.6, 0.95, 0.5, '#e3e6ec', cx, 0.475, cz, 0.03)
         caixa(c, 1.66, 0.05, 0.56, '#e9e2d6', cx, 0.97, cz, 0.02)
         caixa(c, 0.3, 0.38, 0.28, '#1f2125', cx - 0.4, 1.18, cz, 0.03)
         for (let k = 0; k < 3; k++) cilindro(c, 0.04, 0.035, 0.09, '#ffffff', cx + 0.1 + k * 0.14, 1.04, cz + 0.05, 14)
-        sofa(c, wx(publicacao.x + 30), wz(206), 1.5, '#3d5a80')
+        sofa(c, wx(publicacao.x + 30), wz(206), 1.5, PADRAO.estofado)
         planta(c, wx(publicacao.x + publicacao.w - 10), wz(46), 0.7)
       }
     }
@@ -489,24 +478,23 @@ export function Escritorio3D({
     // ── salas das marcas ──
     marcas.forEach((m, i) => {
       const x0 = xMarca(i)
-      const e = estiloDe(m, i)
       const q = quadros?.[m.id]
       const cor = corDe(m)
-      // piso da sala: o do hall do estilo, que é o que o dono troca em "Editar sala"
-      chao(c, wx(x0), zFundo, wx(MARCA_W), zFrente - zFundo, pisos(e).hall.estilo.piso, 1)
-      parede(wx(x0), wx(MARCA_W), e.parede)
-      rodape(x0, MARCA_W, e.rodape)
+      const tonsDaMarca = tons(cor)
+      // a sala é igual às outras; a cor da marca fica só nos tapetes e nos quadros da parede
+      chao(c, wx(x0), zFundo, wx(MARCA_W), zFrente - zFundo, PADRAO.piso, 1)
+      parede(wx(x0), wx(MARCA_W), PADRAO.parede)
+      rodape(x0, MARCA_W, PADRAO.rodape)
       paredeEntre(x0 + MARCA_W)
-      frente(x0, MARCA_W, x0 + PORTA_MARCA, e.parede)
+      frente(x0, MARCA_W, x0 + PORTA_MARCA, PADRAO.parede)
       // quadros da parede: referências, calendário, branding e regras
       const dias = new Set(q?.dias ?? [])
       const texs: Record<Quadro, THREE.Texture> = {
         referencias: textura(256, 192, (g, w, h) => {
           g.fillStyle = '#fbfaf6'
           g.fillRect(0, 0, w, h)
-          const cores = ['#e8c9a0', '#9fb7d9', '#b8d8b0', '#e9a4a4', '#d9c3e8', '#f2d9a0']
           for (let k = 0; k < 6; k++) {
-            g.fillStyle = k < (q?.referencias ?? 0) ? cores[k] : '#e6e6e2'
+            g.fillStyle = k < (q?.referencias ?? 0) ? tonsDaMarca[k] : '#e6e6e2'
             g.fillRect(14 + (k % 3) * 80, 14 + Math.floor(k / 3) * 86, 68, 74)
           }
           g.fillStyle = '#1f2330'
@@ -549,11 +537,11 @@ export function Escritorio3D({
         regras: textura(256, 192, (g, w, h) => {
           g.fillStyle = '#fbfaf6'
           g.fillRect(0, 0, w, h)
-          g.fillStyle = '#1f2330'
+          g.fillStyle = cor
           g.fillRect(0, 0, w, 22)
           const n = q?.regras ?? 0
           for (let k = 0; k < 6; k++) {
-            g.fillStyle = k < n ? '#3f7650' : '#e6e6e2'
+            g.fillStyle = k < n ? cor : '#e6e6e2'
             g.fillRect(16, 36 + k * 24, 10, 10)
             g.fillStyle = k < n ? '#c9c3b4' : '#ededea'
             g.fillRect(36, 38 + k * 24, 120 + ((k * 37) % 70), 6)
@@ -565,23 +553,23 @@ export function Escritorio3D({
         }),
       }
       for (const [nome, r] of Object.entries(QUADROS) as [Quadro, (typeof QUADROS)[Quadro]][]) {
-        quadroNaParede(c, wx(x0 + r.x + r.w / 2), 1.5, zFundo, wx(r.w), wx(r.w) * 0.75, texs[nome], { tipo: 'quadro', marca: m.id, quadro: nome })
+        quadroNaParede(c, wx(x0 + r.x + r.w / 2), 1.5, zFundo, wx(r.w), wx(r.w) * 0.75, texs[nome], { tipo: 'quadro', marca: m.id, quadro: nome }, cor)
       }
       // tapete da marca com o nome por cima (etiqueta HTML)
-      chao(c, wx(x0 + (MARCA_W - 120) / 2), wz(PLACA.y - 17), wx(120), wz(34), e.rodape, 3)
-      chao(c, wx(x0 + 6), wz(46), wx(72), wz(40), misturar(e.tapete, '#ffffff', 0.2), 2)
-      chao(c, wx(x0 + 98), wz(46), wx(72), wz(40), misturar(e.tapete, '#ffffff', 0.2), 2)
+      chao(c, wx(x0 + (MARCA_W - 120) / 2), wz(PLACA.y - 17), wx(120), wz(34), cor, 3)
+      chao(c, wx(x0 + 6), wz(46), wx(72), wz(40), misturar(cor, '#ffffff', 0.55), 2)
+      chao(c, wx(x0 + 98), wz(46), wx(72), wz(40), misturar(cor, '#ffffff', 0.55), 2)
       // escrivaninha de pedidos: mesa com máquina de escrever e a folha
       {
         const a: Acao = { tipo: 'novo', marca: m.id, sala: i }
         const cx = wx(x0 + NOVO_POST.x + NOVO_POST.w / 2)
         const cz = wz(NOVO_POST.y + 18)
-        caixa(c, 1.2, 0.05, 0.6, e.mesa, cx, 0.74, cz, 0.02, a)
+        caixa(c, 1.2, 0.05, 0.6, PADRAO.mesa, cx, 0.74, cz, 0.02, a)
         for (const sx of [-1, 1]) caixa(c, 0.05, 0.72, 0.5, PALETA.perna, cx + sx * 0.55, 0.36, cz, 0, a)
         caixa(c, 0.42, 0.18, 0.3, '#2b2f3a', cx, 0.86, cz, 0.03, a)
         caixa(c, 0.3, 0.3, 0.01, '#ffffff', cx, 1.1, cz - 0.1, 0, a)
-        caixa(c, 0.12, 0.03, 0.01, cor, cx, 1.12, cz - 0.095, 0, a)
-        caixa(c, 0.03, 0.12, 0.01, cor, cx, 1.12, cz - 0.095, 0, a)
+        caixa(c, 0.12, 0.03, 0.01, '#1f2330', cx, 1.12, cz - 0.095, 0, a)
+        caixa(c, 0.03, 0.12, 0.01, '#1f2330', cx, 1.12, cz - 0.095, 0, a)
       }
       // celular no suporte: tela colorida quando o Instagram está ligado
       {
@@ -613,23 +601,8 @@ export function Escritorio3D({
         caixa(c, 1.0, 0.9, 0.55, PALETA.madeiraClara, cx, 0.45, cz, 0.02, a)
         caixa(c, 0.86, 0.22, 0.4, misturar(PALETA.madeiraClara, '#1f2330', 0.2), cx, 0.72, cz + 0.3, 0.02, a)
         const n = Math.min(5, q?.gaveta ?? 0)
-        for (let k = 0; k < n; k++) caixa(c, 0.1, 0.22, 0.3, [cor, '#f2b233', '#3f7650', '#b74e45', '#6d4f8f'][k], cx - 0.3 + k * 0.15, 0.9, cz + 0.3, 0.01, a)
+        for (let k = 0; k < n; k++) caixa(c, 0.1, 0.22, 0.3, ['#ffffff', '#e3e6ec', '#c9ccd6', '#ffffff', '#e3e6ec'][k], cx - 0.3 + k * 0.15, 0.9, cz + 0.3, 0.01, a)
         caixa(c, 0.3, 0.03, 0.03, '#1f2330', cx, 0.3, cz + 0.29, 0, a)
-      }
-      // kit de decoração: cavalete com a sala pintada
-      {
-        const a: Acao = { tipo: 'decorar', marca: m.id, sala: i }
-        const cx = wx(x0 + DECORAR.x + DECORAR.w / 2)
-        const cz = wz(DECORAR.y + 14)
-        for (const sx of [-1, 1]) {
-          const p = caixa(c, 0.04, 1.3, 0.04, PALETA.madeiraClara, cx + sx * 0.3, 0.65, cz, 0, a)
-          p.rotation.z = -sx * 0.12
-        }
-        const p = caixa(c, 0.04, 1.3, 0.04, PALETA.madeiraClara, cx, 0.65, cz + 0.3, 0, a)
-        p.rotation.x = -0.25
-        caixa(c, 0.6, 0.5, 0.03, '#ffffff', cx, 0.95, cz - 0.02, 0.01, a)
-        caixa(c, 0.5, 0.18, 0.01, e.piso, cx, 0.86, cz, 0, a)
-        caixa(c, 0.5, 0.2, 0.01, e.parede, cx, 1.05, cz, 0, a)
       }
       planta(c, wx(x0 + MARCA_W - 20), wz(154), 0.8)
     })
@@ -637,15 +610,15 @@ export function Escritorio3D({
     // ── sua sala ──
     {
       paredeEntre(SALA_W)
-      chao(c, wx(xVoce), zFundo, wx(VOCE_W), zFrente - zFundo, '#c9a27a', 1)
-      parede(wx(xVoce), wx(VOCE_W), '#1e3d66')
-      rodape(xVoce, VOCE_W, '#b88a3a')
-      frente(xVoce, VOCE_W, xVoce + PORTA_VOCE_X, '#1e3d66')
+      chao(c, wx(xVoce), zFundo, wx(VOCE_W), zFrente - zFundo, PADRAO.piso, 1)
+      parede(wx(xVoce), wx(VOCE_W), PADRAO.parede)
+      rodape(xVoce, VOCE_W, PADRAO.rodape)
+      frente(xVoce, VOCE_W, xVoce + PORTA_VOCE_X, PADRAO.parede)
       // calendário da parede
       const tex = textura(256, 192, (g, w, h) => {
         g.fillStyle = '#fbfaf6'
         g.fillRect(0, 0, w, h)
-        g.fillStyle = '#1e3d66'
+        g.fillStyle = COR_VOCE
         g.fillRect(0, 0, w, 26)
         const pw = (w - 16) / 7
         const ph = (h - 40) / 5
@@ -661,30 +634,30 @@ export function Escritorio3D({
           }
         }
       })
-      quadroNaParede(c, wx(xVoce + CALENDARIO.x + CALENDARIO.w / 2), 1.55, zFundo, 1.3, 0.95, tex, { tipo: 'calendario' })
+      quadroNaParede(c, wx(xVoce + CALENDARIO.x + CALENDARIO.w / 2), 1.55, zFundo, 1.3, 0.95, tex, { tipo: 'calendario' }, COR_VOCE)
       janela(wx(xVoce + 118))
       // a sua mesa, de madeira escura
       const a: Acao = { tipo: 'voce' }
       const cx = wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2)
       const cz = wz(MESA_VOCE.y + 8)
-      caixa(c, 1.5, 0.06, 0.7, '#5a3a24', cx, 0.74, cz, 0.02, a)
-      for (const sx of [-1, 1]) caixa(c, 0.5, 0.7, 0.6, '#3d2817', cx + sx * 0.5, 0.35, cz, 0.02, a)
+      caixa(c, 1.5, 0.06, 0.7, PADRAO.mesa, cx, 0.74, cz, 0.02, a)
+      for (const sx of [-1, 1]) caixa(c, 0.5, 0.7, 0.6, '#e3e6ec', cx + sx * 0.5, 0.35, cz, 0.02, a)
       caixa(c, 0.5, 0.34, 0.03, PALETA.monitor, cx - 0.1, 0.95, cz - 0.15, 0.015, a)
       caixa(c, 0.06, 0.1, 0.06, PALETA.monitor, cx - 0.1, 0.8, cz - 0.15, 0, a)
       for (let k = 0; k < Math.min(naSuaMesa, 6); k++) caixa(c, 0.3, 0.04, 0.22, k % 2 ? '#ffd36b' : '#f2b233', cx + 0.5, 0.79 + k * 0.045, cz + 0.1, 0.005, a)
-      cadeira(c, cx, wz(MESA_VOCE.y - 10), '#7a3b2a', a).rotation.y = Math.PI
-      chao(c, wx(xVoce + 20), wz(130), wx(120), wz(60), '#7a2e2e', 2)
-      sofa(c, wx(xVoce + 36), wz(190), 1.6, '#8a2f2a')
+      cadeira(c, cx, wz(MESA_VOCE.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
+      chao(c, wx(xVoce + 20), wz(130), wx(120), wz(60), misturar(COR_VOCE, '#ffffff', 0.25), 2)
+      sofa(c, wx(xVoce + 36), wz(190), 1.6, PADRAO.estofado)
       planta(c, wx(xVoce + VOCE_W - 14), wz(226), 0.9)
     }
 
     // ── Financeiro ──
     {
       paredeEntre(xVoce + VOCE_W)
-      chao(c, wx(xFin), zFundo, wx(FIN_W), zFrente - zFundo, '#e9e6df', 1)
-      parede(wx(xFin), wx(FIN_W), '#2f5d47')
-      rodape(xFin, FIN_W, '#3f7650')
-      frente(xFin, FIN_W, xFin + PORTA_FIN_X, '#2f5d47')
+      chao(c, wx(xFin), zFundo, wx(FIN_W), zFrente - zFundo, PADRAO.piso, 1)
+      parede(wx(xFin), wx(FIN_W), PADRAO.parede)
+      rodape(xFin, FIN_W, PADRAO.rodape)
+      frente(xFin, FIN_W, xFin + PORTA_FIN_X, PADRAO.parede)
       const barras = financeiro?.barras ?? []
       const alerta = !!financeiro?.alerta
       const tex = textura(256, 160, (g, w, h) => {
@@ -703,7 +676,7 @@ export function Escritorio3D({
         g.fillStyle = '#c9c3b4'
         g.fillRect(10, h - 16, w - 20, 2)
       })
-      quadroNaParede(c, wx(xFin + GRAFICO_FIN.x + GRAFICO_FIN.w / 2), 1.55, zFundo, 1.8, 1.1, tex, { tipo: 'financeiro' })
+      quadroNaParede(c, wx(xFin + GRAFICO_FIN.x + GRAFICO_FIN.w / 2), 1.55, zFundo, 1.8, 1.1, tex, { tipo: 'financeiro' }, COR_FINANCEIRO)
       const a: Acao = { tipo: 'financeiro' }
       const cx = wx(xFin + MESA_FIN.x + MESA_FIN.w / 2)
       const cz = wz(MESA_FIN.y + 8)
@@ -711,9 +684,9 @@ export function Escritorio3D({
       for (const sx of [-1, 1]) caixa(c, 0.05, 0.72, 0.6, PALETA.perna, cx + sx * 0.7, 0.36, cz, 0, a)
       caixa(c, 0.5, 0.34, 0.03, PALETA.monitor, cx + 0.1, 0.95, cz - 0.15, 0.015, a)
       caixa(c, 0.06, 0.1, 0.06, PALETA.monitor, cx + 0.1, 0.8, cz - 0.15, 0, a)
-      caixa(c, 0.3, 0.2, 0.2, '#3f7650', cx - 0.5, 0.86, cz, 0.02, a)
-      cadeira(c, cx, wz(MESA_FIN.y - 10), '#3f7650', a).rotation.y = Math.PI
-      chao(c, wx(xFin + 14), wz(130), wx(100), wz(60), '#cfe0d2', 2)
+      caixa(c, 0.3, 0.2, 0.2, '#e3e6ec', cx - 0.5, 0.86, cz, 0.02, a)
+      cadeira(c, cx, wz(MESA_FIN.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
+      chao(c, wx(xFin + 14), wz(130), wx(100), wz(60), misturar(COR_FINANCEIRO, '#ffffff', 0.25), 2)
       planta(c, wx(xFin + FIN_W - 14), wz(226), 0.9)
       planta(c, wx(xFin + 12), wz(226), 0.9)
     }
@@ -978,10 +951,10 @@ export function Escritorio3D({
             const texto = `✉ ${n}`
             if (el.textContent !== texto) el.textContent = texto
           }
-        } else if (/^(cofre|decorar|gaveta|novo|instagram):/.test(chave)) {
+        } else if (/^(cofre|gaveta|novo|instagram):/.test(chave)) {
           const [tipo, n] = chave.split(':')
           const s = Number(n)
-          const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : tipo === 'novo' ? NOVO_POST : tipo === 'instagram' ? INSTAGRAM : DECORAR
+          const ref = tipo === 'cofre' ? COFRINHO : tipo === 'gaveta' ? GAVETA : tipo === 'novo' ? NOVO_POST : INSTAGRAM
           pos = tmp.set(wx(xMarca(s) + ref.x + ref.w / 2), 1.4, wz(ref.y + 14))
         } else {
           const nome = chave.startsWith('nome:')
@@ -1043,7 +1016,6 @@ export function Escritorio3D({
     }
     if (acao.tipo === 'cofre') return focar('cofre')
     if (acao.tipo === 'gaveta') return focar('gaveta')
-    if (acao.tipo === 'decorar') return aoEditarSala?.(acao.marca)
     if (acao.tipo === 'novo') return aoNovoPost?.(acao.marca)
     if (acao.tipo === 'instagram') return aoConectarInstagram?.(acao.marca)
   }
@@ -1126,7 +1098,7 @@ export function Escritorio3D({
       </div>
       {DEPTOS.map((d, n) => (
         <div key={d.id} className="tres-etiqueta" ref={ref(`depto:${n}`)}>
-          <div className="tres-placa" style={{ background: d.id === 'estudio' ? '#1f2330' : COR_EQUIPE }}>
+          <div className="tres-placa" style={{ background: COR_EQUIPE }}>
             <span className="so-largo">{d.nome}</span>
             <span className="so-estreito">{d.curto}</span>
           </div>
@@ -1151,9 +1123,6 @@ export function Escritorio3D({
           </div>
           <div className="tres-etiqueta" ref={ref(`instagram:${s}`)}>
             {sobre === `instagram:${s}` && <div className={`nome${m.instagram ? (m.instagramAviso ? ' instagram-aviso' : ' instagram') : ''}`}>{m.instagram ? (m.instagramAviso ?? 'Instagram conectado') : 'Conectar Instagram'}</div>}
-          </div>
-          <div className="tres-etiqueta" ref={ref(`decorar:${s}`)}>
-            {(sobre === `decorar:${s}` || (foco === 'sala' && s === indiceAtivo)) && <div className={`nome${foco === 'sala' && s === indiceAtivo ? ' ativo' : ''}`}>Editar sala</div>}
           </div>
         </Fragment>
       ))}
