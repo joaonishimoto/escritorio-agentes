@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="theme-color" content="#faf9f5" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- modo escuro salvo no aparelho (src/lib/tema.ts): aplicado antes da primeira pintura -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('agentes-tema')
+          if (t === 'escuro' || (t === 'automatico' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.style.colorScheme = 'dark'
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111418')
+          }
+        } catch (e) {}
+      })()
+    </script>
     <meta name="description" content="Sua equipe de agentes de IA criando posts de Instagram, à vista num escritório 3D." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
@@ -21,6 +34,9 @@
       /* abertura: a mesma tela do HTML puro (antes do app carregar) e do React (sessão e escritório) */
       .abertura { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: #faf9f5; color: #1f2330; font-family: Inter, system-ui, sans-serif }
       .abertura.no-palco { position: absolute; z-index: 1 }
+      .dark .abertura { background: #111418; color: #e8e6df }
+      .dark .ab-barra { border-color: #e8e6df; background: #171a1f }
+      .dark .ab-frase { color: #a3a59c }
       .ab-miolo { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: ab-entra .4s ease-out both }
       .ab-cena { position: relative; width: 96px; height: 104px; display: grid; justify-items: center }
       .ab-robo { width: 76px; height: 76px; image-rendering: pixelated; animation: ab-pula 1.2s steps(6) infinite }

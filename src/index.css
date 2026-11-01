@@ -75,6 +75,47 @@
   background: var(--background);
 }
 
+/*
+ * Modo escuro (menu ⋯ do escritório → Tema; salvo no aparelho, classe `.dark` no <html>).
+ * Mesma lógica do claro e do Nishistack: leitura em grafite, interação em azul clareado
+ * com texto escuro por cima. O escritório (3D e pixel) mantém as cores dele.
+ */
+.dark {
+  color-scheme: dark;
+  --background: #111418;
+  --foreground: #e8e6df;
+  --surface: #171a1f;
+  --surface-muted: #1b1e24;
+  --surface-hover: #1c2736;
+  --surface-selected: #213350;
+  --border: #262a31;
+  --border-strong: #30353d;
+  --input-border: #3a404a;
+  --input-border-hover: #4a515c;
+  --primary: #8db1e3;
+  --primary-hover: #a3c1ea;
+  --primary-active: #b8cff0;
+  --primary-foreground: #0f1b2d;
+  --secondary: #213350;
+  --secondary-foreground: #dce6f5;
+  --muted-foreground: #a3a59c;
+  --ring: #8db1e3;
+  --success: #6fb383;
+  --success-strong: #8acb9d;
+  --warning: #d6a04f;
+  --warning-strong: #e7bb75;
+  --danger: #e57d73;
+  --danger-strong: #f19c94;
+  --overlay: color-mix(in srgb, #000 70%, transparent);
+  --shadow-xs: 0 1px 1px color-mix(in srgb, #000 30%, transparent);
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
+  --shadow-md:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent),
+    0 10px 28px -6px color-mix(in srgb, #000 60%, transparent);
+}
+/* selos sólidos de tom: no escuro o tom clareia, então o texto por cima fica escuro */
+.dark .topo-contagem, .dark .rf-remover.confirmar, .dark .pv-selo { color: #111418 }
+
 * { box-sizing: border-box; border-color: var(--border) }
 html, body, #root { height: 100%; margin: 0 }
 body { background: var(--background); color: var(--foreground); font-size: 14px; line-height: 1.5 }
@@ -156,6 +197,10 @@ label { font-size: 14px; font-weight: 500; color: var(--foreground) }
   font-size: 14px; color: var(--foreground); cursor: pointer }
 .menu-lista button:hover { background: var(--surface-hover); color: var(--primary) }
 .menu-lista hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0 }
+.menu-tema { display: flex; flex-direction: column }
+.menu-tema > span { padding: 6px 10px 2px; font-size: 12px; color: var(--muted-foreground) }
+.menu-tema button { display: flex; align-items: center; gap: 6px }
+.menu-tema i { width: 12px; font-style: normal; font-size: 8px; color: var(--primary) }
 @media (max-width: 900px) {
   .seletor { max-width: 40vw }
 }
@@ -504,7 +549,7 @@ i.falhou { background: var(--danger, #b42318) }
 .lista-posts-topo h2 { font-size: 14px; font-weight: 600; flex: 1 }
 .lista-posts-fechar { width: 28px; height: 28px; font-size: 20px }
 .lista-busca { padding: 8px 10px 0 }
-.lista-busca input { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--neutral-0); color: inherit }
+.lista-busca input { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: inherit }
 .lista-busca input:focus { outline: 2px solid var(--primary); outline-offset: 1px }
 .lista-posts-corpo { flex: 1; overflow-y: auto; padding: 6px 6px 16px }
 .lista-posts-vazio { padding: 12px 8px; font-size: 13px }
