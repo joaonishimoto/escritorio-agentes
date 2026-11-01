@@ -2,8 +2,9 @@
 import type { AgenteId } from '../agents/catalogo'
 
 export const T = 16
-export const SALA_W = 368 // 23 blocos: quatro departamentos e o hall
-export const PASSO_SALA = 336 // sala + parede de 1 bloco
+/** largura de cada departamento da sala da equipe (duas mesas com corredor no meio) */
+const DEPTO_W = 121
+export const SALA_W = DEPTO_W * 4 + 12 // quatro departamentos com as divisórias entre eles
 export const PAREDE_H = 34 // faixa da parede do fundo
 export const SALA_H = 240
 export const CORREDOR_Y = 240
@@ -27,10 +28,9 @@ export interface Depto {
   /** centro da porta que dá no hall */
   porta: number
 }
-const DEPTO_W = 89
 const depto = (n: number, id: Depto['id'], nome: string, curto: string): Depto => {
   const x = n * (DEPTO_W + 4)
-  return { id, nome, curto, x, w: DEPTO_W, porta: x + 44 }
+  return { id, nome, curto, x, w: DEPTO_W, porta: x + Math.floor(DEPTO_W / 2) }
 }
 export const DEPTOS: Depto[] = [
   depto(0, 'planejamento', 'Planejamento', 'Planejamento'),
@@ -41,8 +41,8 @@ export const DEPTOS: Depto[] = [
 export const PAREDE_DEPTO_Y = 152 // parede entre os departamentos e o hall
 export const LINHA_DEPTO = 144 // onde se anda dentro do departamento, na frente das mesas
 export const LINHA_HALL = 174 // onde se anda no hall
-/** balcão do café, no hall entre a porta do Estúdio e a da Publicação */
-export const CAFE = { x: 250, y: 159 }
+/** balcão do café, no hall entre a porta da Criação e a do Estúdio */
+export const CAFE = { x: 2 * (DEPTO_W + 4) - 25, y: 159 }
 
 // ───────── sala de cada marca: recepção da marca, sem funcionários ─────────
 // A equipe é uma só, para todas as marcas (mesmo código, a marca entra como contexto). Cada marca tem a sua sala
@@ -70,8 +70,8 @@ export const GAVETA = { x: 136, y: 52, w: 30, h: 28 }
 export const DECORAR = { x: 12, y: 146, w: 30, h: 28 }
 
 /** Mesas: duas colunas por departamento, em duas fileiras. O boneco senta embaixo, de costas para nós. */
-const COLUNA = [3, 56]
-const FILEIRA = [54, 104]
+export const COLUNA = [8, 83]
+const FILEIRA = [50, 108]
 const lugar = (d: number, coluna: number, fileira: number) => ({ x: d * (DEPTO_W + 4) + COLUNA[coluna], y: FILEIRA[fileira] })
 export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   // Planejamento: o plano editorial, a pauta de cada post e a pesquisa (o quadro da pauta fica no canto livre)
@@ -83,18 +83,19 @@ export const MESAS: Record<AgenteId, { x: number; y: number }> = {
   designer: lugar(1, 1, 0),
   criativos: lugar(1, 0, 1),
   paginas: lugar(1, 1, 1),
-  // Estúdio: só os Reels; embaixo fica o fundo de gravação
-  cinegrafista: lugar(2, 0, 0),
-  narrador: lugar(2, 1, 0),
+  // Estúdio: só os Reels; o fundo de gravação fica encostado na parede do fundo e as mesas na frente
+  cinegrafista: lugar(2, 0, 1),
+  narrador: lugar(2, 1, 1),
   // Revisão e publicação: confere, vira regra o que você corrigiu e publica
   revisor: lugar(3, 0, 0),
   curador: lugar(3, 1, 0),
   publicador: lugar(3, 0, 1),
 }
 /** Canto livre de cada departamento que não enche as duas fileiras. */
-export const QUADRO_PAUTA = { x: COLUNA[1] + 2, y: 94, w: 26, h: 28 }
-export const ESTUDIO_SET = { x: DEPTOS[2].x + 6, y: 92 }
-export const MESINHA_PUBLICACAO = { x: DEPTOS[3].x + COLUNA[1] + 2, y: 108 }
+export const QUADRO_PAUTA = { x: COLUNA[1] + 2, y: 98, w: 26, h: 28 }
+/** fundo verde, refletor e câmera, encostados na parede do fundo do Estúdio */
+export const ESTUDIO_SET = { x: DEPTOS[2].x + 14, y: PAREDE_H + 3 }
+export const MESINHA_PUBLICACAO = { x: DEPTOS[3].x + COLUNA[1] + 2, y: 112 }
 export const MESA_W = 30
 
 /** Quadros da parede da sala da marca que abrem algo ao clicar: referências, calendário, branding e regras. */

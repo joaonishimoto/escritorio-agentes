@@ -3,7 +3,7 @@
 import type { AgenteId } from '../agents/catalogo'
 import { comCorDaMarca, COR_EQUIPE, type Estilo, ESTILOS, misturar } from './estilos'
 import { cadeira, celularInstagram, cofrinho, type Ctx, divisoria, escrivaninhaNovoPost, type EstadoInstagram, estante, gaveteiro, janela, kitDecorar, mesa, mesinha, microfone, parede, piso, pisos, planta, quadroBranding, quadroReferencias, quadroRegras, r, tripe } from './moveis'
-import { ANDAR_H, CAFE, CALENDARIO, CANTOS, COFRINHO, CORREDOR_H, CORREDOR_Y, DECORAR, DEPTOS, ESTUDIO_SET, GAVETA, INSTAGRAM, MARCA_W, MESA_VOCE, MESAS, MESA_W, MESINHA_PUBLICACAO, NOVO_POST, PAREDE_DEPTO_Y, PAREDE_H, PLACA, PORTA_MARCA, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W } from './planta'
+import { ANDAR_H, CAFE, COLUNA, CALENDARIO, CANTOS, COFRINHO, CORREDOR_H, CORREDOR_Y, DECORAR, DEPTOS, ESTUDIO_SET, GAVETA, INSTAGRAM, MARCA_W, MESA_VOCE, MESAS, MESA_W, MESINHA_PUBLICACAO, NOVO_POST, PAREDE_DEPTO_Y, PAREDE_H, PLACA, PORTA_MARCA, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W } from './planta'
 export * from './planta'
 export * from './estilos'
 export type { EstadoInstagram } from './moveis'
@@ -27,10 +27,10 @@ export function desenharEquipe(g: Ctx, x0: number, noite: boolean) {
   parede(g, estilo, x0, SALA_W)
   // uma janela em cima de cada mesa; no Planejamento, a estante; no Estúdio, espuma acústica no lugar das janelas
   estante(g, x0 + planejamento.x + 6, 2)
-  janela(g, x0 + planejamento.x + 60, 7, 20, noite)
+  janela(g, x0 + planejamento.x + COLUNA[1] + 5, 7, 20, noite)
   for (const d of [criacao, publicacao]) {
-    janela(g, x0 + d.x + 9, 7, 20, noite)
-    janela(g, x0 + d.x + 60, 7, 20, noite)
+    janela(g, x0 + d.x + COLUNA[0] + 5, 7, 20, noite)
+    janela(g, x0 + d.x + COLUNA[1] + 5, 7, 20, noite)
   }
   espumaAcustica(g, x0 + estudio.x + 6, 4, estudio.w - 12)
 
