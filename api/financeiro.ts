@@ -17,7 +17,7 @@ const MODELO_DO_AGENTE: Record<string, string> = {
   narrador: 'Sonnet + voz na ElevenLabs (cobrada por caractere no plano da ElevenLabs)',
   revisor: 'Sonnet',
   publicador: 'sem IA',
-  curador: 'Haiku',
+  curador: 'Sonnet',
 }
 
 const Analise = z.object({

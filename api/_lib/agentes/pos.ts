@@ -3,7 +3,7 @@ import { gerarJson } from '../claude.js'
 import { quemDesenha, sistemaDoAgente } from '../contexto.js'
 import { db } from '../db.js'
 import { publicarCarrossel, publicarReel } from '../instagram.js'
-import { USO_ZERO, type Agente } from './tipos.js'
+import { USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Publicador (sem IA) ─────────
 export const publicador: Agente = async (ctx, _passo, em) => {
@@ -48,7 +48,61 @@ const Curadoria = z.object({
   instrucao: z.string().describe('o que esse agente deve mudar, em uma ou duas frases'),
 })
 
+const Aprendizado = z.object({
+  regras: z.array(
+    z.object({
+      agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'todos']),
+      regra: z.string().describe('curta e verificável, no imperativo'),
+      motivo: z.string().describe('o que o revisor apontou que mostra o padrão'),
+      ja_coberta: z.boolean().describe('true se uma regra que já existe para a marca, ou uma instrução que a equipe já segue, já diz isso'),
+    }),
+  ),
+})
+
+/** As devoluções do revisor num post viram aprendizado: regras propostas para o dono aceitar, sem mexer no post. */
+async function curarDevolucoes(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2]): Promise<Resultado> {
+  const problemas = (passo.entrada.problemas as { agente: string; problema: string }[] | undefined) ?? []
+  const sugestoes = (passo.entrada.sugestoes as string[] | undefined) ?? []
+  const voltas = Number(passo.entrada.voltas ?? 0)
+  await em.inicio(`Vendo o que o revisor devolveu neste post (${problemas.length} ${problemas.length === 1 ? 'ponto' : 'pontos'})`)
+  const { dados, uso } = await gerarJson({
+    modelo: 'claude-sonnet-5-5',
+    effort: 'low',
+    sistema: sistemaDoAgente(
+      ctx,
+      'curador',
+      'Você lê o que o revisor devolveu num post e decide se algum ponto mostra um erro que a equipe tende a repetir. Só isso vira regra: curta, verificável, no imperativo, para o agente que consegue cumpri-la, sem citar o drink, o produto ou o slide deste post. Erro de uma vez (um texto cortado, uma palavra) não vira regra; o que já está nas regras da marca (listadas acima) ou nas instruções que a equipe já segue também não: marque ja_coberta. No máximo duas regras por post, e quase sempre nenhuma. Sugestões do revisor são para o dono, não para a equipe: só viram regra se mostram um gosto da marca que a equipe consegue cumprir.',
+    ),
+    conteudo: [
+      `Pedido original: ${ctx.post.briefing}`,
+      `O revisor devolveu este post ${voltas} ${voltas === 1 ? 'vez' : 'vezes'}.`,
+      `## O que o revisor apontou\n${problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}`,
+      sugestoes.length ? `## Sugestões que ele mandou para o dono (não devolveram o post)\n${sugestoes.map((x) => `- ${x}`).join('\n')}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    schema: Aprendizado,
+  })
+  const novas = dados.regras.filter((r) => !r.ja_coberta)
+  if (novas.length) {
+    await db.from('regras').insert(
+      novas.map((r) => ({
+        marca_id: ctx.marca.id,
+        agente: r.agente,
+        regra: r.regra,
+        motivo: r.motivo,
+        origem_correcao: `Devolução do revisor: ${problemas.map((p) => p.problema).join(' | ').slice(0, 1500)}`,
+        status: 'proposta',
+        post_id: ctx.post.id,
+      })),
+    )
+  }
+  await em.texto(novas.map((r) => `[${r.agente}] ${r.regra}`).join('\n') || 'Nada que vire regra: o que o revisor apontou já está coberto ou foi coisa de uma vez.')
+  return { saida: { origem: 'revisor', regras: novas }, uso, entrega: novas.length ? `${novas.length} regra(s) proposta(s) a partir das devoluções do revisor` : 'Devoluções do revisor sem regra nova', proximos: null, para: 'voce' }
+}
+
 export const curador: Agente = async (ctx, passo, em) => {
+  if (passo.entrada.origem === 'revisor') return curarDevolucoes(ctx, passo, em)
   const comentario = String(passo.entrada.comentario ?? '')
   const reprovado = passo.entrada.acao === 'reprovar'
   await em.inicio('Transformando sua correção em regra')
