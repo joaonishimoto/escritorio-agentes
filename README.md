@@ -2,7 +2,7 @@
 
 # Escritório de Agentes
 
-App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório em pixel art: você vê quem está trabalhando, as pastas voando entre as mesas, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
+App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório, que você vê como uma maquete 3D clara ou em pixel art (botão 2D/3D no canto): você vê quem está trabalhando, as pastas voando entre as mesas, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
 
 ## Rodar
 
@@ -55,7 +55,8 @@ O cinegrafista pede o vídeo na Kling, num modelo do fal.ai ou escreve uma anima
 ## Estrutura
 
 - `src/App.tsx`: monta o escritório, os painéis e os modais.
-- `src/pixel/`: o escritório em pixel art (`mapa.ts` desenha salas, móveis e objetos; `EscritorioPixel.tsx` anima personagens, pastas, cartinhas, gatos e a barra de salas).
+- `src/pixel/`: o escritório em pixel art (`mapa.ts` desenha salas, móveis e objetos; `EscritorioPixel.tsx` anima personagens, pastas, cartinhas e gatos; `BarraSalas.tsx` é a barra de salas das duas vistas).
+- `src/tres/`: o mesmo andar como maquete 3D em Three.js (`cena.ts` tem as peças e os bonecos; `Escritorio3D.tsx` monta as salas na mesma planta do pixel art e anima as entregas). É a vista padrão; `e2e/foto3d.mjs` tira fotos dela.
 - `src/ui/`: painéis (agente, sua mesa, aprovação, gaveta, cofrinho, financeiro, calendário, perfil da marca, referências, novo post).
 - `src/lib/`: dados do Supabase (`dados.ts`), chamadas à API, catálogo de IAs, ajudantes puros (`erros.ts`, `datas.ts`, `formato.ts`).
 - `src/store/escritorio.ts`: estado de cada agente, montado a partir dos eventos.
