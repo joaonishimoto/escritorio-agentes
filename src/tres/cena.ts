@@ -38,7 +38,7 @@ export type Acao =
   | { tipo: 'calendario' }
   | { tipo: 'financeiro' }
   | { tipo: 'quadro'; marca: string; quadro: 'referencias' | 'calendario' | 'branding' | 'regras' }
-  | { tipo: 'cofre' | 'gaveta' | 'decorar' | 'novo' | 'instagram'; marca: string; sala: number }
+  | { tipo: 'cofre' | 'gaveta' | 'novo' | 'instagram'; marca: string; sala: number }
 
 /** Caixa (arredondada se tiver raio) já na posição, com sombra. */
 export function caixa(pai: THREE.Object3D, w: number, h: number, d: number, m: THREE.Material | string, x: number, y: number, z: number, raio = 0, acao?: Acao) {

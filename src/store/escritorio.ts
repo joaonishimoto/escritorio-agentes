@@ -57,7 +57,7 @@ interface EscritorioState {
   entregas: Entrega[]
   selecionado: AgenteId | null
   /** sua mesa, o calendário da parede ou a prévia do post, quando abertos */
-  foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | 'previa' | null
+  foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'gaveta' | 'previa' | null
   aguardandoVoce: boolean
   /** status real do post aberto: manda mais que os eventos, que não sabem se você já aprovou ou publicou */
   postEsperandoVoce: boolean | null
@@ -73,7 +73,7 @@ interface EscritorioState {
   abaAgente: 'emails' | null
   /** clicou na caixa de entrada da mesa: abre o agente na aba de e-mails */
   abrirEmails: (id: AgenteId) => void
-  focar: (foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | 'previa' | null) => void
+  focar: (foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'gaveta' | 'previa' | null) => void
   definirAgenda: (agenda: ItemAgenda[]) => void
   definirPosicoes: (posicoes: Partial<Record<AgenteId | 'voce', [number, number]>>) => void
   reiniciar: () => void

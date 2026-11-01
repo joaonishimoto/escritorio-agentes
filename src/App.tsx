@@ -24,14 +24,12 @@ import { PreviaAoVivo } from './ui/PreviaAoVivo'
 import { useEscritorio } from './store/escritorio'
 import { supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
-import { ESPERANDO_VOCE, type Marca, corDaMarca, salvarOrdemDasSalas, salvarSala, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
+import { ESPERANDO_VOCE, type Marca, corDaMarca, salvarOrdemDasSalas, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
 import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { Menu } from './ui/Menu'
 import { Etapa } from './ui/Etapa'
-import { ORDEM_ESTILOS, type SalaCustom } from './andar/estilos'
 import type { Quadro } from './andar/planta'
 import type { Ideia } from './lib/ideias'
-import { PainelSala } from './ui/PainelSala'
 import { Abertura } from './ui/Abertura'
 
 export default function App() {
@@ -116,12 +114,6 @@ function Painel() {
     setMarcaId(id)
     setPostId(null)
   }
-  // o que o dono mexeu na decoração das salas nesta visita (aparece na hora, antes de voltar do banco)
-  const [salasEditadas, setSalasEditadas] = useState<Record<string, { sala: SalaCustom; cor: string }>>({})
-  const [estadoSala, setEstadoSala] = useState<'salvo' | 'salvando' | 'erro' | 'local' | null>(null)
-  const salvarSalaDepois = useRef<number | undefined>(undefined)
-  const comEdicao = <T extends { id: string; cor: string }>(m: T, sala?: SalaCustom | null) =>
-    salasEditadas[m.id] ? { ...m, cor: salasEditadas[m.id].cor, sala: salasEditadas[m.id].sala } : { ...m, sala }
   // ordem das salas no andar: a que você arrastou na barra; sem isso, a mais nova fica na ponta, longe da sua sala
   const [ordemSalas, setOrdemSalas] = useState<string[] | null>(null)
   const posicaoDe = (m: Marca, ordem: number) =>
@@ -129,32 +121,7 @@ function Painel() {
   const marcasNoAndar = marcas
     .map((m, ordem) => ({ m, ordem, pos: posicaoDe(m, ordem) }))
     .sort((a, b) => a.pos - b.pos)
-    .map(({ m, ordem }) => comEdicao({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id, instagramAviso: avisoDoToken(m.identidade, !!m.instagram_conta_id) }, m.identidade?.sala as SalaCustom | undefined))
-  const salaAtiva = marcasNoAndar.find((m) => m.id === (marcaId ?? marcasNoAndar[0]?.id)) ?? marcasNoAndar[0]
-  // estilo da sala quando ninguém escolheu: o que ficou neste navegador, senão o da ordem de criação
-  const estiloPadrao = (id: string, ordem: number) => {
-    try {
-      const antigo = (JSON.parse(localStorage.getItem('estilos-pixel') ?? '{}') as Record<string, string>)[id]
-      if (antigo) return antigo
-    } catch {
-      // sem armazenamento local
-    }
-    return ORDEM_ESTILOS[ordem % ORDEM_ESTILOS.length]
-  }
-  const mudarSala = (id: string, sala: SalaCustom, cor: string) => {
-    setSalasEditadas((x) => ({ ...x, [id]: { sala, cor } }))
-    if (!marcas.some((m) => m.id === id)) return setEstadoSala('local')
-    setEstadoSala('salvando')
-    window.clearTimeout(salvarSalaDepois.current)
-    salvarSalaDepois.current = window.setTimeout(() => {
-      salvarSala(id, sala as Record<string, unknown>, cor)
-        .then(() => setEstadoSala('salvo'))
-        .catch((e) => {
-          console.error('não salvou a sala', e)
-          setEstadoSala('erro')
-        })
-    }, 600)
-  }
+    .map(({ m, ordem }) => ({ id: m.id, nome: m.nome, cor: corDaMarca(m), ordem, instagram: !!m.instagram_conta_id, instagramAviso: avisoDoToken(m.identidade, !!m.instagram_conta_id) }))
   // o andar inteiro ao vivo: cada sala com o próprio post e tudo que espera você, de todas as marcas
   const marcaIds = useMemo(() => marcas.map((m) => m.id), [marcas])
   const andar = useAndar(marcaIds, recarregar)
@@ -339,10 +306,6 @@ function Painel() {
               }
               porSala={andar.porSala}
               naSuaMesa={naSuaMesa.length}
-              aoEditarSala={(id) => {
-                escolherMarca(id)
-                focar('sala')
-              }}
               aoNovoPost={(id) => {
                 escolherMarca(id)
                 focar(null)
@@ -373,19 +336,6 @@ function Painel() {
             aoAtualizar={setFinanceiro}
             aoFechar={() => focar(null)}
             aoAbrirPost={(id) => { verPost(id); focar(null) }}
-          />
-        ) : foco === 'sala' && salaAtiva ? (
-          <PainelSala
-            marcaNome={salaAtiva.nome}
-            padrao={estiloPadrao(salaAtiva.id, salaAtiva.ordem ?? 0)}
-            cor={salaAtiva.cor}
-            sala={salaAtiva.sala ?? {}}
-            estado={estadoSala}
-            aoMudar={(sala, cor) => mudarSala(salaAtiva.id, sala, cor)}
-            aoFechar={() => {
-              focar(null)
-              setEstadoSala(null)
-            }}
           />
         ) : foco === 'gaveta' ? (
           <Gaveta

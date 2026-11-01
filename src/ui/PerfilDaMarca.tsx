@@ -467,7 +467,7 @@ export function PerfilDaMarca({ marcaId, aoFechar, aoSalvar }: { marcaId: string
                   <input id="pm-nome" required maxLength={40} value={nome} onChange={(e) => setNome(e.target.value)} />
                   <label htmlFor="pm-ig">Instagram</label>
                   <input id="pm-ig" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@conta" />
-                  <label htmlFor="pm-sala">Cor da sala no escritório</label>
+                  <label htmlFor="pm-sala">Cor da marca no escritório (tapetes e quadros da sala)</label>
                   <div className="pm-linha">
                     <label className="pm-amostra" style={{ background: corSala }}>
                       <input id="pm-sala" type="color" value={corSala} onChange={(e) => setCorSala(e.target.value)} />

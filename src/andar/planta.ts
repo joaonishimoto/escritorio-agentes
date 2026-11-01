@@ -49,7 +49,7 @@ export const VISTA_MIN = 380
 
 // ───────── sala de cada marca  recepção da marca, sem funcionários ─────────
 // A equipe é uma só, para todas as marcas (mesmo código, a marca entra como contexto). Cada marca tem a sua sala
-// com o que é dela: quadros da parede, pedidos, Instagram, cofrinho, gaveta e decoração.
+// com o que é dela: quadros da parede, pedidos, Instagram, cofrinho e gaveta.
 export const MARCA_W = 176
 export const PASSO_MARCA = MARCA_W + 16
 /** a sala da equipe vem primeiro no andar, depois as das marcas */
@@ -58,7 +58,7 @@ export const PORTA_MARCA = MARCA_W / 2
 /** onde se anda na sala da marca */
 export const LINHA_MARCA = 196
 // A sala é enxuta e dividida em cantos: em cima à esquerda, criar e publicar (pedidos e Instagram);
-// em cima à direita, guardar e gastar (gaveta e cofrinho); no meio, o tapete com o nome; embaixo, decorar.
+// em cima à direita, guardar e gastar (gaveta e cofrinho); no meio, o tapete com o nome.
 /** Canto de criar e publicar, e canto de guardar: um tapetinho embaixo de cada um. */
 export const CANTOS = { criar: { x: 6, y: 46, w: 72, h: 40 }, guardar: { x: 98, y: 46, w: 72, h: 40 } }
 /** Escrivaninha de pedidos (máquina de escrever com a folha do pedido): clicar abre um post novo para a marca. */
@@ -69,8 +69,6 @@ export const INSTAGRAM = { x: 52, y: 46, w: 18, h: 34 }
 export const COFRINHO = { x: 106, y: 58, w: 24, h: 22 }
 /** Gaveta de posts: cômoda com uma gaveta aberta cheia de pastas. */
 export const GAVETA = { x: 136, y: 52, w: 30, h: 28 }
-/** Kit de decoração (cavalete com a sala pintada): clicar abre a edição da sala. */
-export const DECORAR = { x: 12, y: 146, w: 30, h: 28 }
 
 /** Mesas: duas colunas por sala, em duas fileiras. O boneco senta embaixo, de costas para nós. */
 export const COLUNA = [12, 78]
@@ -151,16 +149,14 @@ export const MESA_FIN = { x: 46, y: 82, w: 36 }
 export const GRAFICO_FIN = { x: 40, y: 3, w: 48, h: 28 }
 export const PORTA_FIN_X = 64
 
-/** Uma marca no andar: a sala dela, com a cor, o estilo e o que o dono personalizou. */
+/** Uma marca no andar: a sala dela, com a cor da marca (tapetes e quadros). */
 export interface MarcaNoAndar {
   id: string
   nome: string
   /** cor que representa a marca na sala */
   cor?: string
-  /** ordem em que a sala foi criada: decide o estilo padrão, mesmo com a sala mudando de lugar no andar */
+  /** ordem em que a sala foi criada */
   ordem?: number
-  /** o que o dono personalizou na sala: pisos, paredes, móveis */
-  sala?: import('./estilos').SalaCustom | null
   /** a sala está ligada a uma conta do Instagram (o celular acende nas cores dele) */
   instagram?: boolean
   /** o token do Instagram vence logo ou a renovação falhou: o celular fica amarelo e diz o que fazer */
