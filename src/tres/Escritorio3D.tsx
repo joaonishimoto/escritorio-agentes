@@ -1,5 +1,5 @@
-// O andar como uma maquete 3D clara: as salas das marcas, as salas da equipe (uma por especialidade), a sua sala e o
-// Financeiro, lado a lado. O trabalho passa de mesa em mesa por e-mail: um envelope voa de quem terminou até quem recebe.
+// O andar como uma maquete 3D clara: o andar da equipe (uma sala por time em volta de um hall com café e recepção,
+// mais a sua sala e o Financeiro) e, à esquerda, a ala das marcas. O trabalho passa de mesa em mesa por e-mail: um envelope voa de quem terminou até quem recebe.
 // Arrastar passeia pelo andar, a roda aproxima, o botão direito (ou dois dedos) gira.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -11,9 +11,9 @@ import { BarraSalas, type AlvoDaBarra } from '../andar/BarraSalas'
 import { VISUAL, VISUAL_FIN } from '../andar/visual'
 import { comprimento, noCaminho, type Ponto } from '../andar/caminho'
 import {
-  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ESTUDIO_SET, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, MESINHA_PUBLICACAO,
-  MURAL_DESIGN, NOVO_POST, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PLACA_SALA_Y, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VISTA_MIN, VOCE_W,
-  caminhoAteOCafe, type MarcaNoAndar, type Quadro,
+  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ENTRADA, EQUIPE_H, EQUIPE_W, GAVETA, GRAFICO_FIN, HALL, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, NOVO_POST,
+  PAREDE_H, PAREDES_ALTAS, PAREDES_BAIXAS, PASSO_MARCA, PLACA, PORTA, PORTA_MARCA, PORTAS, QUADROS, RECEPCAO, SALA_FIN, SALA_H, SALA_VOCE, VAO_ALA, VISTA_MIN,
+  caminhoAteOCafe, type MarcaNoAndar, type Parede, type Quadro, type Sala,
 } from '../andar/planta'
 import { COR_EQUIPE, COR_FINANCEIRO, COR_VOCE, PADRAO, misturar } from '../andar/cores'
 import { contarRecebidos } from '../lib/emails'
@@ -25,6 +25,9 @@ const VELOCIDADE = 58
 const TEMPO_MINIMO_NA_MESA = 1600
 const PRIORIDADE: Estado[] = ['erro', 'esperando_voce', 'trabalhando', 'na_fila', 'concluido', 'ocioso']
 const ALTURA_PAREDE = 2.4
+/** salas do andar da equipe, na ordem das placas: os times, a sua sala e o Financeiro */
+const SALAS_DO_ANDAR: Sala[] = [...DEPTOS, SALA_VOCE, SALA_FIN]
+const corDaSala = (s: Sala) => (s.id === 'voce' ? COR_VOCE : s.id === 'financeiro' ? COR_FINANCEIRO : COR_EQUIPE)
 /** piso de cada sala da equipe: Pauta e texto, Design, Estúdio (carpete grafite), Revisão e Publicação */
 
 export interface Props {
@@ -53,7 +56,6 @@ export interface Props {
 
 /** a cor de uma sala em seis tons, do claro ao escuro: livros, post-its e amostras da parede */
 const tons = (cor: string) => [misturar(cor, '#ffffff', 0.7), misturar(cor, '#ffffff', 0.45), misturar(cor, '#ffffff', 0.2), cor, misturar(cor, '#1f2330', 0.25), misturar(cor, '#1f2330', 0.5)]
-const TONS_EQUIPE = tons(COR_EQUIPE)
 
 /** Quem foi tomar café: anda até o balcão, para um pouco e volta para a mesa. */
 interface Andante {
@@ -106,11 +108,9 @@ export function Escritorio3D({
   const foco = useEscritorio((s) => s.foco)
 
   const indiceAtivo = Math.max(0, marcas.findIndex((m) => m.id === marcaAtiva))
-  const xMarca = (i: number) => -(marcas.length - i) * PASSO_MARCA
+  // a ala das marcas fica à esquerda do andar da equipe, com um vão entre os dois
+  const xMarca = (i: number) => -VAO_ALA - (marcas.length - i) * PASSO_MARCA
   const origem = xMarca(0)
-  const xVoce = PASSO_EQUIPE
-  const xFin = xVoce + VOCE_W + 16
-  const largura = xFin + FIN_W
   const corDe = (m: MarcaNoAndar) => m.cor ?? COR_EQUIPE
 
   const diasMarcados = useMemo(() => {
@@ -185,7 +185,7 @@ export function Escritorio3D({
   const abrirEmails = useEscritorio((s) => s.abrirEmails)
 
   /** onde o envelope sai e chega: em cima da mesa de cada um (coordenadas do andar) */
-  const mesaDe = (quem: AgenteId | 'voce'): Ponto => (quem === 'voce' ? [xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 6] : [MESAS[quem].x + 6, MESAS[quem].y + 10])
+  const mesaDe = (quem: AgenteId | 'voce'): Ponto => (quem === 'voce' ? [MESA_VOCE.x + 25, MESA_VOCE.y + 6] : [MESAS[quem].x + 6, MESAS[quem].y + 10])
   const aCaminhoDe = () => new Set(envelopes.current.map((e) => e.para))
   const andando = (quem: AgenteId | 'voce') => andantes.current.some((a) => a.quem === quem)
 
@@ -218,7 +218,7 @@ export function Escritorio3D({
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#eceef3')
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400)
-    const alvo = new THREE.Vector3(wx(SALA_W / 2), 0.3, wz(140))
+    const alvo = new THREE.Vector3(wx(EQUIPE_W / 2), 0.3, wz(EQUIPE_H / 2))
     camera.position.copy(alvo).add(new THREE.Vector3(26, 25, 26))
     camera.lookAt(alvo)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -282,12 +282,12 @@ export function Escritorio3D({
     }
     {
       const b = boneco(vivos, VISUAL.voce, { tipo: 'voce' })
-      b.grupo.position.set(wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2), 0, wz(MESA_VOCE.y - 10))
+      b.grupo.position.set(wx(MESA_VOCE.x + MESA_VOCE.w / 2), 0, wz(MESA_VOCE.y - 10))
       b.grupo.rotation.y = Math.PI
       bonecos.voce = b
-      abertos.voce = envelopeAberto(vivos, wx(xVoce + MESA_VOCE.x + 26), wz(MESA_VOCE.y + 8))
+      abertos.voce = envelopeAberto(vivos, wx(MESA_VOCE.x + 26), wz(MESA_VOCE.y + 8))
       const f = boneco(vivos, VISUAL_FIN, { tipo: 'financeiro' })
-      f.grupo.position.set(wx(xFin + MESA_FIN.x + MESA_FIN.w / 2), 0, wz(MESA_FIN.y - 10))
+      f.grupo.position.set(wx(MESA_FIN.x + MESA_FIN.w / 2), 0, wz(MESA_FIN.y - 10))
       f.grupo.rotation.y = Math.PI
       bonecos.financeiro = f
     }
@@ -305,9 +305,8 @@ export function Escritorio3D({
       const t = tres.current!
       t.tamanho = { w, h }
       renderer.setSize(w, h, false)
-      // no celular a sala da equipe cabe na largura
-      // no celular cabem umas duas salas da equipe; no computador, a equipe inteira
-      const porMetro = Math.min(52, w / ((w < 760 ? VISTA_MIN : SALA_W) * K + 2))
+      // no computador o andar da equipe inteiro (visto na diagonal); no celular, umas duas salas
+      const porMetro = Math.min(52, w / ((w < 760 ? VISTA_MIN : (EQUIPE_W + EQUIPE_H) * 0.72) * K + 2))
       camera.left = -w / 2 / porMetro
       camera.right = w / 2 / porMetro
       camera.top = h / 2 / porMetro
@@ -325,7 +324,7 @@ export function Escritorio3D({
       renderer.domElement.remove()
       tres.current = null
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── cenário parado: refeito quando as salas, os quadros ou o gráfico mudam ──
   useEffect(() => {
@@ -334,16 +333,24 @@ export function Escritorio3D({
     const c = t.cenario
     c.clear()
     const hoje = new Date().getDate()
-    const inicio = origem - 16
-    const fim = largura + 16
-    const zFundo = wz(PAREDE_H)
+    /** quadro em pé, num cavalete de duas pernas (nas salas sem parede alta) */
+    const quadroEmPe = (cx: number, cz: number, w: number, h: number, tex: THREE.Texture, acao: Acao, moldura: string) => {
+      const y = 1.2
+      quadroNaParede(c, cx, y, cz, w, h, tex, acao, moldura)
+      for (const sx of [-1, 1]) caixa(c, 0.05, y + h / 2, 0.05, PALETA.perna, cx + sx * (w / 2 - 0.08), (y + h / 2) / 2, cz - 0.02, 0, acao)
+    }
+const zFundo = wz(PAREDE_H)
     const zFrente = wz(SALA_H)
     const zTopo = wz(0)
 
-    // chão do andar inteiro, o corredor e a parede do fundo, contínuos de ponta a ponta
-    chao(c, wx(inicio), zTopo, wx(fim - inicio), wz(ANDAR_H) - zTopo, '#dfe2e8')
-    chao(c, wx(inicio), wz(CORREDOR_Y), wx(fim - inicio), wz(ANDAR_H - CORREDOR_Y), '#cfd3dc', 1)
-    chao(c, wx(inicio) + 0.3, wz(CORREDOR_Y) + 0.25, wx(fim - inicio) - 0.6, wz(ANDAR_H - CORREDOR_Y) - 0.5, COR_EQUIPE, 2)
+    // ── ala das marcas: à esquerda, separada do andar da equipe, com o corredor na frente ──
+    const inicio = origem - 16
+    const fimAla = -VAO_ALA
+    if (marcas.length) {
+      chao(c, wx(inicio), zTopo, wx(fimAla - inicio), wz(ANDAR_H) - zTopo, '#dfe2e8')
+      chao(c, wx(inicio), wz(CORREDOR_Y), wx(fimAla - inicio), wz(ANDAR_H - CORREDOR_Y), '#cfd3dc', 1)
+      chao(c, wx(inicio) + 0.3, wz(CORREDOR_Y) + 0.25, wx(fimAla - inicio) - 0.6, wz(ANDAR_H - CORREDOR_Y) - 0.5, COR_EQUIPE, 2)
+    }
     const parede = (x0: number, w: number, cor: string) => {
       caixa(c, w, ALTURA_PAREDE, 0.14, cor, x0 + w / 2, ALTURA_PAREDE / 2, zFundo - 0.07)
     }
@@ -366,114 +373,7 @@ export function Escritorio3D({
       if (b > 0) caixa(c, wx(b), h, 0.1, cor, wx(x0 + w - b / 2), h / 2, zFrente - 0.05, 0.02)
     }
     const rodape = (x0: number, w: number, cor: string) => caixa(c, wx(w), 0.08, 0.03, cor, wx(x0 + w / 2), 0.04, zFundo + 0.015)
-    const janela = (cx: number) => {
-      const y = 1.55
-      caixa(c, 1.0, 1.1, 0.05, '#e3e6ec', cx, y, zFundo + 0.02)
-      const vidro = caixa(c, 0.9, 1.0, 0.06, mat('#cfe3f5', { emissive: '#bcd6f0', emissiveIntensity: 0.5, roughness: 0.1 }), cx, y, zFundo + 0.03)
-      vidro.castShadow = false
-      caixa(c, 0.03, 1.0, 0.07, '#e3e6ec', cx, y, zFundo + 0.04)
-    }
-    paredeLateral(wx(inicio) + 0.07)
-    // a ponta direita do andar fica do lado da câmera: parede baixa, para não tapar o Financeiro
-    caixa(c, 0.14, 0.9, zFrente - zFundo + 0.14, '#f1f2f5', wx(fim) - 0.07, 0.45, (zFundo + zFrente) / 2 - 0.07, 0.02)
-
-    // ── salas da equipe: uma por especialidade ──
-    {
-      const [pauta, design, estudio, revisao, publicacao] = DEPTOS
-      DEPTOS.forEach((d, i) => {
-        chao(c, wx(d.x), zFundo, wx(d.w), zFrente - zFundo, PADRAO.piso, 1)
-        parede(wx(d.x), wx(d.w), PADRAO.parede)
-        rodape(d.x, d.w, PADRAO.rodape)
-        frente(d.x, d.w, d.porta, PADRAO.parede)
-        if (i < DEPTOS.length - 1) paredeEntre(d.x + d.w)
-        // tapete na frente das mesas, com o nome da sala por cima (etiqueta HTML)
-        chao(c, wx(d.porta - 40), wz(PLACA_SALA_Y - 12), wx(80), wz(24), COR_EQUIPE, 3)
-      })
-      // janelas em cima das mesas (o Estúdio tem espuma acústica no lugar)
-      for (const d of [design, revisao, publicacao]) {
-        janela(wx(d.x + 27))
-        janela(wx(d.x + 93))
-      }
-      janela(wx(pauta.x + 93))
-
-      // Pauta e texto: estante entre as mesas e o quadro da pauta na frente
-      {
-        const cx = wx(pauta.x + 27)
-        caixa(c, 0.9, 1.6, 0.32, PALETA.madeiraClara, cx, 0.8, zFundo + 0.18, 0.02)
-        const cores = TONS_EQUIPE
-        for (let f = 0; f < 3; f++) for (let k = 0; k < 7; k++) caixa(c, 0.08, 0.3 + ((k * 7 + f) % 3) * 0.03, 0.22, cores[(k + f) % 6], cx - 0.32 + k * 0.105, 0.35 + f * 0.48, zFundo + 0.2)
-        const qx = wx(QUADRO_PAUTA.x + 13)
-        const qz = wz(QUADRO_PAUTA.y + 16)
-        caixa(c, 0.9, 0.62, 0.04, '#ffffff', qx, 1.15, qz, 0.01)
-        for (const sx of [-1, 1]) caixa(c, 0.03, 1.5, 0.03, '#8a8f99', qx + sx * 0.4, 0.75, qz + 0.02)
-        const notas = TONS_EQUIPE
-        notas.forEach((cor, k) => caixa(c, 0.14, 0.12, 0.01, cor, qx - 0.3 + (k % 3) * 0.3, 1.27 - Math.floor(k / 3) * 0.22, qz + 0.03))
-        planta(c, wx(pauta.x + pauta.w - 12), wz(226), 0.8)
-      }
-      // Design: mural de referências no canto livre e uma luminária de prancheta
-      {
-        const cx = wx(MURAL_DESIGN.x + MURAL_DESIGN.w / 2)
-        const cz = wz(MURAL_DESIGN.y + 14)
-        caixa(c, 1.0, 0.8, 0.05, '#fbfaf6', cx, 1.15, cz, 0.01)
-        for (const sx of [-1, 1]) caixa(c, 0.03, 1.55, 0.03, PALETA.madeiraClara, cx + sx * 0.44, 0.78, cz + 0.03)
-        const amostras = [...TONS_EQUIPE, ...TONS_EQUIPE.slice(0, 2)]
-        amostras.forEach((cor, k) => caixa(c, 0.18, 0.16, 0.01, cor, cx - 0.33 + (k % 4) * 0.22, 1.3 - Math.floor(k / 4) * 0.26, cz + 0.03))
-        planta(c, wx(design.x + 12), wz(226), 0.8)
-        planta(c, wx(design.x + design.w - 12), wz(226), 0.8)
-      }
-      // Estúdio: espuma na parede, fundo verde encostado nela, refletor, tripé virado para o fundo e microfone
-      {
-        caixa(c, wx(estudio.w - 12), 0.9, 0.05, mat(misturar(COR_EQUIPE, '#1f2330', 0.35), { roughness: 1 }), wx(estudio.x + estudio.w / 2), 1.75, zFundo + 0.02)
-        const cx = wx(ESTUDIO_SET.x + 30)
-        const zParede = zFundo + 0.06
-        const verde = mat('#3fa66b', { roughness: 0.95 })
-        caixa(c, 2.2, 2.0, 0.05, verde, cx, 1.0, zParede + 0.03, 0.02)
-        // a tela faz a curva até o chão, como num estúdio de verdade
-        caixa(c, 2.2, 0.02, 1.1, verde, cx, 0.01, zParede + 0.58)
-        const cz = zParede + 0.6
-        const lx = cx + 1.55
-        caixa(c, 0.03, 1.6, 0.03, '#222222', lx, 0.8, cz)
-        const luz = caixa(c, 0.4, 0.3, 0.12, mat('#fff7e0', { emissive: '#fff2cc', emissiveIntensity: 0.8 }), lx, 1.6, cz, 0.02)
-        luz.rotation.y = 0.8
-        const tx = cx + 0.4
-        const tz = wz(96)
-        for (let k = 0; k < 3; k++) {
-          const p = caixa(c, 0.025, 1.1, 0.025, '#222222', tx + Math.cos(k * 2.1) * 0.12, 0.53, tz + Math.sin(k * 2.1) * 0.12)
-          p.rotation.z = Math.cos(k * 2.1) * 0.2
-          p.rotation.x = -Math.sin(k * 2.1) * 0.2
-        }
-        caixa(c, 0.22, 0.15, 0.3, '#1b1d22', tx, 1.1, tz, 0.02)
-        const nm = MESAS.narrador
-        caixa(c, 0.02, 0.3, 0.02, '#222222', wx(nm.x + 4), 0.9, wz(nm.y + 4))
-        caixa(c, 0.07, 0.12, 0.07, '#444444', wx(nm.x + 4), 1.08, wz(nm.y + 4), 0.03)
-      }
-      // Revisão: estante baixa com os checklists e as regras, e um sofá para ler com calma
-      {
-        const cx = wx(revisao.x + 30)
-        caixa(c, 1.2, 0.9, 0.35, PALETA.madeiraClara, cx, 0.45, wz(182), 0.02)
-        const pastas = [COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec', COR_EQUIPE, '#e3e6ec']
-        pastas.forEach((cor, k) => caixa(c, 0.1, 0.3, 0.24, cor, cx - 0.45 + k * 0.13, 1.05, wz(182), 0.01))
-        sofa(c, wx(revisao.x + 84), wz(206), 1.3, PADRAO.estofado)
-        planta(c, wx(revisao.x + 12), wz(226), 0.8)
-      }
-      // Publicação: mesinha com celular e notebook, café da equipe e sofá
-      {
-        const mx = wx(MESINHA_PUBLICACAO.x + 15)
-        const mz = wz(MESINHA_PUBLICACAO.y + 8)
-        caixa(c, 0.8, 0.05, 0.5, '#ffffff', mx, 0.5, mz, 0.02)
-        caixa(c, 0.06, 0.5, 0.06, PALETA.perna, mx, 0.25, mz)
-        caixa(c, 0.32, 0.02, 0.22, '#c7ccd6', mx - 0.1, 0.54, mz)
-        caixa(c, 0.12, 0.02, 0.22, '#1d1f25', mx + 0.22, 0.54, mz, 0.01)
-        const cx = wx(CAFE.x + 20)
-        const cz = wz(CAFE.y + 6)
-        caixa(c, 1.6, 0.95, 0.5, '#e3e6ec', cx, 0.475, cz, 0.03)
-        caixa(c, 1.66, 0.05, 0.56, '#e9e2d6', cx, 0.97, cz, 0.02)
-        caixa(c, 0.3, 0.38, 0.28, '#1f2125', cx - 0.4, 1.18, cz, 0.03)
-        for (let k = 0; k < 3; k++) cilindro(c, 0.04, 0.035, 0.09, '#ffffff', cx + 0.1 + k * 0.14, 1.04, cz + 0.05, 14)
-        sofa(c, wx(publicacao.x + 30), wz(206), 1.5, PADRAO.estofado)
-        planta(c, wx(publicacao.x + publicacao.w - 10), wz(46), 0.7)
-      }
-    }
+    if (marcas.length) paredeLateral(wx(inicio) + 0.07)
 
     // ── salas das marcas ──
     marcas.forEach((m, i) => {
@@ -607,14 +507,81 @@ export function Escritorio3D({
       planta(c, wx(x0 + MARCA_W - 20), wz(154), 0.8)
     })
 
+    // ── andar da equipe: salas em volta do hall ──
+    {
+      // o hall por baixo de tudo e o piso de cada sala por cima
+      chao(c, 0, 0, wx(EQUIPE_W), wz(EQUIPE_H), '#e4ded2', 1)
+      for (const s of SALAS_DO_ANDAR) chao(c, wx(s.x), wz(s.y), wx(s.w), wz(s.h), PADRAO.piso, 2)
+      // paredes: as do fundo (em cima e à esquerda) altas, com janelas; as outras baixas, para ver dentro das salas
+      const ESP = 0.12
+      const trecho = (x0: number, y0: number, x1: number, y1: number, alta: boolean) => {
+        const h = alta ? ALTURA_PAREDE : 1.0
+        const horizontal = y0 === y1
+        const w = horizontal ? wx(x1 - x0) + ESP : ESP
+        const d = horizontal ? ESP : wz(y1 - y0) + ESP
+        const cx = wx((x0 + x1) / 2)
+        const cz = wz((y0 + y1) / 2)
+        caixa(c, w, h, d, '#f1f2f5', cx, h / 2, cz, 0.02)
+        if (!alta) caixa(c, w + 0.03, 0.04, d + 0.03, PALETA.madeiraClara, cx, h + 0.02, cz, 0.015)
+      }
+      const comPortas = ([x0, y0, x1, y1]: Parede, alta: boolean) => {
+        const horizontal = y0 === y1
+        const vaos = PORTAS.filter(([px, py]) => (horizontal ? py === y0 && px > x0 && px < x1 : px === x0 && py > y0 && py < y1))
+          .map(([px, py]) => (horizontal ? px : py))
+          .sort((a, b) => a - b)
+        let a = horizontal ? x0 : y0
+        for (const v of [...vaos, null]) {
+          const b = v === null ? (horizontal ? x1 : y1) : v - PORTA / 2
+          if (b > a) {
+            if (horizontal) trecho(a, y0, b, y0, alta)
+            else trecho(x0, a, x0, b, alta)
+          }
+          if (v !== null) a = v + PORTA / 2
+        }
+      }
+      for (const p of PAREDES_ALTAS) comPortas(p, true)
+      for (const p of PAREDES_BAIXAS) comPortas(p, false)
+      const vidro = mat('#cfe3f5', { emissive: '#bcd6f0', emissiveIntensity: 0.5, roughness: 0.1 })
+      const janela = (xPx: number | null, yPx: number | null) => {
+        const naDeCima = yPx === null
+        const x = naDeCima ? wx(xPx!) : 0.07
+        const z = naDeCima ? 0.07 : wz(yPx!)
+        caixa(c, naDeCima ? 1.0 : 0.05, 1.1, naDeCima ? 0.05 : 1.0, '#e3e6ec', x, 1.55, z)
+        caixa(c, naDeCima ? 0.9 : 0.06, 1.0, naDeCima ? 0.06 : 0.9, vidro, x + (naDeCima ? 0 : 0.01), 1.55, z + (naDeCima ? 0.01 : 0)).castShadow = false
+      }
+      for (const x of [72, 196, 368, 476, 616, 728]) janela(x, null)
+      for (const y of [60, 124, 252, 300, 440]) janela(null, y)
+
+      // hall: balcão do café, recepção na frente da porta e um canto com sofás
+      {
+        const cx = wx(CAFE.x + 20)
+        const cz = wz(CAFE.y + 6)
+        caixa(c, 1.6, 0.95, 0.5, '#e3e6ec', cx, 0.475, cz, 0.03)
+        caixa(c, 1.66, 0.05, 0.56, '#ffffff', cx, 0.97, cz, 0.02)
+        caixa(c, 0.3, 0.38, 0.28, '#1f2125', cx - 0.4, 1.18, cz, 0.03)
+        for (let k = 0; k < 3; k++) cilindro(c, 0.04, 0.035, 0.09, '#ffffff', cx + 0.1 + k * 0.14, 1.04, cz + 0.05, 14)
+      }
+      {
+        const cx = wx(RECEPCAO.x)
+        const cz = wz(RECEPCAO.y)
+        caixa(c, 2.0, 1.0, 0.6, '#ffffff', cx, 0.5, cz, 0.04)
+        caixa(c, 2.02, 0.12, 0.62, COR_EQUIPE, cx, 0.8, cz, 0.02)
+        caixa(c, 2.1, 0.05, 0.7, '#e3e6ec', cx, 1.02, cz, 0.02)
+      }
+      {
+        const tx = HALL.x + 150
+        const tz = HALL.y + 100
+        chao(c, wx(tx - 50), wz(tz - 30), wx(100), wz(60), misturar(COR_EQUIPE, '#ffffff', 0.7), 3)
+        sofa(c, wx(tx), wz(tz - 34), 1.8, PADRAO.estofado)
+        sofa(c, wx(tx), wz(tz + 34), 1.8, PADRAO.estofado).rotation.y = Math.PI
+        caixa(c, 0.9, 0.35, 0.5, PALETA.madeiraClara, wx(tx), 0.175, wz(tz), 0.03)
+      }
+      for (const [x, y] of [[HALL.x + 6, HALL.y + HALL.h - 10], [HALL.x + HALL.w - 6, HALL.y + 6], [ENTRADA.em - 34, EQUIPE_H - 12], [ENTRADA.em + 34, EQUIPE_H - 12]]) planta(c, wx(x), wz(y), 0.9)
+    }
+
     // ── sua sala ──
     {
-      paredeEntre(SALA_W)
-      chao(c, wx(xVoce), zFundo, wx(VOCE_W), zFrente - zFundo, PADRAO.piso, 1)
-      parede(wx(xVoce), wx(VOCE_W), PADRAO.parede)
-      rodape(xVoce, VOCE_W, PADRAO.rodape)
-      frente(xVoce, VOCE_W, xVoce + PORTA_VOCE_X, PADRAO.parede)
-      // calendário da parede
+      // calendário num quadro em pé, atrás da sua mesa
       const tex = textura(256, 192, (g, w, h) => {
         g.fillStyle = '#fbfaf6'
         g.fillRect(0, 0, w, h)
@@ -634,11 +601,10 @@ export function Escritorio3D({
           }
         }
       })
-      quadroNaParede(c, wx(xVoce + CALENDARIO.x + CALENDARIO.w / 2), 1.55, zFundo, 1.3, 0.95, tex, { tipo: 'calendario' }, COR_VOCE)
-      janela(wx(xVoce + 118))
-      // a sua mesa, de madeira escura
+      quadroEmPe(wx(CALENDARIO.x + CALENDARIO.w / 2), wz(CALENDARIO.y), 1.3, 0.95, tex, { tipo: 'calendario' }, COR_VOCE)
+      // a sua mesa
       const a: Acao = { tipo: 'voce' }
-      const cx = wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2)
+      const cx = wx(MESA_VOCE.x + MESA_VOCE.w / 2)
       const cz = wz(MESA_VOCE.y + 8)
       caixa(c, 1.5, 0.06, 0.7, PADRAO.mesa, cx, 0.74, cz, 0.02, a)
       for (const sx of [-1, 1]) caixa(c, 0.5, 0.7, 0.6, '#e3e6ec', cx + sx * 0.5, 0.35, cz, 0.02, a)
@@ -646,18 +612,10 @@ export function Escritorio3D({
       caixa(c, 0.06, 0.1, 0.06, PALETA.monitor, cx - 0.1, 0.8, cz - 0.15, 0, a)
       for (let k = 0; k < Math.min(naSuaMesa, 6); k++) caixa(c, 0.3, 0.04, 0.22, k % 2 ? '#ffd36b' : '#f2b233', cx + 0.5, 0.79 + k * 0.045, cz + 0.1, 0.005, a)
       cadeira(c, cx, wz(MESA_VOCE.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
-      chao(c, wx(xVoce + 20), wz(130), wx(120), wz(60), misturar(COR_VOCE, '#ffffff', 0.25), 2)
-      sofa(c, wx(xVoce + 36), wz(190), 1.6, PADRAO.estofado)
-      planta(c, wx(xVoce + VOCE_W - 14), wz(226), 0.9)
     }
 
     // ── Financeiro ──
     {
-      paredeEntre(xVoce + VOCE_W)
-      chao(c, wx(xFin), zFundo, wx(FIN_W), zFrente - zFundo, PADRAO.piso, 1)
-      parede(wx(xFin), wx(FIN_W), PADRAO.parede)
-      rodape(xFin, FIN_W, PADRAO.rodape)
-      frente(xFin, FIN_W, xFin + PORTA_FIN_X, PADRAO.parede)
       const barras = financeiro?.barras ?? []
       const alerta = !!financeiro?.alerta
       const tex = textura(256, 160, (g, w, h) => {
@@ -676,9 +634,9 @@ export function Escritorio3D({
         g.fillStyle = '#c9c3b4'
         g.fillRect(10, h - 16, w - 20, 2)
       })
-      quadroNaParede(c, wx(xFin + GRAFICO_FIN.x + GRAFICO_FIN.w / 2), 1.55, zFundo, 1.8, 1.1, tex, { tipo: 'financeiro' }, COR_FINANCEIRO)
+      quadroEmPe(wx(GRAFICO_FIN.x + GRAFICO_FIN.w / 2), wz(GRAFICO_FIN.y), 1.8, 1.1, tex, { tipo: 'financeiro' }, COR_FINANCEIRO)
       const a: Acao = { tipo: 'financeiro' }
-      const cx = wx(xFin + MESA_FIN.x + MESA_FIN.w / 2)
+      const cx = wx(MESA_FIN.x + MESA_FIN.w / 2)
       const cz = wz(MESA_FIN.y + 8)
       caixa(c, 1.5, 0.06, 0.7, '#ffffff', cx, 0.74, cz, 0.02, a)
       for (const sx of [-1, 1]) caixa(c, 0.05, 0.72, 0.6, PALETA.perna, cx + sx * 0.7, 0.36, cz, 0, a)
@@ -686,9 +644,6 @@ export function Escritorio3D({
       caixa(c, 0.06, 0.1, 0.06, PALETA.monitor, cx + 0.1, 0.8, cz - 0.15, 0, a)
       caixa(c, 0.3, 0.2, 0.2, '#e3e6ec', cx - 0.5, 0.86, cz, 0.02, a)
       cadeira(c, cx, wz(MESA_FIN.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
-      chao(c, wx(xFin + 14), wz(130), wx(100), wz(60), misturar(COR_FINANCEIRO, '#ffffff', 0.25), 2)
-      planta(c, wx(xFin + FIN_W - 14), wz(226), 0.9)
-      planta(c, wx(xFin + 12), wz(226), 0.9)
     }
   }, [marcas, quadros, financeiro?.barras.join(','), financeiro?.alerta, diasMarcados, naSuaMesa]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -856,11 +811,11 @@ export function Escritorio3D({
         b.emPe.visible = andandoVoce
         if (!andandoVoce) {
           const pulo = voceAguardando ? Math.abs(Math.sin(seg * 7)) * 0.12 : 0
-          b.grupo.position.set(wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2), pulo, wz(MESA_VOCE.y - 10))
+          b.grupo.position.set(wx(MESA_VOCE.x + MESA_VOCE.w / 2), pulo, wz(MESA_VOCE.y - 10))
           b.grupo.rotation.y = Math.PI
-          posicoes.voce = new THREE.Vector3(wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2), 1.75 + pulo, wz(MESA_VOCE.y - 10))
+          posicoes.voce = new THREE.Vector3(wx(MESA_VOCE.x + MESA_VOCE.w / 2), 1.75 + pulo, wz(MESA_VOCE.y - 10))
         }
-        posicoes.financeiro = new THREE.Vector3(wx(xFin + MESA_FIN.x + MESA_FIN.w / 2), 1.75, wz(MESA_FIN.y - 10))
+        posicoes.financeiro = new THREE.Vector3(wx(MESA_FIN.x + MESA_FIN.w / 2), 1.75, wz(MESA_FIN.y - 10))
       }
 
       // quem está a caminho do café
@@ -939,8 +894,10 @@ export function Escritorio3D({
           pos = tmp.set(wx(xMarca(Number(chave.slice(6))) + PLACA.x), 0.05, wz(PLACA.y))
           ancora = 'centro'
         } else if (chave.startsWith('depto:')) {
-          const d = DEPTOS[Number(chave.slice(6))]
-          pos = tmp.set(wx(d.porta), 0.05, wz(PLACA_SALA_Y))
+          const d = SALAS_DO_ANDAR[Number(chave.slice(6))]
+          // times: no chão, junto da parede do fundo, entre as mesas; sua sala e Financeiro: no canto da frente
+          const pessoal = d.id === 'voce' || d.id === 'financeiro'
+          pos = pessoal ? tmp.set(wx(d.x + 44), 0.05, wz(d.y + d.h - 22)) : tmp.set(wx(d.x + d.w / 2), 0.05, wz(d.y + 20))
           ancora = 'centro'
         } else if (chave.startsWith('caixa:')) {
           const id = chave.slice(6) as AgenteId
@@ -979,7 +936,7 @@ export function Escritorio3D({
     }
     quadroId = requestAnimationFrame(desenhar)
     return () => cancelAnimationFrame(quadroId)
-  }, [xVoce, xFin, marcas.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcas.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── cliques: o que está embaixo do ponteiro ──
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -1030,8 +987,8 @@ export function Escritorio3D({
       if (i >= 0) t.alvoCamera = new THREE.Vector3(wx(xMarca(i) + MARCA_W / 2), 0.3, wz(140))
       return aoEscolherMarca(alvo.marca)
     }
-    const cx = alvo === 'equipe' ? SALA_W / 2 : alvo === 'voce' ? xVoce + VOCE_W / 2 : xFin + FIN_W / 2
-    t.alvoCamera = new THREE.Vector3(wx(cx), 0.3, wz(140))
+    const s = alvo === 'voce' ? SALA_VOCE : alvo === 'financeiro' ? SALA_FIN : null
+    t.alvoCamera = s ? new THREE.Vector3(wx(s.x + s.w / 2), 0.3, wz(s.y + s.h / 2)) : new THREE.Vector3(wx(EQUIPE_W / 2), 0.3, wz(EQUIPE_H / 2))
   }
 
   const nomes: (AgenteId | 'voce')[] = [...AGENTES.map((a) => a.id), 'voce']
@@ -1096,9 +1053,9 @@ export function Escritorio3D({
           Financeiro
         </div>
       </div>
-      {DEPTOS.map((d, n) => (
+      {SALAS_DO_ANDAR.map((d, n) => (
         <div key={d.id} className="tres-etiqueta" ref={ref(`depto:${n}`)}>
-          <div className="tres-placa" style={{ background: COR_EQUIPE }}>
+          <div className="tres-placa" style={{ background: corDaSala(d) }}>
             <span className="so-largo">{d.nome}</span>
             <span className="so-estreito">{d.curto}</span>
           </div>
