@@ -12,7 +12,7 @@ import { VISUAL, VISUAL_FIN } from '../pixel/visual'
 import { comprimento, noCaminho, type Ponto } from '../pixel/caminho'
 import {
   ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_PES, CORREDOR_Y, DECORAR, DEPTOS, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, LINHA_HALL, MARCA_W, MESA_FIN, MESA_VOCE, MESAS,
-  MESINHA_PUBLICACAO, NOVO_POST, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W,
+  COLUNA, ESTUDIO_SET, MESINHA_PUBLICACAO, NOVO_POST, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W,
   assento, ateOHall, dentroDaSala, doHallAte, estiloDaSala, type Quadro,
 } from '../pixel/mapa'
 import { misturar } from '../pixel/estilos'
@@ -318,7 +318,15 @@ export function Escritorio3D({
       caixa(c, w, ALTURA_PAREDE, 0.14, cor, x0 + w / 2, ALTURA_PAREDE / 2, zFundo - 0.07)
     }
     const paredeLateral = (x: number, cor = '#f1f2f5') => caixa(c, 0.14, ALTURA_PAREDE, zFrente - zFundo + 0.14, cor, x, ALTURA_PAREDE / 2, (zFundo + zFrente) / 2 - 0.07)
-    const paredeEntre = (xPx: number) => caixa(c, wx(16), ALTURA_PAREDE, zFrente - zFundo + 0.14, '#f1f2f5', wx(xPx + 8), ALTURA_PAREDE / 2, (zFundo + zFrente) / 2 - 0.07)
+    /** parede entre duas salas: baixa, como numa maquete em corte, para a parede não esconder o que fica do lado dela */
+    const paredeEntre = (xPx: number) => {
+      const h = 0.9
+      const prof = zFrente - zFundo + 0.14
+      caixa(c, wx(16), h, prof, '#f1f2f5', wx(xPx + 8), h / 2, (zFundo + zFrente) / 2 - 0.07, 0.02)
+      caixa(c, wx(16) + 0.03, 0.04, prof + 0.03, PALETA.madeiraClara, wx(xPx + 8), h + 0.02, (zFundo + zFrente) / 2 - 0.07, 0.015)
+      // pilar alto junto da parede do fundo, para a parede do fundo não parecer solta
+      caixa(c, wx(16), ALTURA_PAREDE, 0.3, '#f1f2f5', wx(xPx + 8), ALTURA_PAREDE / 2, zFundo + 0.08)
+    }
     /** parede baixa da frente, com a porta aberta */
     const frente = (x0: number, w: number, porta: number, cor: string) => {
       const h = 0.9
@@ -343,7 +351,8 @@ export function Escritorio3D({
       caixa(c, (vert ? 0.08 : comp) + 0.03, 0.04, (vert ? comp : 0.08) + 0.03, PALETA.madeiraClara, (xa + xb) / 2, h + 0.02, (za + zb) / 2, 0.015)
     }
     paredeLateral(wx(inicio) + 0.07)
-    paredeLateral(wx(fim) - 0.07)
+    // a ponta direita do andar fica do lado da câmera: parede baixa, para não tapar o Financeiro
+    caixa(c, 0.14, 0.9, zFrente - zFundo + 0.14, '#f1f2f5', wx(fim) - 0.07, 0.45, (zFundo + zFrente) / 2 - 0.07, 0.02)
 
     // ── sala da equipe ──
     {
@@ -353,8 +362,8 @@ export function Escritorio3D({
       parede(wx(0), wx(SALA_W), '#ffffff')
       rodape(0, SALA_W, COR_EQUIPE)
       for (const d of [DEPTOS[0], DEPTOS[1], DEPTOS[3]]) {
-        if (d !== DEPTOS[0]) janela(wx(d.x + 24))
-        janela(wx(d.x + 70))
+        if (d !== DEPTOS[0]) janela(wx(d.x + COLUNA[0] + 15))
+        janela(wx(d.x + COLUNA[1] + 15))
       }
       // espuma acústica do estúdio
       caixa(c, wx(DEPTOS[2].w - 12), 0.9, 0.05, mat('#3a3e49', { roughness: 1 }), wx(DEPTOS[2].x + DEPTOS[2].w / 2), 1.6, zFundo + 0.02)
@@ -382,19 +391,21 @@ export function Escritorio3D({
         const cores = ['#ffd36b', '#ff9b85', '#9fd1ff', '#b6e3a8', '#ffd36b', '#d9b8ff']
         cores.forEach((cor, k) => caixa(c, 0.14, 0.12, 0.01, cor, cx - 0.3 + (k % 3) * 0.3, 1.27 - Math.floor(k / 3) * 0.22, cz + 0.03))
       }
-      // estúdio: fundo verde, refletor, tripé e microfone
+      // estúdio: fundo verde encostado na parede do fundo, refletor, tripé virado para ele e microfone
       {
-        const d = DEPTOS[2]
-        const cx = wx(d.x + 26)
-        const cz = wz(108)
-        caixa(c, 1.5, 1.7, 0.05, mat('#3fa66b', { roughness: 0.95 }), cx, 0.85, cz - 0.2, 0.02)
-        caixa(c, 1.5, 0.02, 0.9, mat('#3fa66b', { roughness: 0.95 }), cx, 0.01, cz + 0.25)
-        const lx = wx(d.x + 70)
+        const cx = wx(ESTUDIO_SET.x + 30)
+        const zParede = zFundo + 0.06
+        const verde = mat('#3fa66b', { roughness: 0.95 })
+        caixa(c, 2.2, 2.0, 0.05, verde, cx, 1.0, zParede, 0.02)
+        // a tela faz a curva até o chão, como num estúdio de verdade
+        caixa(c, 2.2, 0.02, 1.1, verde, cx, 0.01, zParede + 0.55)
+        const cz = zParede + 0.6
+        const lx = cx + 1.55
         caixa(c, 0.03, 1.6, 0.03, '#222222', lx, 0.8, cz)
         const luz = caixa(c, 0.4, 0.3, 0.12, mat('#fff7e0', { emissive: '#fff2cc', emissiveIntensity: 0.8 }), lx, 1.6, cz, 0.02)
-        luz.rotation.y = -0.7
-        const tx = wx(d.x + 58)
-        const tz = wz(132)
+        luz.rotation.y = 0.8
+        const tx = cx + 0.4
+        const tz = wz(PAREDE_DEPTO_Y - 58)
         for (let k = 0; k < 3; k++) {
           const p = caixa(c, 0.025, 1.1, 0.025, '#222222', tx + Math.cos(k * 2.1) * 0.12, 0.53, tz + Math.sin(k * 2.1) * 0.12)
           p.rotation.z = Math.cos(k * 2.1) * 0.2
@@ -430,7 +441,7 @@ export function Escritorio3D({
       planta(c, wx(10), wz(228), 0.9)
       planta(c, wx(SALA_W - 12), wz(228), 0.9)
       planta(c, wx(SALA_W - 12), wz(170), 0.8)
-      planta(c, wx(DEPTOS[3].x + 82), wz(46), 0.7)
+      planta(c, wx(DEPTOS[3].x + DEPTOS[3].w - 10), wz(46), 0.7)
     }
 
     // ── salas das marcas ──
@@ -555,8 +566,9 @@ export function Escritorio3D({
         const a: Acao = { tipo: 'gaveta', marca: m.id, sala: i }
         const cx = wx(x0 + GAVETA.x + GAVETA.w / 2)
         const cz = wz(GAVETA.y + 16)
-        caixa(c, 1.0, 0.9, 0.55, e.mesa, cx, 0.45, cz, 0.02, a)
-        caixa(c, 0.86, 0.22, 0.4, misturar(e.mesa, '#1f2330', 0.15), cx, 0.72, cz + 0.3, 0.02, a)
+        // cômoda de madeira, para não sumir na parede clara
+        caixa(c, 1.0, 0.9, 0.55, PALETA.madeiraClara, cx, 0.45, cz, 0.02, a)
+        caixa(c, 0.86, 0.22, 0.4, misturar(PALETA.madeiraClara, '#1f2330', 0.2), cx, 0.72, cz + 0.3, 0.02, a)
         const n = Math.min(5, q?.gaveta ?? 0)
         for (let k = 0; k < n; k++) caixa(c, 0.1, 0.22, 0.3, [cor, '#f2b233', '#3f7650', '#b74e45', '#6d4f8f'][k], cx - 0.3 + k * 0.15, 0.9, cz + 0.3, 0.01, a)
         caixa(c, 0.3, 0.03, 0.03, '#1f2330', cx, 0.3, cz + 0.29, 0, a)
