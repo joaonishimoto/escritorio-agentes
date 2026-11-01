@@ -1,4 +1,4 @@
-import { ESTILOS, ORDEM_ESTILOS, PISOS, estiloDaSala, pisos, type AreaSala, type Piso, type SalaCustom } from '../pixel/mapa'
+import { ESTILOS, ORDEM_ESTILOS, PISOS, estiloDaSala, pisos, type AreaSala, type Piso, type SalaCustom } from '../andar/estilos'
 
 // a sala da marca é uma recepção só (a equipe fica na sala dela): um piso
 const AREAS: { id: AreaSala; nome: string }[] = [{ id: 'hall', nome: 'Sala' }]

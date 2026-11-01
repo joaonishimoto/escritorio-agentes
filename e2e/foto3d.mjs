@@ -44,10 +44,6 @@ try {
       await p.getByRole('button', { name: 'Sua sala' }).first().click()
       await p.waitForTimeout(1800)
       await p.screenshot({ path: `${saida}/3d-sua-sala.png` })
-      await p.getByRole('button', { name: '2D', exact: true }).click()
-      await p.locator('canvas.pixel-tela').first().waitFor({ timeout: 10_000 })
-      await p.waitForTimeout(1000)
-      await p.screenshot({ path: `${saida}/2d.png` })
     }
     console.log(nome, erros.length ? `ERROS: ${erros.join(' | ')}` : 'sem erros')
     await ctx.close()

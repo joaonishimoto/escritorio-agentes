@@ -7,6 +7,9 @@ import { PedirAoAgente } from './PedirAoAgente'
 import { recebePedido } from '../lib/pedidos'
 import type { Ideia } from '../lib/ideias'
 import type { Post } from '../lib/dados'
+import { emailsDoPost } from '../lib/emails'
+
+const nomeDe = (id: AgenteId | 'voce') => (id === 'voce' ? 'você' : agentePorId(id).nome)
 
 const ROTULO_ESTADO = {
   ocioso: 'Livre',
@@ -66,7 +69,7 @@ function emCampos(texto: string) {
   return blocos.filter((b) => b.texto.trim() || b.rotulo)
 }
 
-type Aba = 'agora' | 'historico' | 'ideias' | 'pedir'
+type Aba = 'agora' | 'emails' | 'historico' | 'ideias' | 'pedir'
 
 export function PainelAgente({
   post,
@@ -90,16 +93,19 @@ export function PainelAgente({
   const rascunho = useEscritorio((s) => (id ? s.rascunho[id] : undefined))
   const eventos = useEscritorio((s) => s.eventos)
   const selecionar = useEscritorio((s) => s.selecionar)
+  const abaPedida = useEscritorio((s) => s.abaAgente)
   const [aba, setAba] = useState<Aba>('agora')
   const [copiado, setCopiado] = useState(false)
 
-  // trocou de agente: volta para a primeira aba
-  useEffect(() => setAba('agora'), [id])
+  // trocou de agente: volta para a primeira aba (ou vai direto aos e-mails, se veio da caixa de entrada da mesa)
+  useEffect(() => setAba(abaPedida ?? 'agora'), [id, abaPedida])
 
   if (!id) return null
   const a = agentePorId(id)
   const estado = estados[id] ?? 'ocioso'
   const meus = eventos.filter((e) => e.agente === id && e.tipo !== 'texto')
+  const emails = emailsDoPost(eventos).filter((e) => e.para === id || e.de === id).reverse()
+  const recebidos = emails.filter((e) => e.para === id).length
   const historico = meus.slice().reverse()
   const ativo = ATIVOS.includes(estado)
   const inicio = meus[0]?.criado_em
@@ -125,6 +131,7 @@ export function PainelAgente({
 
   const abas: { id: Aba; nome: string; conta?: number }[] = [
     { id: 'agora', nome: ativo ? 'Agora' : 'Neste post' },
+    { id: 'emails', nome: 'E-mails', conta: recebidos },
     { id: 'historico', nome: 'Histórico', conta: historico.length },
     ...(id === 'pesquisador' && marcaId && aoUsarIdeia ? [{ id: 'ideias' as Aba, nome: 'Ideias de posts' }] : []),
     ...(marcaId && recebePedido(id) ? [{ id: 'pedir' as Aba, nome: 'Pedir algo' }] : []),
@@ -254,6 +261,39 @@ export function PainelAgente({
             )}
           </>
         )}
+
+        {aba === 'emails' &&
+          (emails.length === 0 ? (
+            <div className="ag-vazio">
+              <strong>Nenhum e-mail neste post</strong>
+              <p>Quando alguém da equipe terminar a parte dele, manda um e-mail para o próximo, e ele aparece aqui.</p>
+            </div>
+          ) : (
+            <ol className="ag-emails">
+              {emails.map((e) => (
+                <li key={e.id} className={e.para === id ? 'recebido' : 'enviado'}>
+                  <header>
+                    <span>{e.para === id ? `De ${nomeDe(e.de)}` : `Para ${nomeDe(e.para)}`}</span>
+                    <time>{new Date(e.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>
+                  </header>
+                  <strong>{e.assunto}</strong>
+                  {e.feito.length > 0 && (
+                    <ul>
+                      {e.feito.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {e.trecho && (
+                    <details>
+                      <summary>Ver o que escreveu</summary>
+                      <p>{e.trecho}</p>
+                    </details>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ))}
 
         {aba === 'historico' &&
           (historico.length === 0 ? (

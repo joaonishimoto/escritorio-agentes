@@ -2,7 +2,7 @@
 
 # Escritório de Agentes
 
-App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório, que você vê como uma maquete 3D clara ou em pixel art (botão 2D/3D no canto): você vê quem está trabalhando, as pastas voando entre as mesas, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
+App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório, que você vê como uma maquete 3D clara. A equipe fica em cinco salas por especialidade (Pauta e texto, Design, Estúdio, Revisão e Publicação) e conversa por e-mail: cada entrega é um envelope que voa de mesa em mesa e cai na caixa de entrada de quem recebe (clicar na bandeja abre os e-mails do agente). Você vê quem está trabalhando, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
 
 ## Rodar
 
@@ -55,8 +55,9 @@ O cinegrafista pede o vídeo na Kling, num modelo do fal.ai ou escreve uma anima
 ## Estrutura
 
 - `src/App.tsx`: monta o escritório, os painéis e os modais.
-- `src/pixel/`: o escritório em pixel art (`mapa.ts` desenha salas, móveis e objetos; `EscritorioPixel.tsx` anima personagens, pastas, cartinhas e gatos; `BarraSalas.tsx` é a barra de salas das duas vistas).
-- `src/tres/`: o mesmo andar como maquete 3D em Three.js (`cena.ts` tem as peças e os bonecos; `Escritorio3D.tsx` monta as salas na mesma planta do pixel art e anima as entregas). É a vista padrão; `e2e/foto3d.mjs` tira fotos dela.
+- `src/andar/`: a planta do andar (`planta.ts`: salas da equipe, mesas, salas das marcas, sua sala e o Financeiro), estilos das salas, roupas dos bonecos e a `BarraSalas.tsx`.
+- `src/tres/`: o andar como maquete 3D em Three.js (`cena.ts` tem as peças e os bonecos; `Escritorio3D.tsx` monta as salas a partir da planta e anima os e-mails e os passeios até o café). `e2e/foto3d.mjs` tira fotos dela.
+- `src/lib/emails.ts`: transforma os eventos do post nos e-mails da equipe (assunto, o que a pessoa fez e um trecho do que escreveu), mostrados na aba E-mails do painel do agente.
 - `src/ui/`: painéis (agente, sua mesa, aprovação, gaveta, cofrinho, financeiro, calendário, perfil da marca, referências, novo post).
 - `src/lib/`: dados do Supabase (`dados.ts`), chamadas à API, catálogo de IAs, ajudantes puros (`erros.ts`, `datas.ts`, `formato.ts`).
 - `src/store/escritorio.ts`: estado de cada agente, montado a partir dos eventos.

@@ -1,5 +1,5 @@
 // Caminhos dos bonecos: uma lista de pontos e onde se está depois de andar uma distância.
-import type { Direcao } from './sprites'
+export type Direcao = 'baixo' | 'cima' | 'esquerda' | 'direita'
 
 export type Ponto = [number, number]
 

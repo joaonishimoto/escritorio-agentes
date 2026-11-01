@@ -1,9 +1,8 @@
 // Barra no alto do escritório com uma entrada por sala: clicar leva a câmera até a sala, arrastar muda a ordem.
-// É a mesma barra na vista em pixel art e na vista 3D.
 import { useEffect, useRef, useState } from 'react'
 import { AGENTES } from '../agents/catalogo'
 import type { Estado } from '../store/escritorio'
-import type { MarcaNoAndar } from './EscritorioPixel'
+import type { MarcaNoAndar } from './planta'
 
 export type AlvoDaBarra = { marca: string } | 'equipe' | 'voce' | 'financeiro'
 

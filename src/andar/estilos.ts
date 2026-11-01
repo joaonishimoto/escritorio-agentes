@@ -74,3 +74,22 @@ export function estiloDaSala(padrao: string, cor: string, c?: SalaCustom | null)
   if (corValida(c.tapete)) e = { ...e, tapete: c.tapete }
   return e
 }
+
+/** Pisos de cada parte da sala, tirados das cores do estilo e da marca. */
+/** Cor e desenho do piso de cada área: o padrão do estilo, ou o que o dono escolheu. */
+export function pisos(e: Estilo): Record<AreaSala, { estilo: Estilo; padrao: Piso }> {
+  const v = (piso: string, pisoLinha: string) => ({ ...e, piso, pisoLinha })
+  const padrao: Record<AreaSala, { estilo: Estilo; padrao: Piso }> = {
+    pauta: { estilo: e, padrao: e.tijolo ? 'concreto' : 'tabua' },
+    criacao: { estilo: v(misturar(e.piso, e.tapete, 0.55), misturar(e.piso, e.rodape, 0.35)), padrao: 'xadrez' },
+    publicacao: { estilo: v(misturar(e.tapete, e.piso, 0.35), misturar(e.tapete, '#1f2330', 0.25)), padrao: 'carpete' },
+    hall: { estilo: v(misturar(e.piso, '#ffffff', 0.25), misturar(e.pisoLinha, '#1f2330', 0.1)), padrao: 'ladrilho' },
+  }
+  for (const area of Object.keys(padrao) as AreaSala[]) {
+    const c = e.pisos?.[area]
+    if (!c) continue
+    if (corValida(c.cor)) padrao[area].estilo = v(c.cor, escurecer(c.cor, 0.14))
+    if (c.padrao && PISOS.some((p) => p.id === c.padrao)) padrao[area].padrao = c.padrao
+  }
+  return padrao
+}

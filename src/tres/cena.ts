@@ -2,7 +2,7 @@
 // A planta é a mesma do pixel art (planta.ts): 1 pixel da planta = K metros.
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import type { Visual } from '../pixel/sprites'
+import type { Visual } from '../andar/visual'
 
 export const K = 0.0375
 /** x da planta (pixels do andar) em metros */
@@ -33,6 +33,7 @@ export function mat(cor: string, o: Partial<THREE.MeshStandardMaterialParameters
 
 export type Acao =
   | { tipo: 'agente'; id: string }
+  | { tipo: 'caixa'; id: string }
   | { tipo: 'voce' }
   | { tipo: 'calendario' }
   | { tipo: 'financeiro' }
@@ -219,4 +220,32 @@ export function boneco(pai: THREE.Object3D, v: Visual, acao?: Acao, capelo = fal
   g.add(sentado, emPe)
   pai.add(g)
   return { grupo: g, sentado, emPe, pasta, corpo }
+}
+
+/** Envelope fechado, com a aba na cor dada: é o "e-mail" que voa de uma mesa para outra. */
+export function envelope(pai: THREE.Object3D, cor = '#b74e45') {
+  const g = new THREE.Group()
+  caixa(g, 0.34, 0.025, 0.24, '#ffffff', 0, 0, 0, 0.004)
+  // aba em triângulo por cima
+  const aba = new THREE.Mesh(new THREE.CircleGeometry(0.17, 3), mat(cor))
+  aba.rotation.x = -Math.PI / 2
+  aba.rotation.z = -Math.PI / 2
+  aba.scale.set(0.72, 1, 1)
+  aba.position.set(0, 0.014, -0.03)
+  g.add(aba)
+  pai.add(g)
+  return g
+}
+
+/** Envelope aberto com a folha saindo, em cima da mesa: o e-mail que acabou de chegar. Começa escondido. */
+export function envelopeAberto(pai: THREE.Object3D, x: number, z: number) {
+  const g = new THREE.Group()
+  g.position.set(x, 0.78, z)
+  caixa(g, 0.3, 0.02, 0.21, '#f2b233', 0, 0, 0, 0.004)
+  const folha = caixa(g, 0.24, 0.01, 0.2, '#ffffff', 0.02, 0.018, -0.06, 0.002)
+  folha.rotation.y = 0.12
+  for (let k = 0; k < 3; k++) caixa(g, 0.16, 0.004, 0.012, '#c9ced8', 0.02, 0.026, -0.12 + k * 0.035)
+  g.visible = false
+  pai.add(g)
+  return g
 }

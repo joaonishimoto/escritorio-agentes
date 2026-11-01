@@ -1,6 +1,13 @@
-// Cabelo, pele e camisa de cada boneco, para dar para reconhecer de longe (no pixel art e na maquete 3D).
+// Cabelo, pele e camisa de cada boneco, para dar para reconhecer de longe (na maquete 3D).
 import { agentePorId, type AgenteId } from '../agents/catalogo'
-import type { Visual } from './sprites'
+
+/** Cores de um boneco. */
+export interface Visual {
+  cabelo: string
+  pele: string
+  camisa: string
+  calca?: string
+}
 
 export const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
 

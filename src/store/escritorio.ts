@@ -69,6 +69,10 @@ interface EscritorioState {
   /** `animar: false` ao reconstruir um post antigo, para as pastas não voarem todas de uma vez */
   aplicar: (e: Evento, animar?: boolean) => void
   selecionar: (id: AgenteId | null) => void
+  /** aba que o painel do agente abre (a caixa de entrada da mesa abre direto nos e-mails) */
+  abaAgente: 'emails' | null
+  /** clicou na caixa de entrada da mesa: abre o agente na aba de e-mails */
+  abrirEmails: (id: AgenteId) => void
   focar: (foco: 'voce' | 'calendario' | 'financeiro' | 'cofre' | 'sala' | 'gaveta' | 'previa' | null) => void
   definirAgenda: (agenda: ItemAgenda[]) => void
   definirPosicoes: (posicoes: Partial<Record<AgenteId | 'voce', [number, number]>>) => void
@@ -189,7 +193,9 @@ export const useEscritorio = create<EscritorioState>((set) => ({
       return { eventos, estados, acaoAtual, rascunho, entregas, aguardandoVoce }
     }),
 
-  selecionar: (id) => set({ selecionado: id, foco: null }),
+  abaAgente: null,
+  selecionar: (id) => set({ selecionado: id, foco: null, abaAgente: null }),
+  abrirEmails: (id) => set({ selecionado: id, foco: null, abaAgente: 'emails' }),
   focar: (foco) => set({ foco, selecionado: null }),
   definirAgenda: (agenda) => set({ agenda }),
   definirPosicoes: (posicoes) => set({ posicoes }),
