@@ -963,6 +963,14 @@ i.falhou { background: var(--danger, #b42318) }
 .ag-vazio strong { color: var(--foreground); font-size: 14px }
 .ag-vazio p { font-size: 13px }
 .ag-vazio-icone { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--cor-agente) 12%, var(--surface)); color: var(--cor-agente); margin-bottom: 4px }
+.ag-emails { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px }
+.ag-emails > li { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 6px }
+.ag-emails > li.recebido { border-left: 3px solid var(--cor-agente) }
+.ag-emails header { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted-foreground) }
+.ag-emails strong { font-size: 14px; line-height: 1.3 }
+.ag-emails ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted-foreground); display: flex; flex-direction: column; gap: 2px }
+.ag-emails details summary { font-size: 12px; cursor: pointer; color: var(--muted-foreground) }
+.ag-emails details p { margin: 6px 0 0; font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere }
 .ag-tempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column }
 .ag-tempo li { position: relative; display: flex; gap: 12px; padding-bottom: 14px }
 .ag-tempo li:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--border) }
@@ -1397,13 +1405,10 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 .tres .ponto { border: 0; width: 7px; height: 7px }
 .tres .balao { font-family: 'Inter', var(--font-sans); border: 0; border-radius: 12px; box-shadow: 0 4px 14px rgba(30,40,60,.22); font-size: 12px }
 .tres .balao::after { border: 0; box-shadow: 3px 3px 6px rgba(30,40,60,.08) }
-.tres-depto { font: 700 10px/1 'Inter', var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: #1f2330; padding: 5px 8px; border-radius: 6px }
+.tres-caixa:not(:empty) { font: 700 10px/1 'Inter', var(--font-sans); color: #1f2330; background: #fff; padding: 3px 6px; border-radius: 999px; box-shadow: 0 1px 5px rgba(30,40,60,.25) }
 .tres-placa { font: 700 13px/1 'Inter', var(--font-sans); color: #fff; padding: 7px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(30,40,60,.25) }
 .tres .pixel-salas button { font-family: 'Inter', var(--font-sans); font-weight: 600; border-radius: 999px; box-shadow: 0 2px 8px rgba(30,40,60,.18); padding: 7px 12px }
 .tres .pixel-salas i { border-radius: 50%; box-shadow: none }
 .tres-dica { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font: 500 11px/1 'Inter', var(--font-sans); color: #5b6270; background: rgba(255,255,255,.8); padding: 6px 10px; border-radius: 999px; pointer-events: none; white-space: nowrap }
 .palco-menu { display: flex; align-items: center }
-.visao-botao { font: 600 12px/1 'Inter', var(--font-sans); background: #fff; color: #1f2330; border: 0; box-shadow: 0 0 0 2px #1f2330; padding: 9px 10px; margin: 4px; cursor: pointer }
-.visao-botao:hover { background: #eef2f8 }
-.visao-botao.tres-ativo { border-radius: 999px; box-shadow: 0 2px 8px rgba(30,40,60,.18) }
-@media (max-width: 760px) { .tres-dica { display: none } .tres .nome { font-size: 10px; padding: 3px 7px 3px 6px } .tres-depto { font-size: 8px } }
+@media (max-width: 760px) { .tres-dica { display: none } .tres .nome { font-size: 10px; padding: 3px 7px 3px 6px } .tres-placa { font-size: 11px; padding: 5px 10px } }

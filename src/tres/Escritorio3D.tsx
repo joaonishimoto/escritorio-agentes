@@ -1,43 +1,78 @@
-// O andar como uma maquete 3D clara: as mesmas salas, mesas e caminhos do pixel art, vistos de cima e de lado.
-// Arrastar passeia pelo andar, a roda aproxima, o botão direito (ou dois dedos) gira. Clicar funciona como no 2D.
+// O andar como uma maquete 3D clara: as salas das marcas, as salas da equipe (uma por especialidade), a sua sala e o
+// Financeiro, lado a lado. O trabalho passa de mesa em mesa por e-mail: um envelope voa de quem terminou até quem recebe.
+// Arrastar passeia pelo andar, a roda aproxima, o botão direito (ou dois dedos) gira.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { tocarAviso } from '../lib/som'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { COR_ESTADO, selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
-import { BarraSalas, type AlvoDaBarra } from '../pixel/BarraSalas'
-import type { MarcaNoAndar } from '../pixel/EscritorioPixel'
-import { VISUAL, VISUAL_FIN } from '../pixel/visual'
-import { comprimento, noCaminho, type Ponto } from '../pixel/caminho'
+import { BarraSalas, type AlvoDaBarra } from '../andar/BarraSalas'
+import { VISUAL, VISUAL_FIN } from '../andar/visual'
+import { comprimento, noCaminho, type Ponto } from '../andar/caminho'
 import {
-  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_PES, CORREDOR_Y, DECORAR, DEPTOS, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, LINHA_HALL, MARCA_W, MESA_FIN, MESA_VOCE, MESAS,
-  COLUNA, ESTUDIO_SET, MESINHA_PUBLICACAO, NOVO_POST, ORDEM_ESTILOS, PAREDE_DEPTO_Y, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, PORTA_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VOCE_W,
-  assento, ateOHall, dentroDaSala, doHallAte, estiloDaSala, type Quadro,
-} from '../pixel/mapa'
-import { misturar } from '../pixel/estilos'
-import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, K, mat, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
+  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DECORAR, DEPTOS, ESTUDIO_SET, FIN_W, GAVETA, GRAFICO_FIN, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, MESINHA_PUBLICACAO,
+  MURAL_DESIGN, NOVO_POST, PAREDE_H, PASSO_EQUIPE, PASSO_MARCA, PLACA, PLACA_SALA_Y, PORTA_FIN_X, PORTA_MARCA, PORTA_VOCE_X, QUADRO_PAUTA, QUADROS, SALA_H, SALA_W, VISTA_MIN, VOCE_W,
+  caminhoAteOCafe, type MarcaNoAndar, type Quadro,
+} from '../andar/planta'
+import { ORDEM_ESTILOS, estiloDaSala, misturar, pisos, type SalaCustom } from '../andar/estilos'
+import { contarRecebidos } from '../lib/emails'
+import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
 
-type Props = Parameters<typeof import('../pixel/EscritorioPixel').EscritorioPixel>[0]
 
 const VELOCIDADE = 58
+/** tempo trabalhando no e-mail que chegou antes de mandar o próximo */
 const TEMPO_MINIMO_NA_MESA = 1600
 const PRIORIDADE: Estado[] = ['erro', 'esperando_voce', 'trabalhando', 'na_fila', 'concluido', 'ocioso']
 const ALTURA_PAREDE = 2.4
 const COR_EQUIPE = '#2a5288'
-const PISOS_DEPTO = ['#f3e3c2', '#f3d9d2', '#dcdcef', '#d3e8df']
+/** piso de cada sala da equipe: Pauta e texto, Design, Estúdio (carpete grafite), Revisão e Publicação */
+const PISOS_SALA = ['#f3e3c2', '#f3d9d2', '#4a4f5c', '#dcdcef', '#d3e8df']
 
+export interface Props {
+  marcas: MarcaNoAndar[]
+  marcaAtiva: string | null
+  aoEscolherMarca: (id: string) => void
+  /** o que aparece nos quadros da parede de cada sala: dias com post neste mês e quantas regras estão ativas */
+  quadros?: Record<string, { dias: number[]; regras: number; referencias?: number; gaveta?: number }>
+  /** clique nas referências, no calendário, no branding ou no mural de regras de uma sala */
+  aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
+  /** gastos dos últimos dias (gráfico da parede) e se o Financeiro tem uma dica importante */
+  financeiro?: { barras: number[]; alerta: boolean }
+  /** o que aparece embaixo do cofrinho de cada sala (gasto do mês), por marca */
+  cofres?: Record<string, string>
+  /** o que os agentes estão fazendo no post de cada marca */
+  porSala?: Record<string, Partial<Record<string, Estado>>>
+  /** quantos posts de todas as marcas estão esperando você */
+  naSuaMesa?: number
+  /** clique no kit de decoração de uma sala */
+  aoEditarSala?: (marcaId: string) => void
+  /** arrastar os nomes da barra muda a ordem das salas (ids da esquerda para a direita) */
+  aoReordenar?: (ids: string[]) => void
+  /** clique no balcão de pedidos de uma sala: abre um post novo para aquela marca */
+  aoNovoPost?: (marcaId: string) => void
+  /** clique no celular: conecta (ou mostra) o Instagram daquela marca */
+  aoConectarInstagram?: (marcaId: string) => void
+}
+export type { SalaCustom }
+
+/** Quem foi tomar café: anda até o balcão, para um pouco e volta para a mesa. */
 interface Andante {
   id: string
-  quem: AgenteId | 'voce'
+  quem: AgenteId
   ida: Ponto[]
   volta: Ponto[]
   fase: 'ida' | 'parado' | 'volta'
   dist: number
   parouEm: number
-  pasta: boolean
-  carta?: boolean
-  alvo?: AgenteId | 'voce'
+}
+/** Um e-mail voando em arco da mesa de quem mandou até a de quem recebe. */
+interface Envelope {
+  id: string
+  de: AgenteId | 'voce'
+  para: AgenteId | 'voce'
+  ida: Ponto[]
+  dist: number
 }
 
 /** Posição do mundo → pixels da tela do contêiner. */
@@ -129,51 +164,49 @@ export function Escritorio3D({
     bonecos: Record<AgenteId | 'voce' | 'financeiro', Boneco>
     telas: Record<AgenteId, THREE.Mesh>
     filas: Record<AgenteId, THREE.Mesh[]>
-    pastasMesa: Record<string, THREE.Mesh>
+    /** envelope aberto em cima da mesa de quem acabou de receber um e-mail */
+    abertos: Record<string, THREE.Object3D>
+    /** bandeja da caixa de entrada de cada mesa, com um envelope por e-mail recebido (até quatro) */
+    bandejas: Record<AgenteId, THREE.Mesh[]>
     anel: THREE.Mesh
-    cartas: Map<string, THREE.Mesh>
+    cartas: Map<string, THREE.Object3D>
     alvoCamera: THREE.Vector3 | null
     tamanho: { w: number; h: number }
   } | null>(null)
 
   const andantes = useRef<Andante[]>([])
+  const envelopes = useRef<Envelope[]>([])
   const pendentes = useRef<Entrega[]>([])
-  const pastasNaMesa = useRef<Map<string, number>>(new Map())
-  const recebeuEm = useRef<Map<string, number>>(new Map())
-  const [pastaChegouEmVoce, setPastaChegouEmVoce] = useState(true)
-  const pastaEmVoceRef = useRef(true)
+  /** e-mail que acabou de chegar: o envelope fica um tempo aberto em cima da mesa */
+  const chegouEm = useRef<Map<string, number>>(new Map())
+  const [emailChegouEmVoce, setEmailChegouEmVoce] = useState(true)
+  const emailEmVoceRef = useRef(true)
   const [sobre, setSobre] = useState<string | null>(null)
+  const eventos = useEscritorio((s) => s.eventos)
+  const recebidos = useMemo(() => contarRecebidos(eventos), [eventos])
+  const recebidosRef = useRef(recebidos)
+  recebidosRef.current = recebidos
+  /** o que já está na caixa de entrada de cada um: os recebidos menos os e-mails que ainda vão sair ou estão voando */
+  const caixasDeEntrada = (chegando: Set<string>) => {
+    const conta: Record<string, number> = { ...recebidosRef.current }
+    for (const e of pendentes.current) conta[e.para] = (conta[e.para] ?? 0) - 1
+    for (const id of chegando) if (envelopes.current.some((e) => e.para === id)) conta[id] = (conta[id] ?? 0) - envelopes.current.filter((e) => e.para === id).length
+    return conta
+  }
+  const abrirEmails = useEscritorio((s) => s.abrirEmails)
 
-  // ── caminhos (coordenadas da planta, como no 2D) ──
-  const pes = (quem: AgenteId | 'voce'): Ponto => {
-    if (quem === 'voce') return [xVoce + MESA_VOCE.x + MESA_VOCE.w / 2, MESA_VOCE.y - 2]
-    const a = assento(MESAS[quem])
-    return [a.x, a.y]
-  }
-  const daSuaMesaAtePorta = (): Ponto[] => {
-    const [x, y] = pes('voce')
-    return [[x, y], [xVoce + 50, y], [xVoce + 50, 124], [xVoce + PORTA_VOCE_X, 124], [xVoce + PORTA_VOCE_X, CORREDOR_PES]]
-  }
-  const caminho = (de: AgenteId | 'voce', para: AgenteId | 'voce'): Ponto[] => {
-    if (de !== 'voce' && para !== 'voce') return dentroDaSala(MESAS[de], MESAS[para])
-    const saida: Ponto[] = de === 'voce' ? daSuaMesaAtePorta() : [...ateOHall(MESAS[de]), [PORTA_X, LINHA_HALL], [PORTA_X, CORREDOR_PES]]
-    const chegada: Ponto[] =
-      para === 'voce'
-        ? [...daSuaMesaAtePorta()].reverse().slice(0, -1).concat([[pes('voce')[0], MESA_VOCE.y + 24]])
-        : [[PORTA_X, CORREDOR_PES], [PORTA_X, LINHA_HALL], ...doHallAte(MESAS[para])]
-    return [...saida, ...chegada]
-  }
-  const aCaminhoDe = () => new Set(andantes.current.filter((a) => (a.pasta || a.carta) && a.fase === 'ida' && a.alvo).map((a) => a.alvo!))
-  const andando = (quem: AgenteId | 'voce') => andantes.current.some((a) => a.quem === quem && !a.carta)
+  /** onde o envelope sai e chega: em cima da mesa de cada um (coordenadas do andar) */
+  const mesaDe = (quem: AgenteId | 'voce'): Ponto => (quem === 'voce' ? [xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 6] : [MESAS[quem].x + 6, MESAS[quem].y + 10])
+  const aCaminhoDe = () => new Set(envelopes.current.map((e) => e.para))
+  const andando = (quem: AgenteId | 'voce') => andantes.current.some((a) => a.quem === quem)
 
   useEffect(
     () =>
       useEscritorio.subscribe((s, antes) => {
         if (s.eventos.length === 0 && antes.eventos.length > 0) {
           pendentes.current = []
-          andantes.current = andantes.current.filter((a) => !a.pasta)
-          pastasNaMesa.current.clear()
-          recebeuEm.current.clear()
+          envelopes.current = []
+          chegouEm.current.clear()
           return
         }
         const novas = s.entregas.filter((e) => !antes.entregas.some((x) => x.id === e.id))
@@ -230,7 +263,8 @@ export function Escritorio3D({
     const bonecos = {} as Record<AgenteId | 'voce' | 'financeiro', Boneco>
     const telas = {} as Record<AgenteId, THREE.Mesh>
     const filas = {} as Record<AgenteId, THREE.Mesh[]>
-    const pastasMesa: Record<string, THREE.Mesh> = {}
+    const abertos: Record<string, THREE.Object3D> = {}
+    const bandejas = {} as Record<AgenteId, THREE.Mesh[]>
     for (const a of AGENTES) {
       const m = MESAS[a.id]
       const acao: Acao = { tipo: 'agente', id: a.id }
@@ -245,18 +279,24 @@ export function Escritorio3D({
         p.visible = false
         return p
       })
-      const pasta = caixa(vivos, 0.3, 0.04, 0.22, '#f2b233', wx(m.x + 5), 0.78, wz(m.y + 12), 0.005)
-      pasta.visible = false
-      pastasMesa[a.id] = pasta
+      // caixa de entrada: bandeja no canto da mesa, com os envelopes que chegaram
+      const caixaEntrada: Acao = { tipo: 'caixa', id: a.id }
+      const bx = wx(m.x + 4)
+      const bz = wz(m.y + 4)
+      caixa(vivos, 0.3, 0.05, 0.22, '#2a2f3a', bx, 0.79, bz, 0.01, caixaEntrada)
+      bandejas[a.id] = [0, 1, 2, 3].map((k) => {
+        const env = caixa(vivos, 0.26, 0.012, 0.18, k % 2 ? '#fbf7ee' : '#ffffff', bx, 0.825 + k * 0.014, bz, 0.002, caixaEntrada)
+        env.visible = false
+        return env
+      })
+      abertos[a.id] = envelopeAberto(vivos, wx(m.x + 15), wz(m.y + 13))
     }
     {
       const b = boneco(vivos, VISUAL.voce, { tipo: 'voce' })
       b.grupo.position.set(wx(xVoce + MESA_VOCE.x + MESA_VOCE.w / 2), 0, wz(MESA_VOCE.y - 10))
       b.grupo.rotation.y = Math.PI
       bonecos.voce = b
-      const pasta = caixa(vivos, 0.3, 0.04, 0.22, '#f2b233', wx(xVoce + MESA_VOCE.x + 26), 0.78, wz(MESA_VOCE.y + 8), 0.005)
-      pasta.visible = false
-      pastasMesa.voce = pasta
+      abertos.voce = envelopeAberto(vivos, wx(xVoce + MESA_VOCE.x + 26), wz(MESA_VOCE.y + 8))
       const f = boneco(vivos, VISUAL_FIN, { tipo: 'financeiro' })
       f.grupo.position.set(wx(xFin + MESA_FIN.x + MESA_FIN.w / 2), 0, wz(MESA_FIN.y - 10))
       f.grupo.rotation.y = Math.PI
@@ -268,7 +308,7 @@ export function Escritorio3D({
     anel.visible = false
     vivos.add(anel)
 
-    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, pastasMesa, anel, cartas: new Map(), alvoCamera: null, tamanho: { w: 1, h: 1 } }
+    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, abertos, bandejas, anel, cartas: new Map(), alvoCamera: null, tamanho: { w: 1, h: 1 } }
 
     const ajustar = () => {
       const w = el.clientWidth || 1
@@ -277,7 +317,8 @@ export function Escritorio3D({
       t.tamanho = { w, h }
       renderer.setSize(w, h, false)
       // no celular a sala da equipe cabe na largura
-      const porMetro = Math.min(52, w / (SALA_W * K + 2))
+      // no celular cabem umas duas salas da equipe; no computador, a equipe inteira
+      const porMetro = Math.min(52, w / ((w < 760 ? VISTA_MIN : SALA_W) * K + 2))
       camera.left = -w / 2 / porMetro
       camera.right = w / 2 / porMetro
       camera.top = h / 2 / porMetro
@@ -343,69 +384,70 @@ export function Escritorio3D({
       vidro.castShadow = false
       caixa(c, 0.03, 1.0, 0.07, '#e3e6ec', cx, y, zFundo + 0.04)
     }
-    const divisoriaBaixa = (xa: number, za: number, xb: number, zb: number) => {
-      const comp = Math.hypot(xb - xa, zb - za)
-      const vert = Math.abs(xb - xa) < 0.01
-      const h = 0.9
-      caixa(c, vert ? 0.08 : comp, h, vert ? comp : 0.08, '#ffffff', (xa + xb) / 2, h / 2, (za + zb) / 2, 0.03)
-      caixa(c, (vert ? 0.08 : comp) + 0.03, 0.04, (vert ? comp : 0.08) + 0.03, PALETA.madeiraClara, (xa + xb) / 2, h + 0.02, (za + zb) / 2, 0.015)
-    }
     paredeLateral(wx(inicio) + 0.07)
     // a ponta direita do andar fica do lado da câmera: parede baixa, para não tapar o Financeiro
     caixa(c, 0.14, 0.9, zFrente - zFundo + 0.14, '#f1f2f5', wx(fim) - 0.07, 0.45, (zFundo + zFrente) / 2 - 0.07, 0.02)
 
-    // ── sala da equipe ──
+    // ── salas da equipe: uma por especialidade ──
     {
-      const zHall = wz(PAREDE_DEPTO_Y)
-      chao(c, wx(0), zFundo, wx(SALA_W), zFrente - zFundo, '#f4f1ea', 1)
-      DEPTOS.forEach((d, i) => chao(c, wx(d.x), zFundo, wx(d.w), zHall - zFundo, i === 2 ? '#4a4f5c' : PISOS_DEPTO[i], 2))
-      parede(wx(0), wx(SALA_W), '#ffffff')
-      rodape(0, SALA_W, COR_EQUIPE)
-      for (const d of [DEPTOS[0], DEPTOS[1], DEPTOS[3]]) {
-        if (d !== DEPTOS[0]) janela(wx(d.x + COLUNA[0] + 15))
-        janela(wx(d.x + COLUNA[1] + 15))
+      const [pauta, design, estudio, revisao, publicacao] = DEPTOS
+      DEPTOS.forEach((d, i) => {
+        chao(c, wx(d.x), zFundo, wx(d.w), zFrente - zFundo, PISOS_SALA[i], 1)
+        parede(wx(d.x), wx(d.w), d === estudio ? '#3a3e49' : '#ffffff')
+        rodape(d.x, d.w, COR_EQUIPE)
+        frente(d.x, d.w, d.porta, '#ffffff')
+        if (i < DEPTOS.length - 1) paredeEntre(d.x + d.w)
+        // tapete na frente das mesas, com o nome da sala por cima (etiqueta HTML)
+        chao(c, wx(d.porta - 40), wz(PLACA_SALA_Y - 12), wx(80), wz(24), d === estudio ? '#2a2e38' : misturar(PISOS_SALA[i], COR_EQUIPE, 0.75), 3)
+      })
+      // janelas em cima das mesas (o Estúdio tem espuma acústica no lugar)
+      for (const d of [design, revisao, publicacao]) {
+        janela(wx(d.x + 27))
+        janela(wx(d.x + 93))
       }
-      // espuma acústica do estúdio
-      caixa(c, wx(DEPTOS[2].w - 12), 0.9, 0.05, mat('#3a3e49', { roughness: 1 }), wx(DEPTOS[2].x + DEPTOS[2].w / 2), 1.6, zFundo + 0.02)
-      for (const d of DEPTOS.slice(1)) divisoriaBaixa(wx(d.x - 2), zFundo, wx(d.x - 2), zHall)
-      let ult = 0
-      for (const d of DEPTOS) {
-        divisoriaBaixa(wx(ult), zHall, wx(d.porta - 15), zHall)
-        ult = d.porta + 15
-      }
-      divisoriaBaixa(wx(ult), zHall, wx(SALA_W), zHall)
-      frente(0, SALA_W, PORTA_X, '#ffffff')
-      // estante do Planejamento
+      janela(wx(pauta.x + 93))
+
+      // Pauta e texto: estante entre as mesas e o quadro da pauta na frente
       {
-        const cx = wx(18)
+        const cx = wx(pauta.x + 27)
         caixa(c, 0.9, 1.6, 0.32, PALETA.madeiraClara, cx, 0.8, zFundo + 0.18, 0.02)
         const cores = ['#b74e45', '#2a5288', '#f2b233', '#3f7650', '#6d4f8f', '#c46a2b']
         for (let f = 0; f < 3; f++) for (let k = 0; k < 7; k++) caixa(c, 0.08, 0.3 + ((k * 7 + f) % 3) * 0.03, 0.22, cores[(k + f) % 6], cx - 0.32 + k * 0.105, 0.35 + f * 0.48, zFundo + 0.2)
+        const qx = wx(QUADRO_PAUTA.x + 13)
+        const qz = wz(QUADRO_PAUTA.y + 16)
+        caixa(c, 0.9, 0.62, 0.04, '#ffffff', qx, 1.15, qz, 0.01)
+        for (const sx of [-1, 1]) caixa(c, 0.03, 1.5, 0.03, '#8a8f99', qx + sx * 0.4, 0.75, qz + 0.02)
+        const notas = ['#ffd36b', '#ff9b85', '#9fd1ff', '#b6e3a8', '#ffd36b', '#d9b8ff']
+        notas.forEach((cor, k) => caixa(c, 0.14, 0.12, 0.01, cor, qx - 0.3 + (k % 3) * 0.3, 1.27 - Math.floor(k / 3) * 0.22, qz + 0.03))
+        planta(c, wx(pauta.x + pauta.w - 12), wz(226), 0.8)
       }
-      // quadro da pauta
+      // Design: mural de referências no canto livre e uma luminária de prancheta
       {
-        const cx = wx(QUADRO_PAUTA.x + 13)
-        const cz = wz(QUADRO_PAUTA.y + 16)
-        caixa(c, 0.9, 0.62, 0.04, '#ffffff', cx, 1.15, cz, 0.01)
-        for (const sx of [-1, 1]) caixa(c, 0.03, 1.5, 0.03, '#8a8f99', cx + sx * 0.4, 0.75, cz + 0.02)
-        const cores = ['#ffd36b', '#ff9b85', '#9fd1ff', '#b6e3a8', '#ffd36b', '#d9b8ff']
-        cores.forEach((cor, k) => caixa(c, 0.14, 0.12, 0.01, cor, cx - 0.3 + (k % 3) * 0.3, 1.27 - Math.floor(k / 3) * 0.22, cz + 0.03))
+        const cx = wx(MURAL_DESIGN.x + MURAL_DESIGN.w / 2)
+        const cz = wz(MURAL_DESIGN.y + 14)
+        caixa(c, 1.0, 0.8, 0.05, '#fbfaf6', cx, 1.15, cz, 0.01)
+        for (const sx of [-1, 1]) caixa(c, 0.03, 1.55, 0.03, PALETA.madeiraClara, cx + sx * 0.44, 0.78, cz + 0.03)
+        const amostras = ['#b74e45', '#f2b233', '#2a5288', '#3f7650', '#e9a4a4', '#9fb7d9', '#c46a2b', '#7a8f2e']
+        amostras.forEach((cor, k) => caixa(c, 0.18, 0.16, 0.01, cor, cx - 0.33 + (k % 4) * 0.22, 1.3 - Math.floor(k / 4) * 0.26, cz + 0.03))
+        planta(c, wx(design.x + 12), wz(226), 0.8)
+        planta(c, wx(design.x + design.w - 12), wz(226), 0.8)
       }
-      // estúdio: fundo verde encostado na parede do fundo, refletor, tripé virado para ele e microfone
+      // Estúdio: espuma na parede, fundo verde encostado nela, refletor, tripé virado para o fundo e microfone
       {
+        caixa(c, wx(estudio.w - 12), 0.9, 0.05, mat('#4a4f5c', { roughness: 1 }), wx(estudio.x + estudio.w / 2), 1.75, zFundo + 0.02)
         const cx = wx(ESTUDIO_SET.x + 30)
         const zParede = zFundo + 0.06
         const verde = mat('#3fa66b', { roughness: 0.95 })
-        caixa(c, 2.2, 2.0, 0.05, verde, cx, 1.0, zParede, 0.02)
+        caixa(c, 2.2, 2.0, 0.05, verde, cx, 1.0, zParede + 0.03, 0.02)
         // a tela faz a curva até o chão, como num estúdio de verdade
-        caixa(c, 2.2, 0.02, 1.1, verde, cx, 0.01, zParede + 0.55)
+        caixa(c, 2.2, 0.02, 1.1, verde, cx, 0.01, zParede + 0.58)
         const cz = zParede + 0.6
         const lx = cx + 1.55
         caixa(c, 0.03, 1.6, 0.03, '#222222', lx, 0.8, cz)
         const luz = caixa(c, 0.4, 0.3, 0.12, mat('#fff7e0', { emissive: '#fff2cc', emissiveIntensity: 0.8 }), lx, 1.6, cz, 0.02)
         luz.rotation.y = 0.8
         const tx = cx + 0.4
-        const tz = wz(PAREDE_DEPTO_Y - 58)
+        const tz = wz(96)
         for (let k = 0; k < 3; k++) {
           const p = caixa(c, 0.025, 1.1, 0.025, '#222222', tx + Math.cos(k * 2.1) * 0.12, 0.53, tz + Math.sin(k * 2.1) * 0.12)
           p.rotation.z = Math.cos(k * 2.1) * 0.2
@@ -416,32 +458,32 @@ export function Escritorio3D({
         caixa(c, 0.02, 0.3, 0.02, '#222222', wx(nm.x + 4), 0.9, wz(nm.y + 4))
         caixa(c, 0.07, 0.12, 0.07, '#444444', wx(nm.x + 4), 1.08, wz(nm.y + 4), 0.03)
       }
-      // mesinha da publicação
+      // Revisão: estante baixa com os checklists e as regras, e um sofá para ler com calma
       {
-        const cx = wx(MESINHA_PUBLICACAO.x + 15)
-        const cz = wz(MESINHA_PUBLICACAO.y + 8)
-        caixa(c, 0.8, 0.05, 0.5, '#ffffff', cx, 0.5, cz, 0.02)
-        caixa(c, 0.06, 0.5, 0.06, PALETA.perna, cx, 0.25, cz)
-        caixa(c, 0.32, 0.02, 0.22, '#c7ccd6', cx - 0.1, 0.54, cz)
-        caixa(c, 0.12, 0.02, 0.22, '#1d1f25', cx + 0.22, 0.54, cz, 0.01)
+        const cx = wx(revisao.x + 30)
+        caixa(c, 1.2, 0.9, 0.35, PALETA.madeiraClara, cx, 0.45, wz(182), 0.02)
+        const pastas = ['#52738a', '#74766d', '#3f7650', '#b74e45', '#f2b233', '#2a5288', '#52738a', '#74766d']
+        pastas.forEach((cor, k) => caixa(c, 0.1, 0.3, 0.24, cor, cx - 0.45 + k * 0.13, 1.05, wz(182), 0.01))
+        sofa(c, wx(revisao.x + 84), wz(206), 1.3, '#52738a')
+        planta(c, wx(revisao.x + 12), wz(226), 0.8)
       }
-      // hall: tapete da equipe, sofá, mesa de centro, café e plantas
-      chao(c, wx(PORTA_X - 53), wz(185), wx(106), wz(28), COR_EQUIPE, 3)
-      sofa(c, wx(48), wz(204), 2.1, '#3d5a80')
-      caixa(c, 1.2, 0.05, 0.55, '#ffffff', wx(48), 0.38, wz(204) - 1.0, 0.02)
-      for (const k of [-1, 1]) caixa(c, 0.04, 0.36, 0.4, PALETA.perna, wx(48) + k * 0.5, 0.18, wz(204) - 1.0)
+      // Publicação: mesinha com celular e notebook, café da equipe e sofá
       {
+        const mx = wx(MESINHA_PUBLICACAO.x + 15)
+        const mz = wz(MESINHA_PUBLICACAO.y + 8)
+        caixa(c, 0.8, 0.05, 0.5, '#ffffff', mx, 0.5, mz, 0.02)
+        caixa(c, 0.06, 0.5, 0.06, PALETA.perna, mx, 0.25, mz)
+        caixa(c, 0.32, 0.02, 0.22, '#c7ccd6', mx - 0.1, 0.54, mz)
+        caixa(c, 0.12, 0.02, 0.22, '#1d1f25', mx + 0.22, 0.54, mz, 0.01)
         const cx = wx(CAFE.x + 20)
         const cz = wz(CAFE.y + 6)
         caixa(c, 1.6, 0.95, 0.5, '#6b4a32', cx, 0.475, cz, 0.03)
         caixa(c, 1.66, 0.05, 0.56, '#e9e2d6', cx, 0.97, cz, 0.02)
         caixa(c, 0.3, 0.38, 0.28, '#1f2125', cx - 0.4, 1.18, cz, 0.03)
         for (let k = 0; k < 3; k++) cilindro(c, 0.04, 0.035, 0.09, '#ffffff', cx + 0.1 + k * 0.14, 1.04, cz + 0.05, 14)
+        sofa(c, wx(publicacao.x + 30), wz(206), 1.5, '#3d5a80')
+        planta(c, wx(publicacao.x + publicacao.w - 10), wz(46), 0.7)
       }
-      planta(c, wx(10), wz(228), 0.9)
-      planta(c, wx(SALA_W - 12), wz(228), 0.9)
-      planta(c, wx(SALA_W - 12), wz(170), 0.8)
-      planta(c, wx(DEPTOS[3].x + DEPTOS[3].w - 10), wz(46), 0.7)
     }
 
     // ── salas das marcas ──
@@ -450,7 +492,8 @@ export function Escritorio3D({
       const e = estiloDe(m, i)
       const q = quadros?.[m.id]
       const cor = corDe(m)
-      chao(c, wx(x0), zFundo, wx(MARCA_W), zFrente - zFundo, e.piso, 1)
+      // piso da sala: o do hall do estilo, que é o que o dono troca em "Editar sala"
+      chao(c, wx(x0), zFundo, wx(MARCA_W), zFrente - zFundo, pisos(e).hall.estilo.piso, 1)
       parede(wx(x0), wx(MARCA_W), e.parede)
       rodape(x0, MARCA_W, e.rodape)
       paredeEntre(x0 + MARCA_W)
@@ -693,7 +736,7 @@ export function Escritorio3D({
       const seg = agora / 1000
       const v = vivo.current
       const marcas = marcasRef.current
-      const { camera, controls, renderer, scene, sol, bonecos, telas, filas, pastasMesa, anel, cartas, tamanho } = t
+      const { camera, controls, renderer, scene, sol, bonecos, telas, filas, abertos, bandejas, anel, cartas, tamanho } = t
 
       const marcaAberta = marcas[v.indiceAtivo]?.id
       const chegandoAgora = aCaminhoDe()
@@ -709,85 +752,83 @@ export function Escritorio3D({
       }
       const outrosTrabalhos = (id: AgenteId) => marcas.filter((m) => m.id !== marcaAberta && ['trabalhando', 'na_fila', 'esperando_voce'].includes(v.porSala?.[m.id]?.[id] ?? ''))
 
-      // passeio até o café de vez em quando
-      if (agora > proximoPasseio && !andantes.current.some((a) => !a.pasta)) {
+      // passeio até o café de vez em quando (o único motivo para alguém levantar da mesa)
+      if (agora > proximoPasseio && andantes.current.length === 0) {
         proximoPasseio = agora + 40000 + Math.random() * 40000
-        const livres = AGENTES.filter((a) => !andando(a.id) && !['trabalhando', 'na_fila', 'esperando_voce'].includes(estadoNaTela(a.id)))
+        const livres = AGENTES.filter((a) => !['trabalhando', 'na_fila', 'esperando_voce'].includes(estadoNaTela(a.id)))
         const a = livres[Math.floor(Math.random() * livres.length)]
         if (a) {
-          const ida: Ponto[] = [...ateOHall(MESAS[a.id]), [CAFE.x + 16, LINHA_HALL]]
-          andantes.current.push({ id: `cafe-${agora}`, quem: a.id, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: false })
+          const ida = caminhoAteOCafe(MESAS[a.id])
+          andantes.current.push({ id: `cafe-${agora}`, quem: a.id, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0 })
         }
       }
 
-      // solta as entregas da fila, na ordem
+      // solta os e-mails da fila, na ordem: ninguém manda o próximo antes de receber o anterior
       const chegando = aCaminhoDe()
       pendentes.current = pendentes.current.filter((e) => {
         if (chegando.has(e.de)) return true
         if (pendentes.current.some((x) => x !== e && x.para === e.de && pendentes.current.indexOf(x) < pendentes.current.indexOf(e))) return true
-        const recebeu = recebeuEm.current.get(e.de)
+        const recebeu = chegouEm.current.get(e.de)
         if (recebeu !== undefined && agora - recebeu < TEMPO_MINIMO_NA_MESA) return true
-        const emPe = andantes.current.find((a) => a.quem === e.de && !a.carta)
-        if (emPe) {
-          if (!emPe.pasta && emPe.fase !== 'volta') {
-            emPe.dist = emPe.fase === 'ida' ? comprimento(emPe.ida) - emPe.dist : 0
-            emPe.fase = 'volta'
+        // quem estava no café volta para a mesa antes de mandar
+        const noCafe = andantes.current.find((a) => a.quem === e.de)
+        if (noCafe) {
+          if (noCafe.fase !== 'volta') {
+            noCafe.dist = noCafe.fase === 'ida' ? comprimento(noCafe.ida) - noCafe.dist : 0
+            noCafe.fase = 'volta'
           }
           return true
         }
-        if (e.de === 'voce' && e.para !== 'voce') {
-          const m = MESAS[e.para]
-          const ida: Ponto[] = [[xVoce + MESA_VOCE.x + 25, MESA_VOCE.y + 4], [m.x + 15, m.y + 2]]
-          andantes.current.push({ id: e.id, quem: 'voce', ida, volta: ida, fase: 'ida', dist: 0, parouEm: 0, pasta: false, carta: true, alvo: e.para })
-          chegando.add(e.para)
-          return false
-        }
-        const ida = caminho(e.de, e.para)
-        andantes.current.push({ id: e.id, quem: e.de, ida, volta: [...ida].reverse(), fase: 'ida', dist: 0, parouEm: 0, pasta: true, alvo: e.para })
+        envelopes.current.push({ id: e.id, de: e.de, para: e.para, ida: [mesaDe(e.de), mesaDe(e.para)], dist: 0 })
         chegando.add(e.para)
         return false
       })
-      const pastaEmVoce = !chegando.has('voce') && !pendentes.current.some((e) => e.para === 'voce')
-      if (pastaEmVoce !== pastaEmVoceRef.current) {
-        pastaEmVoceRef.current = pastaEmVoce
-        setPastaChegouEmVoce(pastaEmVoce)
+      const emailEmVoce = !chegando.has('voce') && !pendentes.current.some((e) => e.para === 'voce')
+      if (emailEmVoce !== emailEmVoceRef.current) {
+        emailEmVoceRef.current = emailEmVoce
+        setEmailChegouEmVoce(emailEmVoce)
       }
-      const voceAguardando = v.aguardando && pastaEmVoce
+      const voceAguardando = v.aguardando && emailEmVoce
 
-      // anda com quem está andando
+      // os e-mails voando
+      for (const e of envelopes.current) {
+        const total = comprimento(e.ida)
+        e.dist += Math.max(170, total / 2.2) * dt
+        if (e.dist >= total) {
+          chegouEm.current.set(e.para, agora)
+          if (e.para === 'voce') tocarAviso()
+          e.dist = -1
+        }
+      }
+      envelopes.current = envelopes.current.filter((e) => e.dist >= 0)
+
+      // quem foi ao café
       for (const a of andantes.current) {
         if (a.fase === 'parado') {
-          if (agora - a.parouEm > (a.pasta ? 700 : 2200)) {
+          if (agora - a.parouEm > 2200) {
             a.fase = 'volta'
             a.dist = 0
-            a.pasta = false
           }
           continue
         }
         const rota = a.fase === 'ida' ? a.ida : a.volta
-        a.dist += (a.carta ? Math.max(120, comprimento(rota) / 1.8) : Math.max(VELOCIDADE, comprimento(rota) / 6)) * dt
+        a.dist += VELOCIDADE * dt
         if (a.dist >= comprimento(rota)) {
-          if (a.carta) {
-            pastasNaMesa.current.set(a.alvo!, agora)
-            recebeuEm.current.set(a.alvo!, agora)
-            a.dist = -1
-          } else if (a.fase === 'ida') {
+          if (a.fase === 'ida') {
             a.fase = 'parado'
             a.parouEm = agora
-            if (a.alvo) {
-              pastasNaMesa.current.set(a.alvo, agora)
-              recebeuEm.current.set(a.alvo, agora)
-              if (a.alvo === 'voce') tocarAviso()
-            }
           } else a.dist = -1
         }
       }
       andantes.current = andantes.current.filter((a) => a.dist >= 0)
 
-      // pastas em cima das mesas (acabou de chegar) e a fila de outras marcas
-      for (const [chave, quando] of pastasNaMesa.current) if (agora - quando > 6000) pastasNaMesa.current.delete(chave)
-      for (const [chave, p] of Object.entries(pastasMesa)) p.visible = pastasNaMesa.current.has(chave)
+      // envelope aberto na mesa de quem acabou de receber, caixa de entrada e a fila de outras marcas
+      for (const [chave, quando] of chegouEm.current) if (agora - quando > 6000) chegouEm.current.delete(chave)
+      for (const [chave, o] of Object.entries(abertos)) o.visible = chegouEm.current.has(chave)
+      const naCaixa = caixasDeEntrada(chegando)
       for (const a of AGENTES) {
+        const n = Math.min(naCaixa[a.id] ?? 0, 4)
+        bandejas[a.id].forEach((env, k) => (env.visible = k < n))
         const outros = outrosTrabalhos(a.id).slice(0, 4)
         filas[a.id].forEach((p, k) => {
           const m = outros[k]
@@ -849,25 +890,8 @@ export function Escritorio3D({
         posicoes.financeiro = new THREE.Vector3(wx(xFin + MESA_FIN.x + MESA_FIN.w / 2), 1.75, wz(MESA_FIN.y - 10))
       }
 
-      // quem está andando e as cartas voando
-      const vistas = new Set<string>()
+      // quem está a caminho do café
       for (const a of andantes.current) {
-        if (a.carta) {
-          vistas.add(a.id)
-          let c = cartas.get(a.id)
-          if (!c) {
-            c = caixa(t.vivos, 0.3, 0.02, 0.2, '#ffffff', 0, 0, 0, 0.005)
-            caixa(c, 0.3, 0.025, 0.04, '#b74e45', 0, 0, 0)
-            cartas.set(a.id, c)
-          }
-          const total = comprimento(a.ida)
-          const k = total ? Math.max(0, a.dist) / total : 1
-          const p = noCaminho(a.ida, k * total)
-          const altura = Math.min(2.5, 0.9 + total / 320)
-          c.position.set(wx(p.x), 0.9 + Math.sin(k * Math.PI) * altura, wz(p.y))
-          c.rotation.z = Math.sin(seg * 14) * 0.15
-          continue
-        }
         const rota = a.fase === 'volta' ? a.volta : a.ida
         const p = noCaminho(rota, Math.max(0, a.fase === 'parado' ? comprimento(a.ida) : a.dist))
         const b = bonecos[a.quem]
@@ -876,9 +900,31 @@ export function Escritorio3D({
         b.grupo.position.set(wx(p.x), bob, wz(p.y))
         const dir = parado ? 'cima' : p.dir
         b.grupo.rotation.y = dir === 'cima' ? 0 : dir === 'baixo' ? Math.PI : dir === 'esquerda' ? Math.PI / 2 : -Math.PI / 2
-        b.pasta.visible = a.pasta
+        b.pasta.visible = false
         posicoes[a.quem] = new THREE.Vector3(wx(p.x), 1.95, wz(p.y))
         emPe.add(a.quem)
+      }
+
+      // os envelopes: sobem por cima das paredes e descem na mesa de quem recebe
+      const vistas = new Set<string>()
+      for (const e of envelopes.current) {
+        vistas.add(e.id)
+        let c = cartas.get(e.id)
+        if (!c) {
+          c = envelope(t.vivos, e.de === 'voce' ? '#f2b233' : (agentePorId(e.de)?.cor ?? COR_EQUIPE))
+          c.scale.setScalar(1.8) // maior que o de cima da mesa, para dar para seguir o voo de longe
+          cartas.set(e.id, c)
+        }
+        const total = comprimento(e.ida)
+        const k = total ? Math.max(0, e.dist) / total : 1
+        const [a, b] = e.ida
+        const x = a[0] + (b[0] - a[0]) * k
+        const y = a[1] + (b[1] - a[1]) * k
+        const altura = 2.1 + Math.min(1.4, total / 500)
+        c.position.set(wx(x), 0.85 + Math.sin(k * Math.PI) * altura, wz(y))
+        c.rotation.y = Math.atan2(-(b[0] - a[0]), -(b[1] - a[1]))
+        c.rotation.z = Math.sin(seg * 12) * 0.18
+        c.rotation.x = Math.cos(k * Math.PI) * -0.5
       }
       for (const [id, c] of cartas) {
         if (vistas.has(id)) continue
@@ -912,17 +958,26 @@ export function Escritorio3D({
 
       // etiquetas em HTML por cima dos bonecos, das placas e dos objetos
       const { w, h } = tamanho
-      const esperandoPasta = (id: AgenteId) => chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id)
+      const esperandoEmail = (id: AgenteId) => chegando.has(id) || pendentes.current.some((e) => e.de === id || e.para === id)
       for (const [chave, el] of etiquetas.current) {
         let pos: THREE.Vector3 | null = null
         let ancora: 'baixo' | 'centro' | 'cima' = 'baixo'
         if (chave.startsWith('placa:')) {
-          const equipe = chave === 'placa:equipe'
-          pos = equipe ? tmp.set(wx(SALA_W / 2), 0.05, wz(199)) : tmp.set(wx(xMarca(Number(chave.slice(6))) + PLACA.x), 0.05, wz(PLACA.y))
+          pos = tmp.set(wx(xMarca(Number(chave.slice(6))) + PLACA.x), 0.05, wz(PLACA.y))
           ancora = 'centro'
         } else if (chave.startsWith('depto:')) {
           const d = DEPTOS[Number(chave.slice(6))]
-          pos = tmp.set(wx(d.x + d.w / 2), ALTURA_PAREDE + 0.2, wz(PAREDE_H))
+          pos = tmp.set(wx(d.porta), 0.05, wz(PLACA_SALA_Y))
+          ancora = 'centro'
+        } else if (chave.startsWith('caixa:')) {
+          const id = chave.slice(6) as AgenteId
+          const n = naCaixa[id] ?? 0
+          const m = MESAS[id]
+          if (n > 0) {
+            pos = tmp.set(wx(m.x + 4), 1.0, wz(m.y + 4))
+            const texto = `✉ ${n}`
+            if (el.textContent !== texto) el.textContent = texto
+          }
         } else if (/^(cofre|decorar|gaveta|novo|instagram):/.test(chave)) {
           const [tipo, n] = chave.split(':')
           const s = Number(n)
@@ -931,7 +986,7 @@ export function Escritorio3D({
         } else {
           const nome = chave.startsWith('nome:')
           const id = nome ? chave.slice(5) : chave
-          const p = !nome && id !== 'voce' && id !== 'financeiro' && esperandoPasta(id as AgenteId) ? null : posicoes[id]
+          const p = !nome && id !== 'voce' && id !== 'financeiro' && esperandoEmail(id as AgenteId) ? null : posicoes[id]
           if (p) {
             pos = tmp.copy(p)
             if (nome) pos.y -= emPe.has(id) ? 1.95 : 1.75
@@ -980,6 +1035,7 @@ export function Escritorio3D({
     if (acao.tipo === 'voce') return focar('voce')
     if (acao.tipo === 'calendario') return focar('calendario')
     if (acao.tipo === 'financeiro') return focar('financeiro')
+    if (acao.tipo === 'caixa') return abrirEmails(acao.id as AgenteId)
     if (marcas[indiceAtivo]?.id !== acao.marca) aoEscolherMarca(acao.marca)
     if (acao.tipo === 'quadro') {
       selecionar(null)
@@ -1042,7 +1098,7 @@ export function Escritorio3D({
         return (
           <Fragment key={id}>
             <div className="tres-etiqueta" ref={ref(id)}>
-              {id === 'voce' && aguardando && pastaChegouEmVoce && <div className="balao balao-esperando_voce">{naSuaMesa > 1 ? `${naSuaMesa} posts esperando você!` : 'Post esperando você!'}</div>}
+              {id === 'voce' && aguardando && emailChegouEmVoce && <div className="balao balao-esperando_voce">{naSuaMesa > 1 ? `${naSuaMesa} posts esperando você!` : 'Post esperando você!'}</div>}
               {acao && <div key={acao} className="balao">{acao}</div>}
             </div>
             <div className="tres-etiqueta" ref={ref(`nome:${id}`)}>
@@ -1070,15 +1126,15 @@ export function Escritorio3D({
       </div>
       {DEPTOS.map((d, n) => (
         <div key={d.id} className="tres-etiqueta" ref={ref(`depto:${n}`)}>
-          <div className="tres-depto">
+          <div className="tres-placa" style={{ background: d.id === 'estudio' ? '#1f2330' : COR_EQUIPE }}>
             <span className="so-largo">{d.nome}</span>
             <span className="so-estreito">{d.curto}</span>
           </div>
         </div>
       ))}
-      <div className="tres-etiqueta" ref={ref('placa:equipe')}>
-        <div className="tres-placa" style={{ background: COR_EQUIPE }}>Equipe</div>
-      </div>
+      {AGENTES.map((a) => (
+        <div key={a.id} className="tres-etiqueta tres-caixa" ref={ref(`caixa:${a.id}`)} title="Caixa de entrada" />
+      ))}
       {marcas.map((m, s) => (
         <Fragment key={m.id}>
           <div className="tres-etiqueta" ref={ref(`placa:${s}`)}>

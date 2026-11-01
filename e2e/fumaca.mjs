@@ -1,5 +1,5 @@
 // Teste de fumaça da interface: sobe o app com o Vite, finge o login e o banco, e confere que o
-// escritório abre, que dá para ir até a sala de uma marca e pedir um post. Roda no CI depois do build.
+// escritório 3D abre, que dá para ir até a sala de uma marca e pedir um post. Roda no CI depois do build.
 // Uso: node e2e/fumaca.mjs   (CHROMIUM_PATH aponta outro Chromium, se precisar)
 import { chromium } from 'playwright-core'
 import { createServer } from 'vite'
@@ -29,10 +29,7 @@ await servidor.listen()
 const navegador = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
 try {
   const ctx = await navegador.newContext({ viewport: { width: 1280, height: 860 } })
-  await ctx.addInitScript((s) => {
-    localStorage.setItem('sb-teste-auth-token', JSON.stringify(s))
-    localStorage.setItem('escritorio-visao', '2d') // o teste clica nos lugares do pixel art; a maquete 3D é conferida no fim
-  }, sessao)
+  await ctx.addInitScript((s) => localStorage.setItem('sb-teste-auth-token', JSON.stringify(s)), sessao)
   await ctx.route(/teste\.supabase\.co/, (rota) => {
     const u = rota.request().url()
     if (u.includes('/auth/v1/user')) return rota.fulfill({ json: usuario })
@@ -52,11 +49,12 @@ try {
   const erros = []
   p.on('pageerror', (e) => erros.push(e.message))
   await p.goto(`http://localhost:${PORTA}/`)
-  await p.locator('canvas').first().waitFor({ timeout: 20_000 })
-  conferir(true, 'o escritório abre com o login')
+  await p.locator('canvas.tres-tela').first().waitFor({ timeout: 20_000 })
+  conferir(true, 'o escritório 3D abre com o login')
   await p.waitForTimeout(1500)
-  const placas = await p.locator('.pixel-placa').allInnerTexts()
+  const placas = await p.locator('.tres-placa').allInnerTexts()
   conferir(MARCAS.every((m) => placas.some((t) => t.includes(m.nome))), `as salas das marcas aparecem (${placas.join(', ')})`)
+  conferir(['Pauta', 'Design', 'Estúdio', 'Revisão', 'Publicação'].every((n) => placas.some((t) => t.includes(n))), 'as cinco salas da equipe aparecem')
   await p.getByRole('button', { name: 'Marca Dois' }).first().click()
   await p.waitForTimeout(800)
   await p.getByRole('button', { name: 'Novo post' }).first().click()
@@ -67,12 +65,6 @@ try {
   await p.waitForTimeout(800)
   conferir(pedido?.briefing === 'Carrossel de teste sobre gelo', 'pedir um post chama a API com o pedido')
   conferir(pedido?.marca_id === 'm2', 'o post vai para a marca escolhida')
-  await p.keyboard.press('Escape')
-  await p.getByRole('button', { name: '3D', exact: true }).click()
-  await p.locator('canvas.tres-tela').first().waitFor({ timeout: 20_000 })
-  await p.waitForTimeout(1500)
-  const placas3d = await p.locator('.tres-placa').allInnerTexts()
-  conferir(MARCAS.every((m) => placas3d.some((t) => t.includes(m.nome))), `a maquete 3D abre com as salas das marcas (${placas3d.join(', ')})`)
   conferir(erros.length === 0, `sem erro de JavaScript na página${erros.length ? `: ${erros.join(' | ')}` : ''}`)
 } catch (e) {
   conferir(false, `o teste quebrou: ${e instanceof Error ? e.message : e}`)
