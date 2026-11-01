@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { tocarAviso } from '../lib/som'
+import { useTema } from '../lib/tema'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { COR_ESTADO, selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { BarraSalas, type AlvoDaBarra } from '../andar/BarraSalas'
@@ -17,7 +18,7 @@ import {
 } from '../andar/planta'
 import { COR_EQUIPE, COR_FINANCEIRO, COR_VOCE, PADRAO, misturar } from '../andar/cores'
 import { contarRecebidos } from '../lib/emails'
-import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
+import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, corDoChao, usarChaoEscuro, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
 
 
 const VELOCIDADE = 58
@@ -204,6 +205,14 @@ export function Escritorio3D({
     [],
   )
 
+  // modo escuro: fundo e chão em tons do Azul Nishi (antes do renderizador, para já nascer escuro)
+  const { valendo: tema } = useTema()
+  useEffect(() => {
+    usarChaoEscuro(tema === 'escuro')
+    const fundo = tres.current?.scene.background
+    if (fundo instanceof THREE.Color) fundo.set(corDoChao('#eceef3'))
+  }, [tema])
+
   // ── renderizador, câmera e luzes: uma vez ──
   useEffect(() => {
     const el = caixaRef.current!
@@ -216,7 +225,7 @@ export function Escritorio3D({
     el.prepend(renderer.domElement)
 
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#eceef3')
+    scene.background = new THREE.Color(corDoChao('#eceef3'))
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400)
     const alvo = new THREE.Vector3(wx(SALA_W / 2), 0.3, wz(140))
     camera.position.copy(alvo).add(new THREE.Vector3(26, 25, 26))

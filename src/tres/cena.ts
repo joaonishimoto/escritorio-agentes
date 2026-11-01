@@ -19,16 +19,38 @@ export const PALETA = {
   branco: '#ffffff',
 }
 
+/**
+ * Modo escuro: o fundo e os chãos claros viram tons escuros do Azul Nishi (#1e3d66).
+ * Use estas cores claras para fundo e chão; outra cor de chão nova precisa entrar aqui.
+ */
+export const CHAO_ESCURO: Record<string, string> = {
+  '#eceef3': '#0b1524', // fundo em volta do andar
+  '#dfe2e8': '#162843', // chão do andar
+  '#cfd3dc': '#12223a', // corredor
+  '#ece3d3': '#1f3556', // piso das salas (PADRAO.piso)
+}
+let chaoEscuro = false
+/** A cor de fundo ou de chão no tema que está valendo. */
+export const corDoChao = (cor: string) => (chaoEscuro && CHAO_ESCURO[cor.toLowerCase()]) || cor
+
 const materiais = new Map<string, THREE.MeshStandardMaterial>()
 /** Um material por cor (e opções), para a maquete inteira compartilhar poucos materiais. */
 export function mat(cor: string, o: Partial<THREE.MeshStandardMaterialParameters> = {}) {
   const chave = cor + JSON.stringify(o)
   let m = materiais.get(chave)
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ color: cor, roughness: 0.78, metalness: 0, ...o })
+    m = new THREE.MeshStandardMaterial({ color: corDoChao(cor), roughness: 0.78, metalness: 0, ...o })
+    m.userData.cor = cor
     materiais.set(chave, m)
   }
   return m
+}
+
+/** Liga ou desliga o chão escuro e repinta os materiais já criados. */
+export function usarChaoEscuro(escuro: boolean) {
+  if (escuro === chaoEscuro) return
+  chaoEscuro = escuro
+  for (const m of materiais.values()) if (m.userData.cor && !m.map) m.color.set(corDoChao(m.userData.cor))
 }
 
 export type Acao =
