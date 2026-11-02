@@ -1410,5 +1410,9 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 .tres .pixel-salas button { font-family: 'Inter', var(--font-sans); font-weight: 600; border-radius: 999px; box-shadow: 0 2px 8px rgba(30,40,60,.18); padding: 7px 12px }
 .tres .pixel-salas i { border-radius: 50%; box-shadow: none }
 .tres-dica { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font: 500 11px/1 'Inter', var(--font-sans); color: #5b6270; background: rgba(255,255,255,.8); padding: 6px 10px; border-radius: 999px; pointer-events: none; white-space: nowrap }
+.tres-textos { position: absolute; right: 12px; bottom: 10px; z-index: 2000; display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1 'Inter', var(--font-sans); color: #1f2330; background: #fff; border: 0; border-radius: 999px; padding: 8px 12px; box-shadow: 0 2px 8px rgba(30,40,60,.18); cursor: pointer }
+.tres-textos:hover { background: #eef2f8 }
+.tres.sem-textos .tres-etiqueta > :not(.balao-esperando_voce):not(.balao-gato), .tres.sem-textos .tres-caixa, .tres.sem-textos .tres-dica { display: none }
+.tres .balao-gato { background: #fff8ec }
 .palco-menu { display: flex; align-items: center }
 @media (max-width: 760px) { .tres-dica { display: none } .tres .nome { font-size: 10px; padding: 3px 7px 3px 6px } .tres-placa { font-size: 11px; padding: 5px 10px } }

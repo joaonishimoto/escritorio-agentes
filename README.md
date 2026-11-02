@@ -2,7 +2,7 @@
 
 # Escritório de Agentes
 
-App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório, que você vê como uma maquete 3D clara. A equipe fica num andar com uma sala por time (Pauta e texto, Design, Estúdio, Revisão e Publicação), em volta de um hall com recepção e café, junto com a sua sala e o Financeiro; as salas das marcas ficam numa ala separada e conversa por e-mail: cada entrega é um envelope que voa de mesa em mesa e cai na caixa de entrada de quem recebe (clicar na bandeja abre os e-mails do agente). Você vê quem está trabalhando, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
+App web onde uma equipe de agentes de IA cria posts de Instagram para as suas marcas. Cada marca é uma sala num escritório, que você vê como uma maquete 3D clara. A equipe fica num andar com uma sala por time (Pauta e texto, Design, Estúdio, Revisão e Publicação), em volta de um hall com recepção e café, junto com a sua sala e o Financeiro; as salas das marcas ficam numa ala separada e conversa por e-mail: cada entrega é um envelope que voa de mesa em mesa e cai na caixa de entrada de quem recebe (clicar na bandeja abre os e-mails do agente). A Maki e o Gojo, os gatos do escritório, passeiam pelo hall e pelas salas, e o botão "Ocultar textos" esconde nomes, placas e balões. Você vê quem está trabalhando, o calendário na parede, o cofrinho com o gasto do mês e a gaveta de posts guardados. Nada vai para o Instagram sem a sua aprovação.
 
 ## Rodar
 

@@ -62,6 +62,7 @@ export type Acao =
   | { tipo: 'financeiro' }
   | { tipo: 'quadro'; marca: string; quadro: 'referencias' | 'calendario' | 'branding' | 'regras' }
   | { tipo: 'cofre' | 'gaveta' | 'novo' | 'instagram'; marca: string; sala: number }
+  | { tipo: 'gato'; nome: string }
 
 /** Caixa (arredondada se tiver raio) já na posição, com sombra. */
 export function caixa(pai: THREE.Object3D, w: number, h: number, d: number, m: THREE.Material | string, x: number, y: number, z: number, raio = 0, acao?: Acao) {
@@ -193,6 +194,37 @@ export interface Boneco {
   pasta: THREE.Mesh
   /** o chapéu de formatura (quem está em treinamento) */
   corpo: THREE.Mesh
+}
+
+export interface Gato3D {
+  grupo: THREE.Group
+  cabeca: THREE.Group
+  cauda: THREE.Mesh
+  pernas: THREE.Mesh[]
+}
+/** Gatinho branco com manchas e olhos azuis (a Maki e o Gojo). Olha para +x; pés no chão. */
+export function gato(pai: THREE.Object3D, mancha: string, acao: Acao): Gato3D {
+  const branco = '#f7f5f0'
+  const grupo = new THREE.Group()
+  caixa(grupo, 0.36, 0.16, 0.18, branco, 0, 0.17, 0, 0.06, acao)
+  caixa(grupo, 0.16, 0.02, 0.13, mancha, -0.05, 0.25, 0.01, 0.01, acao)
+  const pernas = [
+    [0.12, 0.05], [0.12, -0.05], [-0.12, 0.05], [-0.12, -0.05],
+  ].map(([x, z]) => caixa(grupo, 0.05, 0.1, 0.05, branco, x, 0.05, z, 0.015, acao))
+  const cabeca = new THREE.Group()
+  cabeca.position.set(0.2, 0.3, 0)
+  caixa(cabeca, 0.16, 0.14, 0.16, branco, 0, 0, 0, 0.05, acao)
+  for (const [z, cor] of [[0.045, mancha], [-0.045, branco]] as const) {
+    const orelha = caixa(cabeca, 0.04, 0.06, 0.04, cor, -0.01, 0.085, z, 0.01, acao)
+    orelha.rotation.x = z > 0 ? -0.25 : 0.25
+  }
+  for (const z of [0.035, -0.035]) caixa(cabeca, 0.012, 0.03, 0.026, '#4a9be8', 0.081, 0.015, z, 0.004, acao)
+  caixa(cabeca, 0.012, 0.015, 0.02, '#e89aa6', 0.083, -0.02, 0, 0.003, acao)
+  grupo.add(cabeca)
+  const cauda = caixa(grupo, 0.04, 0.22, 0.04, mancha, -0.21, 0.3, 0, 0.015, acao)
+  cauda.rotation.z = 0.45
+  pai.add(grupo)
+  return { grupo, cabeca, cauda, pernas }
 }
 
 /** Boneco de maquete: corpo em cápsula, cabeça redonda e cabelo. Olha para -z; o cabelo fica atrás (+z). */
