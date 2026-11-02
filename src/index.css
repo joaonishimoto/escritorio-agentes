@@ -758,7 +758,7 @@ i.falhou { background: var(--danger, #b42318) }
 /* painel do agente */
 .painel.pa { gap: 14px; padding: 0 0 16px }
 .pa-topo { position: sticky; top: 0; z-index: 1; display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border) }
-.pa-avatar { width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--cor-agente); color: #fff; font-weight: 700; font-size: 16px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18) }
+.pa-avatar { width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--cor-agente); color: var(--primary-foreground); font-weight: 700; font-size: 16px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18) }
 .pa-titulo { flex: 1; min-width: 0 }
 .pa-titulo h2 { font-size: 16px; line-height: 1.25 }
 .pa-titulo p { font-size: 13px; color: var(--muted-foreground); line-height: 1.4; margin-top: 2px }
@@ -899,7 +899,7 @@ i.falhou { background: var(--danger, #b42318) }
 .np-ideias-topo { display: flex; gap: 10px; align-items: flex-start }
 .np-ideias-topo strong { font-size: 14px }
 .np-ideias-topo p { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4 }
-.np-ideias-avatar { width: 30px; height: 30px; flex: none; border-radius: 8px; display: grid; place-items: center; background: #3f7650; color: #fff; font-weight: 700; font-size: 14px }
+.np-ideias-avatar { width: 30px; height: 30px; flex: none; border-radius: 8px; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); font-weight: 700; font-size: 14px }
 .np-ideias-busca { display: flex; gap: 6px }
 .np-ideias-busca input { flex: 1; min-width: 0 }
 .np-ideias-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
@@ -931,8 +931,8 @@ i.falhou { background: var(--danger, #b42318) }
 @media (max-width: 860px) {
   .np-corpo { grid-template-columns: 1fr }
   .np-lado { display: none }
-  .np-ideias-botao { display: flex; align-items: center; gap: 8px; align-self: flex-start; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #3f765055;
-    background: color-mix(in srgb, #3f7650 8%, var(--surface)); color: #2f5d3d; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer }
+  .np-ideias-botao { display: flex; align-items: center; gap: 8px; align-self: flex-start; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--primary) 33%, transparent);
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface)); color: var(--primary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer }
   .np-ideias-movel { display: block }
 }
 @media (max-width: 760px) {
@@ -949,12 +949,13 @@ i.falhou { background: var(--danger, #b42318) }
 }
 
 /* painel do agente (ficha) */
-.painel.ag { padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column }
+/* todos os painéis e janelas usam a cor da marca do app (o azul): nada de cor própria por painel */
+.painel.ag { --cor-agente: var(--primary); --cor-estado: var(--primary); padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column }
 .ag-capa { position: relative; flex: none; display: flex; align-items: flex-end; gap: 12px; padding: 22px 16px 14px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--cor-agente) 22%, var(--surface)), color-mix(in srgb, var(--cor-agente) 6%, var(--surface)) 70%) }
 .ag-fechar { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--muted-foreground); font-size: 20px; line-height: 1; cursor: pointer }
 .ag-fechar:hover { background: var(--surface); color: var(--foreground) }
-.ag-icone { position: relative; width: 52px; height: 52px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--cor-agente); color: #fff; box-shadow: 0 6px 16px -6px var(--cor-agente) }
+.ag-icone { position: relative; width: 52px; height: 52px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--cor-agente); color: var(--primary-foreground); box-shadow: 0 6px 16px -6px var(--cor-agente) }
 .ag-icone svg { width: 26px; height: 26px }
 .ag-icone::after { content: ''; position: absolute; right: -3px; bottom: -3px; width: 13px; height: 13px; border-radius: 50%; background: var(--cor-estado); box-shadow: 0 0 0 3px var(--surface) }
 .ag-icone.trabalhando::after { animation: ao-vivo 1.2s ease-in-out infinite }
@@ -995,7 +996,7 @@ i.falhou { background: var(--danger, #b42318) }
 .ag-pulso::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid #3969a8; opacity: 0; animation: pulso 1.6s ease-out infinite }
 @keyframes pulso { 0% { transform: scale(.4); opacity: .8 } 100% { transform: scale(1.4); opacity: 0 } }
 .ag-linha-fim { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground) }
-.ag-linha-fim span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #3f7650; color: #fff; font-size: 11px }
+.ag-linha-fim span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); font-size: 11px }
 .ag-entrega { display: flex; flex-direction: column; gap: 8px }
 .ag-entrega header { display: flex; align-items: center; justify-content: space-between }
 .ag-entrega h3 { font-size: 13px; font-weight: 600; color: var(--foreground) }

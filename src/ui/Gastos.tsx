@@ -38,7 +38,7 @@ export function PainelGastos({
   const maior = Math.max(...(custos?.porAgente.map((a) => a.custo) ?? []), 0.0001)
 
   return (
-    <aside className="painel ag gst" aria-label="Cofrinho da sala" style={{ ['--cor-agente' as string]: '#c76b86', ['--cor-estado' as string]: '#c76b86' }}>
+    <aside className="painel ag gst" aria-label="Cofrinho da sala">
       <header className="ag-capa">
         <button className="ag-fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
         <span className="ag-icone">

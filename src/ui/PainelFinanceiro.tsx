@@ -96,7 +96,7 @@ export function PainelFinanceiro({
   const economia = a?.analise.alertas.reduce((s, x) => s + (x.economia_usd_mes || 0), 0) ?? 0
 
   return (
-    <aside className="painel ag fin" aria-label="Financeiro" style={{ ['--cor-agente' as string]: '#3f7650', ['--cor-estado' as string]: a ? (a.analise.saude === 'boa' ? '#3f7650' : a.analise.saude === 'atencao' ? '#976822' : '#b74e45') : '#a2a39a' }}>
+    <aside className="painel ag fin" aria-label="Financeiro" style={{ ['--cor-estado' as string]: a ? (a.analise.saude === 'boa' ? '#3f7650' : a.analise.saude === 'atencao' ? '#976822' : '#b74e45') : '#a2a39a' }}>
       <header className="ag-capa">
         <button className="ag-fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
         <span className="ag-icone">

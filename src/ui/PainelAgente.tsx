@@ -138,7 +138,7 @@ export function PainelAgente({
   ]
 
   return (
-    <aside className="painel ag" aria-label={`Detalhes do ${a.nome}`} style={{ ['--cor-agente' as string]: a.cor, ['--cor-estado' as string]: COR_ESTADO[estado] }}>
+    <aside className="painel ag" aria-label={`Detalhes do ${a.nome}`} style={{ ['--cor-estado' as string]: COR_ESTADO[estado] }}>
       <header className="ag-capa">
         <button className="ag-fechar" onClick={() => selecionar(null)} aria-label="Fechar painel">×</button>
         <span className={`ag-icone ${estado}`}>

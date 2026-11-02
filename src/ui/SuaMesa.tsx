@@ -48,7 +48,7 @@ export function SuaMesa({
     )
   }
   return (
-    <aside className="painel ag sm" aria-label="Sua mesa" style={{ ['--cor-agente' as string]: '#d99a1e', ['--cor-estado' as string]: pendentes.length ? '#d99a1e' : '#9aa3b2' }}>
+    <aside className="painel ag sm" aria-label="Sua mesa" style={{ ['--cor-estado' as string]: pendentes.length ? 'var(--warning)' : 'var(--neutral-400)' }}>
       <header className="ag-capa">
         <button className="ag-fechar" onClick={() => focar(null)} aria-label="Fechar painel">×</button>
         <span className="ag-icone">

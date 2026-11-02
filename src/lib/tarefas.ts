@@ -23,7 +23,8 @@ export interface MarcaDaTarefa {
 export const TOPICO_PADRAO = 'Geral'
 /** sugestões de tópico quando você ainda não criou os seus */
 export const TOPICOS_SUGERIDOS = ['Geral', 'Conteúdo', 'Reuniões', 'Financeiro', 'Estratégia', 'Admin', 'Casa', 'Saúde']
-export const COR_PESSOAL = '#f2b233'
+/** cor de "Pessoal": neutra, para não competir com as cores das marcas */
+export const COR_PESSOAL = '#7a8496'
 
 const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -14,6 +14,7 @@ import {
   type Tarefa,
 } from '../lib/tarefas'
 import type { useTarefas } from '../lib/usarTarefas'
+import { CampoComSugestoes, Chave, Escolha, EscolhaDeData } from './Controles'
 
 type Dados = ReturnType<typeof useTarefas>
 type Modo = 'marca' | 'topico'
@@ -79,7 +80,7 @@ export function Tarefas({ dados, marcas, aoFechar }: { dados: Dados; marcas: Mar
   }, [])
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || e.defaultPrevented) return
       e.preventDefault()
       if (editando) setEditando(null)
       else aoFechar()
@@ -125,6 +126,7 @@ export function Tarefas({ dados, marcas, aoFechar }: { dados: Dados; marcas: Mar
         ]
   const feitasEscondidas = verFeitas ? 0 : lista.filter((t) => t.feita_em).length
 
+  const opcoesMarca = [{ valor: '', nome: 'Pessoal', cor: COR_PESSOAL }, ...marcas.map((m) => ({ valor: m.id, nome: m.nome, cor: m.cor }))]
   const previa = texto.trim() && (entendido.marcaId || entendido.topico || entendido.prazo || entendido.importante)
 
   return (
@@ -157,22 +159,9 @@ export function Tarefas({ dados, marcas, aoFechar }: { dados: Dados; marcas: Mar
             <button className="primario" disabled={!entendido.titulo || faltaTabela}>Anotar</button>
           </div>
           <div className="tf-opcoes">
-            <label className="tf-sel">
-              <span className="tf-ponto" style={{ background: nomeDaMarca(entendido.marcaId ?? marcaSel)?.cor ?? COR_PESSOAL }} />
-              <select value={entendido.marcaId ?? marcaSel} onChange={(e) => setMarcaSel(e.target.value)} aria-label="Marca" disabled={!!entendido.marcaId}>
-                <option value="">Pessoal</option>
-                {marcas.map((m) => (
-                  <option key={m.id} value={m.id}>{m.nome}</option>
-                ))}
-              </select>
-            </label>
-            <input className="tf-topico" list="tf-topicos" value={entendido.topico ?? topicoSel} onChange={(e) => setTopicoSel(e.target.value)} placeholder="Tópico" aria-label="Tópico" maxLength={40} disabled={!!entendido.topico} />
-            <datalist id="tf-topicos">
-              {topicos.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
-            <input type="date" value={entendido.prazo ?? prazoSel} onChange={(e) => setPrazoSel(e.target.value)} aria-label="Prazo" disabled={!!entendido.prazo} />
+            <Escolha rotulo="Marca" valor={entendido.marcaId ?? marcaSel} opcoes={opcoesMarca} aoMudar={setMarcaSel} travado={!!entendido.marcaId} dica="Achei a marca no texto" />
+            <CampoComSugestoes rotulo="Tópico" placeholder="Tópico" valor={entendido.topico ?? topicoSel} aoMudar={setTopicoSel} sugestoes={topicos} corDe={corDoTopico} travado={!!entendido.topico} dica="Achei o tópico no texto (#)" />
+            <EscolhaDeData rotulo="Prazo" valor={entendido.prazo ?? (prazoSel || null)} aoMudar={(v) => setPrazoSel(v ?? '')} texto={(v) => textoDoPrazo(v)} travado={!!entendido.prazo} dica="Achei o prazo no texto" />
             <button type="button" className={`tf-imp${entendido.importante || importanteSel ? ' ligado' : ''}`} aria-pressed={entendido.importante || importanteSel} onClick={() => setImportanteSel((v) => !v)}>
               ★ Importante
             </button>
@@ -202,10 +191,9 @@ export function Tarefas({ dados, marcas, aoFechar }: { dados: Dados; marcas: Mar
               ))}
             </div>
           )}
-          <label className="tf-feitas">
-            <input type="checkbox" checked={verFeitas} onChange={(e) => setVerFeitas(e.target.checked)} />
-            Mostrar feitas{feitasEscondidas ? ` (${feitasEscondidas})` : ''}
-          </label>
+          <span className="tf-feitas">
+            <Chave ligada={verFeitas} aoMudar={setVerFeitas}>Mostrar feitas{feitasEscondidas ? ` (${feitasEscondidas})` : ''}</Chave>
+          </span>
         </div>
 
         <div className="tf-grade">
@@ -326,19 +314,9 @@ function Linha({
         <div className="tf-editar">
           <input value={rascunho.titulo} onChange={(e) => setRascunho({ ...rascunho, titulo: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && salvar()} maxLength={300} aria-label="Título" autoFocus />
           <div className="tf-opcoes">
-            <select value={rascunho.marca_id ?? ''} onChange={(e) => setRascunho({ ...rascunho, marca_id: e.target.value || null })} aria-label="Marca">
-              <option value="">Pessoal</option>
-              {marcas.map((m) => (
-                <option key={m.id} value={m.id}>{m.nome}</option>
-              ))}
-            </select>
-            <input list="tf-topicos-editar" value={rascunho.topico} onChange={(e) => setRascunho({ ...rascunho, topico: e.target.value })} aria-label="Tópico" maxLength={40} />
-            <datalist id="tf-topicos-editar">
-              {topicos.map((x) => (
-                <option key={x} value={x} />
-              ))}
-            </datalist>
-            <input type="date" value={rascunho.prazo ?? ''} onChange={(e) => setRascunho({ ...rascunho, prazo: e.target.value || null })} aria-label="Prazo" />
+            <Escolha rotulo="Marca" valor={rascunho.marca_id ?? ''} opcoes={[{ valor: '', nome: 'Pessoal', cor: COR_PESSOAL }, ...marcas.map((m) => ({ valor: m.id, nome: m.nome, cor: m.cor }))]} aoMudar={(v) => setRascunho({ ...rascunho, marca_id: v || null })} />
+            <CampoComSugestoes rotulo="Tópico" placeholder="Tópico" valor={rascunho.topico} aoMudar={(v) => setRascunho({ ...rascunho, topico: v })} sugestoes={topicos} corDe={corDoTopico} />
+            <EscolhaDeData rotulo="Prazo" valor={rascunho.prazo} aoMudar={(v) => setRascunho({ ...rascunho, prazo: v })} texto={(v) => textoDoPrazo(v)} />
           </div>
           <textarea rows={2} value={rascunho.notas ?? ''} onChange={(e) => setRascunho({ ...rascunho, notas: e.target.value })} placeholder="Notas (links, detalhes, com quem falar…)" maxLength={2000} aria-label="Notas" />
           <div className="acoes">

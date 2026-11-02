@@ -124,7 +124,7 @@ export function PostComErro({ post, aoMudar, aoFechar }: { post: Post; aoMudar: 
   const publicacao = falha?.agente === 'publicador'
   const exp = falha ? explicarErro(falha.agente, falha.erro) : null
   return (
-    <aside className="painel ag pe" aria-label="Post com erro" style={{ ['--cor-agente' as string]: '#b74e45', ['--cor-estado' as string]: '#b74e45' }}>
+    <aside className="painel ag pe" aria-label="Post com erro" style={{ ['--cor-estado' as string]: 'var(--danger)' }}>
       <header className="ag-capa">
         <button className="ag-fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
         <span className="ag-icone erro">

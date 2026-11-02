@@ -4,9 +4,9 @@
 .tf .aviso { margin-top: 8px }
 
 .tf-topo { display: flex; align-items: center; gap: 12px; padding-top: 18px; padding-bottom: 14px;
-  background: linear-gradient(180deg, color-mix(in srgb, #f2b233 14%, var(--surface)), var(--surface)) }
-.tf-avatar { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #6b4a08;
-  background: color-mix(in srgb, #f2b233 55%, var(--surface)); box-shadow: inset 0 0 0 2px color-mix(in srgb, #f2b233 70%, transparent) }
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, var(--surface)), color-mix(in srgb, var(--primary) 4%, var(--surface)) 70%) }
+.tf-avatar { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--primary-foreground);
+  background: var(--primary); box-shadow: 0 6px 16px -6px var(--primary) }
 .tf-avatar.grande { width: 60px; height: 60px }
 .tf-quem { flex: 1; min-width: 0 }
 .tf-quem h2 { font-size: 18px }
@@ -17,15 +17,10 @@
 .tf-linha input { flex: 1; min-width: 0; height: 42px; font-size: 15px; border-radius: var(--radius-lg) }
 .tf-linha .primario { height: 42px; padding: 0 18px; border-radius: var(--radius-lg) }
 .tf-opcoes { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
-.tf-opcoes select, .tf-opcoes input { height: 30px; font-size: 13px }
-.tf-opcoes input:disabled, .tf-opcoes select:disabled { opacity: 1; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 35%, transparent) }
-.tf-sel { position: relative; display: inline-flex; align-items: center }
-.tf-sel select { padding-left: 24px }
-.tf-sel .tf-ponto { position: absolute; left: 9px; width: 9px; height: 9px; border-radius: 50%; pointer-events: none }
-.tf-topico { width: 140px }
-.tf-imp { height: 30px; padding: 0 10px; font-size: 13px; border-radius: var(--radius-md); border: 1px solid var(--input-border); background: var(--surface); color: var(--muted-foreground) }
-.tf-imp.ligado { color: #8a5d00; background: color-mix(in srgb, #f2b233 22%, var(--surface)); border-color: color-mix(in srgb, #f2b233 60%, transparent) }
-.dark .tf-imp.ligado { color: #ffd36b }
+.tf-opcoes > .ct-gatilho { width: 164px }
+.tf-imp { height: 34px; padding: 0 10px; font-size: 13px; border-radius: var(--radius-md); border: 1px solid var(--input-border); background: var(--surface); color: var(--muted-foreground) }
+.tf-imp:hover { border-color: var(--input-border-hover); color: var(--foreground) }
+.tf-imp.ligado { color: var(--primary); background: var(--surface-selected); border-color: var(--primary) }
 .tf-dica { font-size: 12px; color: var(--muted-foreground) }
 
 .tf-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px }
@@ -39,7 +34,6 @@
 .tf-chips button.ativo { background: var(--surface-selected); border-color: var(--primary); color: var(--primary) }
 .tf-chips i, .tf-etq i, .tf-grupo header i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none }
 .tf-feitas { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); margin-left: auto; cursor: pointer }
-.tf-feitas input { height: auto; width: auto; padding: 0; accent-color: var(--primary) }
 
 .tf-grade { flex: 1; min-height: 160px; overflow-y: auto; padding-top: 2px; padding-bottom: 20px;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-content: start; background: var(--background); border-top: 1px solid var(--border) }
@@ -69,18 +63,16 @@
 .tf-meta { display: flex; gap: 6px; flex-wrap: wrap }
 .tf-meta:empty { display: none }
 .tf-etq, .tf-prazo { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; line-height: 18px; padding: 0 7px; border-radius: 999px; background: var(--surface-muted); color: var(--muted-foreground) }
-.tf-prazo.hoje { background: color-mix(in srgb, #f2b233 25%, var(--surface)); color: var(--warning-strong) }
+.tf-prazo.hoje { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning-strong) }
 .tf-prazo.amanha { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary) }
 .tf-prazo.atrasada { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger-strong); font-weight: 600 }
-.dark .tf-prazo.hoje { color: #ffd36b }
-.dark .tf-prazo.atrasada { color: #ff9b85 }
 .tf-estrela { flex: none; border: 0; background: none; padding: 0 2px; font-size: 16px; line-height: 20px; color: var(--input-border); border-radius: var(--radius-sm) }
-.tf-estrela:hover { color: #f2b233 }
-.tf-estrela.ligada { color: #f2b233 }
+.tf-estrela:hover { color: var(--primary) }
+.tf-estrela.ligada { color: var(--primary) }
 
 .tf-editar { display: flex; flex-direction: column; gap: 6px; padding: 0 6px 10px 32px }
 .tf-editar > input { height: 34px }
-.tf-editar .tf-opcoes > * { flex: 1 1 120px; min-width: 0 }
+.tf-editar .tf-opcoes > * { flex: 1 1 120px; width: auto; min-width: 0 }
 .tf-editar textarea { font-size: 13px; resize: vertical }
 .tf-editar .acoes .primario, .tf-editar .acoes .secundario { height: 30px }
 .tf-apagar { margin-right: auto; border: 0; background: none; color: var(--danger); font-size: 13px; padding: 0 6px; border-radius: var(--radius-sm) }
@@ -95,8 +87,7 @@
   .tf > * { padding-left: 16px; padding-right: 16px }
   .tf-linha .primario { padding: 0 14px }
   .tf-opcoes > * { flex: 1 1 calc(50% - 6px); min-width: 0 }
-  .tf-sel select { width: 100% }
-  .tf-topico { width: auto }
+  .tf-opcoes > .ct-gatilho { width: auto }
   .tf { overflow-y: auto }
   .tf-barra { gap: 8px }
   .tf-seg { flex: 1 }
