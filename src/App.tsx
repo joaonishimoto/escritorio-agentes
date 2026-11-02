@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { avisoDoToken } from './lib/token'
 import type { Session } from '@supabase/supabase-js'
 const Escritorio3D = lazy(() => import('./tres/Escritorio3D').then((m) => ({ default: m.Escritorio3D })))
+const Tarefas = lazy(() => import('./ui/Tarefas').then((m) => ({ default: m.Tarefas })))
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
@@ -32,6 +33,8 @@ import type { Quadro } from './andar/planta'
 import type { Ideia } from './lib/ideias'
 import { Abertura } from './ui/Abertura'
 import { MenuTema } from './ui/MenuTema'
+import { useTarefas } from './lib/usarTarefas'
+import { resumoParaHoje } from './lib/tarefas'
 
 export default function App() {
   const [sessao, setSessao] = useState<Session | null>(null)
@@ -100,6 +103,12 @@ function Painel() {
   const [financeiro, setFinanceiro] = useState<DadosFin | null>(null)
   const [muralRegras, setMuralRegras] = useState(false)
   const [instagram, setInstagram] = useState(false)
+  // tarefas da Assistente da sua sala (a contagem aparece na etiqueta dela no andar)
+  const tarefas = useTarefas()
+  const resumoTarefas = useMemo(() => {
+    const r = resumoParaHoje(tarefas.tarefas ?? [])
+    return { abertas: r.abertas, urgentes: r.atrasadas + r.paraHoje }
+  }, [tarefas.tarefas])
 
   useEffect(() => {
     if (!marcaId && marcas[0]) setMarcaId(marcas[0].id)
@@ -298,6 +307,7 @@ function Painel() {
               quadros={quadros}
               aoAbrirQuadro={abrirQuadro}
               financeiro={resumoFin}
+              tarefas={resumoTarefas}
               cofres={cofres}
               aoReordenar={
                 marcasNoAndar.length > 1
@@ -392,6 +402,11 @@ function Painel() {
         <LinhaDoTempo />
       </footer>
 
+      {foco === 'tarefas' && (
+        <Suspense fallback={null}>
+          <Tarefas dados={tarefas} marcas={marcasNoAndar} aoFechar={() => focar(null)} />
+        </Suspense>
+      )}
       {foco === 'calendario' && (
         <Calendario
           aoAbrirPost={verPost}
