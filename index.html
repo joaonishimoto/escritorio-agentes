@@ -29,7 +29,9 @@
     <meta property="og:image" content="/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- fontes sem travar a primeira pintura: a abertura aparece na hora e as letras trocam quando chegam -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'" />
     <style>
       /* abertura: a mesma tela do HTML puro (antes do app carregar) e do React (sessão e escritório) */
       .abertura { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: #faf9f5; color: #1f2330; font-family: Inter, system-ui, sans-serif }
