@@ -70,7 +70,7 @@ export function Gaveta({
   }
 
   return (
-    <aside className="painel ag gv" aria-label="Gaveta de posts" style={{ ['--cor-agente' as string]: '#8a6a4a', ['--cor-estado' as string]: '#8a6a4a' }}>
+    <aside className="painel ag gv" aria-label="Gaveta de posts">
       <header className="ag-capa">
         <button className="ag-fechar" onClick={aoFechar} aria-label="Fechar painel">×</button>
         <span className="ag-icone">

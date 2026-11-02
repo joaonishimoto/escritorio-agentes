@@ -1,0 +1,58 @@
+/* controles próprios: gatilho com cara de campo e balão com a lista ou o calendário */
+.ct-gatilho { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; min-width: 0; max-width: 100%;
+  border: 1px solid var(--input-border); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground);
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s }
+.ct-gatilho:hover { border-color: var(--input-border-hover) }
+.ct-gatilho:focus-visible, .ct-gatilho.aberto, .ct-campo:focus-within { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent) }
+.ct-gatilho.sem-valor .ct-texto { color: var(--muted-foreground) }
+.ct-gatilho.auto, .ct-gatilho:disabled { opacity: 1; pointer-events: none; cursor: default;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 35%, transparent) }
+.ct-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ct-seta { flex: none; color: var(--muted-foreground); transition: transform .15s }
+.ct-gatilho.aberto .ct-seta { transform: rotate(180deg) }
+.ct-icone { flex: none; color: var(--muted-foreground) }
+.ct-ponto { flex: none; width: 9px; height: 9px; border-radius: 50% }
+.ct-auto { flex: none; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--primary) }
+.ct-campo { cursor: text }
+.ct-campo input { flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; background: none; box-shadow: none; font-size: 13px; color: var(--foreground) }
+.ct-campo input:focus-visible { box-shadow: none }
+.ct-campo input:disabled { opacity: 1 }
+
+.ct-balao { position: fixed; z-index: 80; padding: 6px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md), 0 12px 32px -12px color-mix(in srgb, #000 30%, transparent); animation: ct-abrir .12s ease-out }
+.ct-balao.acima { transform: translateY(-100%); animation-name: ct-abrir-acima }
+@keyframes ct-abrir { from { opacity: 0; transform: translateY(-4px) } }
+@keyframes ct-abrir-acima { from { opacity: 0; transform: translateY(calc(-100% + 4px)) } to { transform: translateY(-100%) } }
+.ct-lista { list-style: none; margin: 0; padding: 0; max-height: 296px; overflow-y: auto; min-width: 200px }
+.ct-lista li { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: var(--radius-md); font-size: 13px; cursor: pointer; color: var(--foreground) }
+.ct-lista li.foco { background: var(--surface-hover) }
+.ct-lista li[aria-selected='true'] { color: var(--primary); font-weight: 500 }
+.ct-lista li svg { flex: none; color: var(--primary) }
+.ct-mais { width: 16px; height: 16px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 13px; line-height: 1; color: var(--primary); background: var(--secondary) }
+
+.ct-data { width: 264px; display: flex; flex-direction: column; gap: 8px; padding: 4px }
+.ct-atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px }
+.ct-atalhos button { height: 30px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px }
+.ct-atalhos button:hover { border-color: color-mix(in srgb, var(--primary) 40%, transparent); color: var(--primary) }
+.ct-atalhos button.ativo { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground) }
+.ct-mes { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 0 }
+.ct-mes strong { font-size: 13px; text-transform: capitalize }
+.ct-mes button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted-foreground); font-size: 18px; line-height: 1 }
+.ct-mes button:hover { background: var(--surface-hover); color: var(--primary) }
+.ct-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px }
+.ct-sem { font-size: 11px; font-weight: 600; color: var(--muted-foreground); text-align: center; padding: 2px 0 4px }
+.ct-grade button { aspect-ratio: 1; border: 0; border-radius: 50%; background: none; color: var(--foreground); font: inherit; font-size: 12px; font-variant-numeric: tabular-nums }
+.ct-grade button:hover { background: var(--surface-hover); color: var(--primary) }
+.ct-grade button.passado { color: var(--muted-foreground); opacity: .6 }
+.ct-grade button.hoje { box-shadow: inset 0 0 0 1.5px var(--primary); color: var(--primary); font-weight: 600; opacity: 1 }
+.ct-grade button.escolhido { background: var(--primary); color: var(--primary-foreground); font-weight: 600; opacity: 1 }
+.ct-limpar { align-self: center; border: 0; background: none; color: var(--muted-foreground); font: inherit; font-size: 12px; padding: 4px 8px; border-radius: var(--radius-sm) }
+.ct-limpar:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent) }
+
+.ct-chave { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--muted-foreground) }
+.ct-chave-trilho { width: 30px; height: 18px; border-radius: 999px; background: var(--input-border); position: relative; transition: background .15s; flex: none }
+.ct-chave-trilho span { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-sm); transition: transform .15s }
+.ct-chave.ligada .ct-chave-trilho { background: var(--primary) }
+.ct-chave.ligada .ct-chave-trilho span { transform: translateX(12px) }
+.ct-chave:focus-visible { outline: none }
+.ct-chave:focus-visible .ct-chave-trilho { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent) }
