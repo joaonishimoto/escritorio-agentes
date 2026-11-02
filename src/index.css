@@ -1394,6 +1394,7 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 
 /* ───────── escritório em 3D (maquete clara) ───────── */
 .tres { background: #eceef3; font-variant-ligatures: normal; font-feature-settings: normal }
+.dark .tres { background: #0b1524 }
 .tres-tela { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none }
 .tres-etiqueta { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; white-space: nowrap; user-select: none; font-family: 'Inter', var(--font-sans); will-change: transform }
 .tres .nome { font-family: 'Inter', var(--font-sans); font-size: 11px; font-weight: 600; border: 0; border-radius: 999px; padding: 4px 9px 4px 7px; box-shadow: 0 2px 8px rgba(30,40,60,.18); transition: none }
