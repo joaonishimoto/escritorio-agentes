@@ -18,7 +18,7 @@ import {
 } from '../andar/planta'
 import { COR_EQUIPE, COR_FINANCEIRO, COR_VOCE, PADRAO, misturar } from '../andar/cores'
 import { contarRecebidos } from '../lib/emails'
-import { type Acao, type Boneco, type Gato3D, boneco, gato, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, corDoChao, usarChaoEscuro, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
+import { type Acao, type Boneco, type Gato3D, boneco, descartar, fundir, gato, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, corDoChao, usarChaoEscuro, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
 
 
 const VELOCIDADE = 58
@@ -166,6 +166,8 @@ export function Escritorio3D({
     gatos: Record<string, Gato3D>
     alvoCamera: THREE.Vector3 | null
     tamanho: { w: number; h: number }
+    /** última vez que a câmera se mexeu (arrastar, girar, aproximar): parada, a maquete anda a 30 quadros por segundo */
+    mexeuEm: number
   } | null>(null)
 
   const andantes = useRef<Andante[]>([])
@@ -250,7 +252,8 @@ export function Escritorio3D({
   useEffect(() => {
     const el = caixaRef.current!
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    // tela Retina a 2x desenhava quatro vezes mais pixels (com antisserrilhado e sombra) a cada quadro: 1,5x já fica nítido
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -345,7 +348,11 @@ export function Escritorio3D({
     // Maki e Gojo
     const gatos: Record<string, Gato3D> = {}
     for (const g of GATOS) gatos[g.nome] = gato(vivos, g.mancha, { tipo: 'gato', nome: g.nome })
-    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, abertos, bandejas, anel, cartas: new Map(), gatos, alvoCamera: null, tamanho: { w: 1, h: 1 } }
+    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, abertos, bandejas, anel, cartas: new Map(), gatos, alvoCamera: null, tamanho: { w: 1, h: 1 }, mexeuEm: performance.now() }
+    const mexeu = () => {
+      if (tres.current) tres.current.mexeuEm = performance.now()
+    }
+    controls.addEventListener('change', mexeu)
 
     const ajustar = () => {
       const w = el.clientWidth || 1
@@ -379,7 +386,7 @@ export function Escritorio3D({
     const t = tres.current
     if (!t) return
     const c = t.cenario
-    c.clear()
+    descartar(c)
     const hoje = new Date().getDate()
     /** quadro em pé, num cavalete de duas pernas (nas salas sem parede alta) */
     const quadroEmPe = (cx: number, cz: number, w: number, h: number, tex: THREE.Texture, acao: Acao, moldura: string) => {
@@ -767,6 +774,8 @@ const zFundo = wz(PAREDE_H)
       caixa(c, 0.3, 0.2, 0.2, '#e3e6ec', cx - 0.5, 0.86, cz, 0.02, a)
       cadeira(c, cx, wz(MESA_FIN.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
     }
+    // tudo o que fica parado vira poucas malhas grandes: é isso que deixa o andar leve
+    fundir(c)
   }, [marcas, quadros, financeiro?.barras.join(','), financeiro?.alerta, diasMarcados, naSuaMesa]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── laço de animação ──
@@ -781,6 +790,11 @@ const zFundo = wz(PAREDE_H)
     const corTela = new THREE.Color()
 
     const desenhar = (agora: number) => {
+      // sem ninguém mexendo na câmera, um quadro a cada ~33 ms basta (os bonecos e os gatos andam do mesmo jeito)
+      if (agora - t.mexeuEm > 1500 && !t.alvoCamera && agora - anterior < 30) {
+        quadroId = requestAnimationFrame(desenhar)
+        return
+      }
       const dt = Math.min((agora - anterior) / 1000, 0.05)
       anterior = agora
       const seg = agora / 1000
@@ -1096,14 +1110,21 @@ const zFundo = wz(PAREDE_H)
             ancora = nome ? 'cima' : 'baixo'
           }
         }
+        // só escreve o estilo que mudou: reescrever as ~60 etiquetas a cada quadro recalculava a página inteira
         if (!pos) {
-          el.style.opacity = '0'
+          if (el.style.opacity !== '0') el.style.opacity = '0'
           continue
         }
         const s = projetar(pos, camera, w, h)
-        el.style.opacity = s.visivel ? '1' : '0'
-        el.style.zIndex = String(chave.startsWith('nome:') ? 100 + Math.round(s.y) : 1000)
-        el.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, ${ancora === 'baixo' ? '-100%' : ancora === 'centro' ? '-50%' : '0'})`
+        const opacidade = s.visivel ? '1' : '0'
+        const z = String(chave.startsWith('nome:') ? 100 + Math.round(s.y) : 1000)
+        const transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) translate(-50%, ${ancora === 'baixo' ? '-100%' : ancora === 'centro' ? '-50%' : '0'})`
+        if (el.style.opacity !== opacidade) el.style.opacity = opacidade
+        if (el.style.zIndex !== z) el.style.zIndex = z
+        if (el.dataset.t !== transform) {
+          el.dataset.t = transform
+          el.style.transform = transform
+        }
       }
       quadroId = requestAnimationFrame(desenhar)
     }
@@ -1119,7 +1140,16 @@ const zFundo = wz(PAREDE_H)
     const rect = t.renderer.domElement.getBoundingClientRect()
     const p = new THREE.Vector2(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1)
     raycaster.setFromCamera(p, t.camera)
-    const hits = raycaster.intersectObjects([t.cenario, t.vivos], true)
+    // só o que tem clique entra no teste (paredes e chão juntados têm muitos triângulos e nunca respondem ao clique)
+    const alvos: THREE.Object3D[] = []
+    const juntar = (o: THREE.Object3D, comAcao: boolean) => {
+      const tem = comAcao || !!o.userData.acao
+      if ((o as THREE.Mesh).isMesh && tem) alvos.push(o)
+      for (const f of o.children) juntar(f, tem)
+    }
+    juntar(t.cenario, false)
+    juntar(t.vivos, false)
+    const hits = raycaster.intersectObjects(alvos, false)
     for (const h of hits) {
       let o: THREE.Object3D | null = h.object
       while (o) {

@@ -10,6 +10,7 @@
     "check": "tsc -b --noEmit && tsc -p tsconfig.api.json && eslint .",
     "test": "vitest run",
     "fumaca": "node e2e/fumaca.mjs",
+    "medir": "node e2e/medir.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
