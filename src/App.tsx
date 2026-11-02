@@ -2,30 +2,32 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { avisoDoToken } from './lib/token'
 import type { Session } from '@supabase/supabase-js'
 const Escritorio3D = lazy(() => import('./tres/Escritorio3D').then((m) => ({ default: m.Escritorio3D })))
+// painéis e janelas que só abrem com um clique: baixados na hora, para o primeiro carregamento ficar leve
+const NovoPost = lazy(() => import('./ui/NovoPost').then((x) => ({ default: x.NovoPost })))
+const AprovarTexto = lazy(() => import('./ui/AprovarTexto').then((x) => ({ default: x.AprovarTexto })))
+const Biblioteca = lazy(() => import('./ui/Biblioteca').then((x) => ({ default: x.Biblioteca })))
+const PerfilDaMarca = lazy(() => import('./ui/PerfilDaMarca').then((x) => ({ default: x.PerfilDaMarca })))
+const Gaveta = lazy(() => import('./ui/Gaveta').then((x) => ({ default: x.Gaveta })))
+const Calendario = lazy(() => import('./ui/Calendario').then((x) => ({ default: x.Calendario })))
+const PainelGastos = lazy(() => import('./ui/Gastos').then((x) => ({ default: x.PainelGastos })))
+const ConectarInstagram = lazy(() => import('./ui/ConectarInstagram').then((x) => ({ default: x.ConectarInstagram })))
+const NovaSala = lazy(() => import('./ui/NovaSala').then((x) => ({ default: x.NovaSala })))
+const PostComErro = lazy(() => import('./ui/PostComErro').then((x) => ({ default: x.PostComErro })))
+const PreviaAoVivo = lazy(() => import('./ui/PreviaAoVivo').then((x) => ({ default: x.PreviaAoVivo })))
+const RegrasDaMarca = lazy(() => import('./ui/RegrasDaMarca').then((x) => ({ default: x.RegrasDaMarca })))
+const PainelFinanceiro = lazy(() => import('./ui/PainelFinanceiro').then((x) => ({ default: x.PainelFinanceiro })))
 import { PainelAgente } from './ui/PainelAgente'
 import { LinhaDoTempo } from './ui/LinhaDoTempo'
 import { Login, TrocarSenha } from './ui/Login'
-import { NovoPost } from './ui/NovoPost'
 import { Aprovacao, RegrasPropostas } from './ui/Aprovacao'
-import { AprovarTexto } from './ui/AprovarTexto'
-import { Biblioteca } from './ui/Biblioteca'
-import { PerfilDaMarca } from './ui/PerfilDaMarca'
-import { PainelFinanceiro, type DadosFin } from './ui/PainelFinanceiro'
+import type { DadosFin } from './ui/PainelFinanceiro'
 import { SuaMesa } from './ui/SuaMesa'
-import { Gaveta } from './ui/Gaveta'
-import { Calendario } from './ui/Calendario'
-import { PainelGastos } from './ui/Gastos'
 import { dolar } from './lib/formato'
-import { ConectarInstagram } from './ui/ConectarInstagram'
-import { NovaSala } from './ui/NovaSala'
-import { PostComErro } from './ui/PostComErro'
 import { ListaDePosts } from './ui/ListaDePosts'
-import { PreviaAoVivo } from './ui/PreviaAoVivo'
 import { useEscritorio } from './store/escritorio'
 import { supabase } from './lib/supabase'
 import { chamarApi } from './lib/api'
 import { ESPERANDO_VOCE, type Marca, corDaMarca, salvarOrdemDasSalas, useAndar, useCustos, useMarcas, usePostAoVivo, usePosts, useQuadrosDoAndar, useRegrasPropostas } from './lib/dados'
-import { RegrasDaMarca } from './ui/RegrasDaMarca'
 import { Menu } from './ui/Menu'
 import { Etapa } from './ui/Etapa'
 import type { Quadro } from './andar/planta'
@@ -322,6 +324,7 @@ function Painel() {
             />
           )}
         </Suspense>
+        <Suspense fallback={null}>
         {mostrarErro && post ? (
           <PostComErro post={post} aoMudar={mudou} aoFechar={voltarParaMesa} />
         ) : mostrarTexto && post ? (
@@ -374,6 +377,7 @@ function Painel() {
             }}
           />
         )}
+        </Suspense>
         {marcas.length === 0 && (
           <div className="vazio">
             <h2>Nenhuma marca ainda</h2>
@@ -392,6 +396,7 @@ function Painel() {
         <LinhaDoTempo />
       </footer>
 
+      <Suspense fallback={null}>
       {foco === 'calendario' && (
         <Calendario
           aoAbrirPost={verPost}
@@ -446,6 +451,7 @@ function Painel() {
           }}
         />
       )}
+      </Suspense>
     </div>
   )
 }
