@@ -206,6 +206,7 @@ function GrupoDeRegras(props: {
         {itens.map((r) => (
           <li key={r.id}>
             {r.status === 'proposta' && <span className="chip">proposta</span>}
+            {(r.vezes ?? 1) >= 2 && <span className="chip" title="Você já corrigiu isto mais de uma vez: a equipe confere este item um por um antes de entregar">voltou {r.vezes}x</span>}
             <p>{r.regra}</p>
             {r.motivo && <p className="muted">{r.motivo}</p>}
             <div className="acoes">

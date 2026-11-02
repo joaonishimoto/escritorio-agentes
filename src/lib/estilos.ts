@@ -18,10 +18,10 @@ export const LAYOUTS: { id: string; nome: string }[] = [
   { id: 'tipografico-cor', nome: 'Tipográfico' },
   { id: 'editorial-claro', nome: 'Editorial claro' },
   { id: 'dividido', nome: 'Dividido' },
-  { id: 'numero-gigante', nome: 'Número gigante' },
   { id: 'ficha-tecnica', nome: 'Ficha técnica' },
   { id: 'minimalista-escuro', nome: 'Minimalista escuro' },
   { id: 'colagem', nome: 'Colagem' },
+  { id: 'cena', nome: 'Cena criada' },
 ]
 
 export const VOZES: { id: string; nome: string; desc: string }[] = [

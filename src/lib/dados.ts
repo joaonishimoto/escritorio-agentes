@@ -50,6 +50,8 @@ export interface Regra {
   regra: string
   motivo: string | null
   status: 'proposta' | 'ativa' | 'arquivada'
+  /** quantas vezes o dono corrigiu o que a regra cobre (2 ou mais = erro que voltou) */
+  vezes?: number
 }
 
 /** Marcas da conta; `null` enquanto ainda não chegaram do banco. */
@@ -260,7 +262,8 @@ export function useRegrasDaMarca(marcaId: string | null, recarregar: number) {
     if (!supabase || !marcaId) return
     supabase
       .from('regras')
-      .select('id, agente, regra, motivo, status')
+      // '*' traz a contagem de reincidências quando o banco já tem a coluna, sem quebrar antes da migração
+      .select('*')
       .eq('marca_id', marcaId)
       .neq('status', 'arquivada')
       .order('criado_em')

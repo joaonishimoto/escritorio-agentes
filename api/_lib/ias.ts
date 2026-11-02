@@ -1,5 +1,5 @@
 import type { Contexto } from './contexto.js'
-import { eMotorImagem, MOTOR_IMAGEM_PADRAO, type MotorImagem } from './imagens.js'
+import { eMotorImagem, motorImagemPadrao, motorTemChave, type MotorImagem } from './imagens.js'
 
 // Qual IA cada funcionário usa, escolhida por post no Novo post (preferencias.ias). As chaves são as mesmas de src/lib/ias.ts.
 
@@ -74,12 +74,13 @@ export function motorDeVideo(ctx: Contexto): MotorVideo {
   return eMotorVideo(escolhido) ? escolhido : motorPadrao()
 }
 
-/** Modelo que gera as imagens do designer neste post; null quando o post vai sem imagem gerada ou falta a FAL_KEY. */
+/** Modelo que gera as imagens do designer neste post; null quando o post vai sem imagem gerada ou não há chave de imagem (OpenAI ou fal.ai). */
 export function motorDeImagem(ctx: Contexto): MotorImagem | null {
-  if (!process.env.FAL_KEY) return null
   const escolhido = ctx.post.preferencias?.ias?.imagens
   if (escolhido === 'nenhuma') return null
-  return eMotorImagem(escolhido) ? escolhido : MOTOR_IMAGEM_PADRAO
+  // escolheu um motor sem chave (ex.: tirou a FAL_KEY): cai no padrão em vez de falhar o post
+  if (eMotorImagem(escolhido) && motorTemChave(escolhido)) return escolhido
+  return motorImagemPadrao()
 }
 
 /** Quais serviços têm chave na Vercel (para o Novo post mostrar o que dá para usar). */
@@ -90,5 +91,6 @@ export function servicosDisponiveis() {
     kling: !!process.env.KLING_API_KEY,
     elevenlabs: !!process.env.ELEVENLABS_API_KEY,
     fal: !!process.env.FAL_KEY,
+    openai: !!process.env.OPENAI_API_KEY,
   }
 }

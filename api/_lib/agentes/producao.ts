@@ -3,7 +3,7 @@ import { layoutAprovado } from '../aprovados.js'
 import { oQueFuncionou } from '../atualizar-metricas.js'
 import { gerarJson, gerarTexto, type Uso } from '../claude.js'
 import { arrumarPacote, avisosDoPacote, COMPOSICAO_ANUNCIO, eAnuncio, ESCRITA_ANUNCIO, OBJETIVOS_ANUNCIO, PacoteAnuncio, textoDoAnuncio, type Anuncio } from '../anuncio.js'
-import { fluxoDeProducao, quemDesenha, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente, type Contexto } from '../contexto.js'
+import { fluxoDeProducao, quemDesenha, referenciasDoPost, rotaDaDevolucao, sistemaDoAgente, textoReincidentes, type Contexto } from '../contexto.js'
 import { BUCKET_POSTS, db, urlPublica } from '../db.js'
 import { gravarAnimacao } from '../animacao.js'
 import { configDaMarca, gerarVoz, MODELO_VOZ } from '../elevenlabs.js'
@@ -15,7 +15,7 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, LAYOUTS, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, LAYOUTS, LIBERDADE, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
@@ -55,7 +55,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
   const escolhas = [
     pref.formato && `Formato: ${pref.formato}`,
     pref.estrutura && `Estrutura: ${pref.estrutura} (${ESTRUTURAS[pref.estrutura as keyof typeof ESTRUTURAS]})`,
-    pref.layout && `Layout: ${pref.layout} (${LAYOUTS[pref.layout as keyof typeof LAYOUTS]})`,
+    pref.layout && pref.layout in LAYOUTS && `Layout: ${pref.layout} (${LAYOUTS[pref.layout as keyof typeof LAYOUTS]})`,
     pref.voz && `Voz: ${pref.voz} (${VOZES[pref.voz as keyof typeof VOZES]})`,
     pref.slides && pref.formato !== 'reel' && `Quantidade de slides: ${pref.slides}`,
   ].filter(Boolean)
@@ -70,7 +70,7 @@ export const chefe: Agente = async (ctx, _passo, em) => {
       ...refs.blocos,
       {
         type: 'text' as const,
-        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}${anuncio ? `\n\n${textoDoAnuncio(anuncio)}\nO plano tem um item só: o que a arte mostra e diz. O fecho é a ação do objetivo da campanha, sem "link na bio".` : ''}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Capa e plano\n- O item 1 do plano é a capa: diga o gancho em até 6 palavras e o que aparece (foto do produto, só tipografia). A capa é vista recortada em quadrado na grade do perfil, então o gancho precisa funcionar sozinho.\n- Cada item do plano descreve uma ideia só, do tamanho de um título e uma frase de apoio; o que não cabe vai para a legenda.\n\n## O que o pesquisador confere\nEm precisa_pesquisa entram só fatos que existem fora da marca e dão para achar na web (data, origem, número público, tendência). Receita, dose, preço, função do app e qualquer dado interno da marca não entram: a equipe não tem como conferir e o dono confere na mesa.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
+        text: `Pedido do dono da marca:\n${ctx.post.briefing}\n\n${refs.texto}${anuncio ? `\n\n${textoDoAnuncio(anuncio)}\nO plano tem um item só: o que a arte mostra e diz. O fecho é a ação do objetivo da campanha, sem "link na bio".` : ''}\n\nMonte a pauta.\n\n## Formato e quantidade\n- Faça exatamente o que o pedido pede. "Um post", "uma imagem", "post único" ou "post simples" é foto: 1 imagem só, nunca carrossel. Carrossel só quando o pedido pede carrossel ou slides, ou quando a estrutura precisa de vários (receita com preparo, passo a passo, lista, mitos).\n- Carrossel tem de 2 a 10 slides, incluindo capa e o slide final. O plano tem um item por slide, nem mais nem menos que a quantidade.\n- Se o pedido cita uma quantidade de coisas (3 medidas, 5 passos, 2 versões), todas aparecem, cada uma no seu slide ou com o mesmo destaque. Se a quantidade de slides pedida não deixa espaço para capa + todos os itens, a capa já mostra o primeiro item; nunca deixe um item de fora.\n- Só escolha reel se o pedido falar em vídeo ou Reel: o vídeo é gerado por IA (cenas, sem texto na tela) e o reel tem 1 slide só, que é a capa. A quantidade de slides sai da estrutura escolhida, não de um padrão fixo.\n\n## Capa e plano\n- O item 1 do plano é a capa: diga o gancho em até 6 palavras e o que aparece (foto do produto, só tipografia). A capa é vista recortada em quadrado na grade do perfil, então o gancho precisa funcionar sozinho.\n- Cada item do plano descreve uma ideia só, do tamanho de um título e uma frase de apoio; o que não cabe vai para a legenda.\n\n## O que o pesquisador confere\nEm precisa_pesquisa entram só fatos que existem fora da marca e dão para achar na web (data, origem, número público, tendência). Receita, dose, preço, função do app e qualquer dado interno da marca não entram: a equipe não tem como conferir e o dono confere na mesa.\n\n## Objetivo e fecho\n${Object.entries(OBJETIVOS).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nNem todo post é de venda. Se o pedido não fala em vender, baixar ou assinar, o objetivo não é vender.\n\n${textoCaminhos(caminhos)}\n\nO layout e o plano dos slides precisam caber nas regras aprendidas do designer (acima, em "Regras dos outros agentes"): não escolha nem descreva um visual que uma regra proíbe (ex.: fundo claro e vazio quando a regra pede contraste forte, foto em bloco quadrado quando a regra pede recorte).${angulos.length ? `\n\n## Ângulos dos últimos posts (não repita)\n${angulos.map((a) => `- ${a}`).join('\n')}` : ''}${memoria ? `\n\n${memoria}\nSe o pedido cai num tema que já saiu, mantenha o pedido e escolha um ângulo e um gancho diferentes dos que já foram usados.` : ''}${funcionou ? `\n\n${funcionou}` : ''}${textoEscolhas}`,
       },
     ],
     schema: Pauta,
@@ -239,7 +239,7 @@ async function renderizarEConferir(ctx: Parameters<Agente>[0], passo: Parameters
   if (r.problemas.length) {
     await em.acao(`A checagem automática achou ${r.problemas.length} ${r.problemas.length === 1 ? 'problema' : 'problemas'}; corrigindo`)
     await em.texto(`${textoDaChecagem(r.problemas)}\n`)
-    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título ou logo fora da área 1:1: traga para dentro de y 135 a 1215 (o fundo e a foto podem continuar sangrando até a borda). Fora da área segura do story: traga para dentro de y 270 a 1250. Número ou palavra decorativa cortada na borda: tire o elemento decorativo.`, html, { renderizar: false, mecanico: true })
+    const ajuste = await editarSlides(ctx, passo, em, `Checagem automática dos slides renderizados (medida no navegador, é fato, não opinião):\n${textoDaChecagem(r.problemas)}\n\nCorrija só isso, sem mudar o texto. Texto cortado ou sobreposto: diminua um pouco a fonte, quebre a linha, ajuste margem ou posição. Faixa vazia: aproxime os blocos, centralize o grupo na altura ou aumente o elemento principal (título, foto, ícone). Título ou logo fora da área 1:1: traga para dentro de y 135 a 1215 (o fundo e a foto podem continuar sangrando até a borda). Fora da área segura do story: traga para dentro de y 270 a 1250. Número decorativo gigante: tire ou reduza ao tamanho do título. Foto cortada (só parte da foto aparece): troque object-fit cover por contain, ou deixe a caixa na proporção da foto. Foto em bloco com bordas secas: aplique mask-image com degradê nas bordas, ou cantos bem arredondados com sombra, ou sangre a foto pelo slide com degradê. Elemento inclinado: tire o rotate.`, html, { renderizar: false, mecanico: true })
     if (ajuste && ajuste.html !== html) {
       html = ajuste.html
       usoTotal = { tokens_entrada: usoTotal.tokens_entrada + ajuste.uso.tokens_entrada, tokens_saida: usoTotal.tokens_saida + ajuste.uso.tokens_saida, custo_usd: usoTotal.custo_usd + ajuste.uso.custo_usd }
@@ -353,6 +353,7 @@ async function autoconferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente
         type: 'text' as const,
         text: [
           `Acima ${ordenados.length === 1 ? 'está o slide renderizado' : `estão os ${ordenados.length} slides renderizados, na ordem`}.`,
+          textoReincidentes(ctx, eu),
           ctx.marca.checklist_revisor ? `## O que o revisor vai conferir\n${ctx.marca.checklist_revisor}` : '',
           `## HTML atual dos slides\n${html}`,
         ]
@@ -391,10 +392,10 @@ const COMPOSICAO = `## Composição (todas as marcas)
 - Área segura do 4:5 (1080x1350): o slide inteiro aparece no feed, mas a grade do perfil e alguns lugares (Explorar, compartilhamento, prévia) mostram só o quadrado central 1:1, de y 135 a y 1215, e a grade nova em 3:4 ainda come uns 35 px de cada lateral. Título, logo em destaque, chamada, preço e o rosto ou produto principal ficam dentro de x 80 a 1000 e y 135 a 1215. As faixas de cima (y 0 a 135) e de baixo (y 1215 a 1350) servem para fundo, foto sangrando e a assinatura pequena do rodapé (ícone e @), nunca para algo que precisa ser lido na miniatura.
 - O canto de cima à direita (cerca de 220 x 120 px) fica coberto pelo contador "1/5" do carrossel, e o canto de baixo à esquerda pelo ícone de marcação: nada importante ali.
 - A capa (slide 1) é a que aparece na grade: o título dela precisa funcionar sozinho recortado em 1:1, grande e centralizado no quadrado.
-- Foto do produto (drink, peça, aparelho): grande, inteira e reconhecível, com copo, guarnição ou bordas dentro do quadro, nunca cortada a ponto de não se reconhecer. Nunca em bloco quadrado chapado e centralizado: recorte com sombra suave, sangria por uma borda ou leve ângulo, para dar volume. Foto e texto ocupam áreas separadas, com pelo menos 40 px de respiro: texto não encosta nem cobre o produto. Foto pequena no meio de um cartão branco largo é o erro mais apontado.
+- Foto do produto (drink, peça, aparelho): grande, inteira e reconhecível, com copo, guarnição ou bordas dentro do quadro, nunca cortada a ponto de não se reconhecer. Nunca em bloco retangular de quina seca: use o produto recortado com sombra, a foto sangrando pelo slide inteiro com degradê, ou borda suavizada (mask-image com degradê radial ou linear, ou cantos bem arredondados com sombra; produto em PNG sem fundo leva a classe "recorte"). O copo, a garrafa ou o produto aparecem inteiros: prefira object-fit: contain, ou uma caixa na mesma proporção da foto, a cortar o produto com cover. Foto e texto ocupam áreas separadas, com pelo menos 40 px de respiro: texto não encosta nem cobre o produto. Foto pequena no meio de um cartão branco largo é o erro mais apontado.
 - Vida: contraste forte, a cor de destaque da marca presente e o fundo em sintonia com a foto (ambiente, cor dominante). Fundo claro e vazio, cinza sobre cinza e cartão branco solto deixam o post apagado.
 - Selo ou pílula é opcional; quando entrar, alinhe na mesma margem do título, com altura parecida com a do texto de apoio (nunca do tamanho do título) e varie a posição entre posts. Rodapé numa linha só, itens alinhados pela mesma base; o aviso legal cabe numa linha (encurte a fonte até 28 px, não quebre em duas) e com cor que se lê sobre o fundo.
-- Número ou palavra gigante decorativa no fundo só no layout numero-gigante, e nunca cortado na borda.
+- Nada de número ou palavra gigante decorativa (no fundo, na capa ou marcando passo): o dono reprovou isso em várias marcas. Número de passo ou dose entra no tamanho do título, no máximo.\n- Tudo reto: foto, selo, cartão e texto sem rotação nem inclinação (imagem torta já foi reprovada várias vezes). Profundidade vem de sombra, luz e sobreposição, não de girar.
 - Botão e chamada com palavras comuns ("Link na bio", "Começar grátis"), nunca endereço de site.
 - A marca aparece com o arquivo de imagem do logo ou ícone (na identidade ou no modelo), nunca com uma letra ou inicial no lugar.
 - Mockup de celular na proporção real (cerca de 9:19,5); print de tela recortado no trecho que importa, grande e legível, nunca cortado pela borda do slide nem com palavra pela metade. O cartão ou a moldura tem o tamanho exato do print: nada de faixa vazia em cima ou embaixo da tela.
@@ -447,7 +448,7 @@ async function gerarImagensDoPost(
     sistema: sistemaDoAgente(
       ctx,
       eu,
-      `Você decide quais imagens novas o post precisa antes de montar os slides. Cada imagem custa dinheiro: peça só quando a imagem faz o slide melhor (capa, produto em uso, cena que ilustra o ponto), no máximo ${MAX_IMAGENS_POR_POST}. Se há foto aprovada que já serve, não gere. Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Não peça tela de app, print, desenho técnico, gráfico, placa ou logo: a IA de imagem inventa letras e números distorcidos, e isso já reprovou posts. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado).`,
+      `Você é o diretor de arte e decide quais imagens novas o post precisa antes de montar os slides. Gere quando a imagem deixa o post mais vivo e mais próprio: capa com cena, produto num ambiente que combina com ele (praia, bar, cozinha), ingredientes, textura, luz, uma cena que ilustra o ponto, ou quando o pedido descreve uma foto ("foto de um copo com...", "crie uma foto"). No máximo ${MAX_IMAGENS_POR_POST}, cada uma custa alguns centavos. Se há foto aprovada que já mostra exatamente o que o slide precisa e a regra da marca pede foto oficial, use a foto e gere só o que ela não cobre (ambiente, fundo, ingredientes). Use as fotos da marca como referência sempre que o produto, a pessoa ou o ambiente precisam ser os da marca. A imagem não pode ter texto: o texto entra depois no HTML. Não peça tela de app, print, desenho técnico, gráfico, placa ou logo: a IA de imagem inventa letras e números distorcidos, e isso já reprovou posts. Pense no espaço livre para o texto do slide (ex.: céu limpo em cima, fundo desfocado). No prompt, peça o produto inteiro no quadro com margem, reto (sem inclinação), enquadramento vertical, luz de fotografia de produto.`,
     ),
     conteudo: [
       `## Plano dos slides\n${JSON.stringify((ctx.saidas.chefe as { plano_slides?: string[] } | undefined)?.plano_slides ?? [])}`,
@@ -529,7 +530,7 @@ export const designer: Agente = async (ctx, passo, em) => {
       ctx,
       eu,
       `${anuncio ? 'Você monta as artes de um anúncio pago no Meta em HTML: um criativo com um foco só, o objetivo da campanha, feito para parar quem rola o feed e não segue a marca. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. São duas seções: <section class="slide feed"> de exatamente 1080x1350 px e <section class="slide story"> de exatamente 1080x1920 px, as duas com overflow hidden.' : 'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden.'} Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área segura, e o revisor confere as imagens contra o checklist abaixo. Antes de responder, releia o HTML contra os cinco pontos que mais devolvem post: faixa vazia sem função, foto pequena ou chapada em bloco, texto encostando na foto ou cortado, rodapé em duas linhas ou desalinhado, título ou logo fora da área segura (y 135 a 1215 no 4:5; y 270 a 1250 no 9:16).`,
-    )}\n\n${composicaoDe(ctx)}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
+    )}\n\n${composicaoDe(ctx)}\n\n${LIBERDADE}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
@@ -540,11 +541,11 @@ export const designer: Agente = async (ctx, passo, em) => {
             ? `## Modelo da marca\nO modelo define a identidade: cores, fonte, ícone, assinatura e aviso legal. Não copie a composição dele (posições, tamanhos, pílula no topo, cartão de receita): a composição segue a direção de layout abaixo, e você cria as classes que precisar. A direção de layout tem prioridade sobre qualquer instrução de usar as classes do modelo.\n${ctx.marca.modelo_slides_html}`
             : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
           // com referências, o visual vem delas; sem, segue o layout sorteado na pauta
-          refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx)),
+          refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx), !!ctx.post.preferencias?.layout),
           aprovado,
           inspiracoes.length ? `## Inspirações da marca (as últimas imagens acima)\nPeças que o dono gosta. Use como referência de estilo; não coloque essas imagens nos slides.\n${inspiracoes.map((m) => `- ${m.descricao ?? 'inspiração'}`).join('\n')}` : '',
           geradas.length
-            ? `## Imagens geradas para este post\nFeitas sob medida para estes slides: use cada uma no slide indicado, grande (fundo inteiro ou metade do slide), com o texto em cima de uma área limpa ou de um degradê para ler bem.\n${JSON.stringify(geradas.map((g) => ({ slide: g.slide, url: g.url, o_que_mostra: g.prompt })))}`
+            ? `## Imagens geradas para este post\nFeitas sob medida para estes slides: use cada uma no slide indicado, grande (fundo inteiro ou metade do slide), com o texto em cima de uma área limpa ou de um degradê para ler bem. A imagem é 2:3 em pé: com object-fit cover no slide 4:5 perde um pouco em cima e embaixo; posicione (object-position) para o assunto ficar inteiro.\n${JSON.stringify(geradas.map((g) => ({ slide: g.slide, url: g.url, o_que_mostra: g.prompt })))}`
             : '',
           `## Fotos aprovadas disponíveis\n${fotos.length ? JSON.stringify(fotos) : geradas.length ? '(nenhuma além das geradas)' : '(nenhuma: faça slides só com tipografia e cor)'}`,
           refsDesign.tem
@@ -974,6 +975,8 @@ export const revisor: Agente = async (ctx, passo, em) => {
             ? `## Pauta deste post\nFormato: ${pauta.formato}, ${pauta.quantidade_slides} ${pauta.quantidade_slides === 1 ? 'imagem' : 'slides'}${pauta.objetivo ? `\nObjetivo: ${pauta.objetivo} (${OBJETIVOS[pauta.objetivo as keyof typeof OBJETIVOS] ?? ''})\nFecho combinado: ${pauta.fecho}` : ''}`
             : '',
           `## Fotos aprovadas da marca\n${fotosDaMarca.length ? fotosDaMarca.map((f) => `- ${f}`).join('\n') : '(nenhuma)'}\nSó cobre do designer uma foto que esteja nesta lista; não peça foto que a marca não tem.`,
+          // o que o dono já corrigiu mais de uma vez é conferido sempre, também na reconferência
+          textoReincidentes(ctx, quemDesenha(ctx.post)),
           reconferindo
             ? `## O que você apontou na rodada anterior\n${anterior!.problemas.map((p) => `- [${p.agente}] ${p.problema}`).join('\n')}\n\nConfira se cada ponto foi resolvido e, se sim, aprove. Não reabra o que já tinha passado: só aponte problema novo se for grave (fato errado, texto cortado ou sobreposto, regra quebrada).`
             : `## Checklist do revisor\n${ctx.marca.checklist_revisor}\n\nConfira item por item.${anuncio ? ' Itens que só valem para post (legenda, hashtags, carrossel, "salve", "link na bio") não valem para anúncio.' : ''}${pauta?.formato ? ` A pauta acima vale mais que item genérico do checklist: não cobre quantidade de slides diferente da pauta${pauta.formato === 'foto' ? ' (post de foto é 1 imagem só; regra de carrossel, como quantidade mínima de slides ou "Arraste pro lado", não vale)' : ''}${pauta.objetivo ? ', nem chamada de venda ou de contato quando o objetivo e o fecho da pauta não pedem' : ''}.` : ''}`,
@@ -1035,17 +1038,35 @@ const ConferenciaDeAjuste = z.object({
   problema: z.string().describe('o que falta ou quebrou, vazio se está tudo certo'),
 })
 
+/** Slides da versão anterior à última entrega de quem desenha (para comparar antes e depois de um ajuste). */
+async function slidesAnteriores(postId: string, desenha: string, atuais: { url: string }[]) {
+  const { data } = await db.from('passos').select('saida').eq('post_id', postId).eq('agente', desenha).eq('status', 'feito').order('ordem', { ascending: false }).limit(6)
+  const atuaisUrls = new Set(atuais.map((s) => s.url))
+  for (const p of data ?? []) {
+    const slides = ((p.saida as { slides?: { ordem: number; url: string }[] } | null)?.slides ?? []).filter((s) => s?.url)
+    if (slides.length && !slides.some((s) => atuaisUrls.has(s.url))) return [...slides].sort((a, b) => a.ordem - b.ordem).slice(0, 10)
+  }
+  return []
+}
+
 /** Depois de uma correção sua, o revisor só confere se o pedido foi atendido; não reabre o post inteiro. */
 async function revisarCorrecao(ctx: Parameters<Agente>[0], passo: Parameters<Agente>[1], em: Parameters<Agente>[2], correcao: Correcao): Promise<Resultado> {
   await em.inicio('Conferindo se o seu ajuste foi aplicado')
-  const slides = ctx.post.slides ?? []
+  const slides = [...(ctx.post.slides ?? [])].sort((a, b) => a.ordem - b.ordem)
+  // sem o "antes", o revisor não tinha como ver o que mudou e devolvia o ajuste ("não dá para confirmar"),
+  // pagando mais uma volta do designer por nada
+  const antes = await slidesAnteriores(ctx.post.id, quemDesenha(ctx.post), slides)
   const { dados, uso } = await gerarJson({
     modelo: modeloNaVolta(ctx, 'revisor', 'claude-sonnet-5-5'),
     effort: 'low',
     sistema: sistemaDoAgente(ctx, 'revisor', 'Você confere se um ajuste pedido pelo dono da marca foi aplicado. Olhe só o pedido e se algo visivelmente quebrou (texto cortado, sobreposto, caractere estranho). Não reavalie o resto do post.'),
     conteudo: [
+      ...antes.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
       ...slides.map((s) => ({ type: 'image' as const, source: { type: 'url' as const, url: s.url } })),
-      { type: 'text' as const, text: `## Ajuste pedido\n${correcao.comentario}\n\n## Legenda\n${ctx.post.legenda ?? ''}` },
+      {
+        type: 'text' as const,
+        text: `${antes.length ? `As primeiras ${antes.length} ${antes.length === 1 ? 'imagem é' : 'imagens são'} o post ANTES do ajuste; as ${slides.length} seguintes, DEPOIS. Compare as duas versões.` : `${slides.length === 1 ? 'A imagem é' : 'As imagens são'} o post depois do ajuste (a versão anterior não está disponível): julgue se o resultado atende o pedido.`}\n\n## Ajuste pedido\n${correcao.comentario}\n\n## Legenda\n${ctx.post.legenda ?? ''}`,
+      },
     ],
     schema: ConferenciaDeAjuste,
   })
