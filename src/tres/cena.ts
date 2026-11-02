@@ -28,6 +28,7 @@ export const CHAO_ESCURO: Record<string, string> = {
   '#dfe2e8': '#162843', // chão do andar
   '#cfd3dc': '#12223a', // corredor
   '#ece3d3': '#1f3556', // piso das salas (PADRAO.piso)
+  '#e4ded2': '#1a2e4c', // hall do andar da equipe
 }
 let chaoEscuro = false
 /** A cor de fundo ou de chão no tema que está valendo. */
