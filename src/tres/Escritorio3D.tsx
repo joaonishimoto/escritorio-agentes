@@ -14,11 +14,11 @@ import { comprimento, noCaminho, type Ponto } from '../andar/caminho'
 import {
   ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ENTRADA, EQUIPE_H, EQUIPE_W, GAVETA, GRAFICO_FIN, HALL, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, NOVO_POST,
   PAREDE_H, PAREDES_ALTAS, PAREDES_BAIXAS, PASSO_MARCA, PLACA, PORTA, PORTA_MARCA, PORTAS, QUADROS, RECEPCAO, SALA_FIN, SALA_H, SALA_VOCE, VAO_ALA, VISTA_MIN,
-  caminhoAteOCafe, type MarcaNoAndar, type Parede, type Quadro, type Sala,
+  GATOS, caminhoAteOCafe, portaDe, type MarcaNoAndar, type Parede, type Quadro, type Sala,
 } from '../andar/planta'
 import { COR_EQUIPE, COR_FINANCEIRO, COR_VOCE, PADRAO, misturar } from '../andar/cores'
 import { contarRecebidos } from '../lib/emails'
-import { type Acao, type Boneco, boneco, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, corDoChao, usarChaoEscuro, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
+import { type Acao, type Boneco, type Gato3D, boneco, gato, cadeira, caixa, chao, cilindro, envelope, envelopeAberto, K, mat, corDoChao, usarChaoEscuro, mesaDeTrabalho, PALETA, planta, quadroNaParede, sofa, textura, wx, wz } from './cena'
 
 
 const VELOCIDADE = 58
@@ -160,11 +160,41 @@ export function Escritorio3D({
     bandejas: Record<AgenteId, THREE.Mesh[]>
     anel: THREE.Mesh
     cartas: Map<string, THREE.Object3D>
+    gatos: Record<string, Gato3D>
     alvoCamera: THREE.Vector3 | null
     tamanho: { w: number; h: number }
   } | null>(null)
 
   const andantes = useRef<Andante[]>([])
+  /** Maki e Gojo passeiam pelo hall e entram nas salas; param um pouco e às vezes cochilam */
+  const gatos = useRef(GATOS.map((g) => ({ ...g, rota: [] as Ponto[], dist: 0, ate: 0, dormindo: false, sala: null as Sala | null, rumo: 0 })))
+  const [miau, setMiau] = useState<Record<string, string>>({})
+  const falarGato = (nome: string, texto: string) => {
+    setMiau((m) => ({ ...m, [nome]: texto }))
+    window.setTimeout(() => setMiau((m) => {
+      const resto = { ...m }
+      delete resto[nome]
+      return resto
+    }), 2600)
+  }
+  // textos por cima da maquete (nomes, placas, balões): dá para esconder, e a escolha fica no aparelho
+  const [textos, setTextos] = useState(() => {
+    try {
+      return localStorage.getItem('escritorio-textos') !== 'ocultos'
+    } catch {
+      return true
+    }
+  })
+  const trocarTextos = () => {
+    setTextos((v) => {
+      try {
+        localStorage.setItem('escritorio-textos', v ? 'ocultos' : 'visiveis')
+      } catch {
+        // sem armazenamento local
+      }
+      return !v
+    })
+  }
   const envelopes = useRef<Envelope[]>([])
   const pendentes = useRef<Entrega[]>([])
   /** e-mail que acabou de chegar: o envelope fica um tempo aberto em cima da mesa */
@@ -306,7 +336,10 @@ export function Escritorio3D({
     anel.visible = false
     vivos.add(anel)
 
-    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, abertos, bandejas, anel, cartas: new Map(), alvoCamera: null, tamanho: { w: 1, h: 1 } }
+    // Maki e Gojo
+    const gatos: Record<string, Gato3D> = {}
+    for (const g of GATOS) gatos[g.nome] = gato(vivos, g.mancha, { tipo: 'gato', nome: g.nome })
+    tres.current = { renderer, scene, camera, controls, sol, cenario, vivos, bonecos, telas, filas, abertos, bandejas, anel, cartas: new Map(), gatos, alvoCamera: null, tamanho: { w: 1, h: 1 } }
 
     const ajustar = () => {
       const w = el.clientWidth || 1
@@ -585,7 +618,69 @@ const zFundo = wz(PAREDE_H)
         sofa(c, wx(tx), wz(tz + 34), 1.8, PADRAO.estofado).rotation.y = Math.PI
         caixa(c, 0.9, 0.35, 0.5, PALETA.madeiraClara, wx(tx), 0.175, wz(tz), 0.03)
       }
-      for (const [x, y] of [[HALL.x + 6, HALL.y + HALL.h - 10], [HALL.x + HALL.w - 6, HALL.y + 6], [ENTRADA.em - 34, EQUIPE_H - 12], [ENTRADA.em + 34, EQUIPE_H - 12]]) planta(c, wx(x), wz(y), 0.9)
+      // plantas do hall, longe das paredes e das portas
+      for (const [x, y] of [[214, 494], [556, 344], [ENTRADA.em - 36, EQUIPE_H - 14], [ENTRADA.em + 36, EQUIPE_H - 14]]) planta(c, wx(x), wz(y), 0.9)
+
+      // móveis das salas, nos cantos livres (as mesas ficam no meio)
+      const [pauta, design, estudio, revisao, publicacao] = DEPTOS
+      const estante = (x: number, z: number, girada = false) => {
+        const g = new THREE.Group()
+        c.add(g)
+        g.position.set(x, 0, z)
+        if (girada) g.rotation.y = Math.PI / 2
+        caixa(g, 0.9, 1.6, 0.32, PALETA.madeiraClara, 0, 0.8, 0, 0.02)
+        const tons = ['#2a5288', '#e3e6ec', '#5b6270', '#c9ccd6']
+        for (let f = 0; f < 3; f++) for (let k = 0; k < 7; k++) caixa(g, 0.08, 0.3 + ((k * 7 + f) % 3) * 0.03, 0.22, tons[(k + f) % 4], -0.32 + k * 0.105, 0.35 + f * 0.48, 0.02)
+      }
+      const quadroBranco = (x: number, z: number, notas: boolean) => {
+        caixa(c, 0.95, 0.65, 0.04, '#ffffff', x, 1.15, z, 0.01)
+        for (const sx of [-1, 1]) caixa(c, 0.03, 1.5, 0.03, '#8a8f99', x + sx * 0.42, 0.75, z - 0.01)
+        const cores = notas ? ['#ffd36b', '#9fd1ff', '#b6e3a8', '#ff9b85', '#ffd36b', '#d9b8ff'] : ['#2a5288', '#e9a4a4', '#f2b233', '#3f7650', '#9fb7d9', '#c46a2b']
+        cores.forEach((cor, k) => caixa(c, 0.16, 0.13, 0.01, cor, x - 0.3 + (k % 3) * 0.3, 1.28 - Math.floor(k / 3) * 0.24, z + 0.025))
+      }
+      // Pauta e texto: estante na parede do fundo e o quadro da pauta no canto livre
+      estante(wx(pauta.x + 270), wz(8))
+      quadroBranco(wx(pauta.x + 268), wz(104), true)
+      planta(c, wx(pauta.x + 14), wz(pauta.y + 160), 0.75)
+      // Design: mural de referências e plantas
+      quadroBranco(wx(design.x + 186), wz(120), false)
+      planta(c, wx(design.x + 226), wz(design.y + 162), 0.75)
+      planta(c, wx(design.x + 14), wz(design.y + 162), 0.75)
+      // Estúdio: fundo verde encostado na parede do fundo, refletor, câmera no tripé e microfone do Narrador
+      {
+        const cx = wx(estudio.x + 128)
+        const verde = mat('#3fa66b', { roughness: 0.95 })
+        caixa(c, 2.0, 1.9, 0.05, verde, cx, 0.95, 0.1, 0.02)
+        caixa(c, 2.0, 0.02, 0.55, verde, cx, 0.01, 0.4)
+        const lx = cx - 1.35
+        caixa(c, 0.03, 1.6, 0.03, '#222222', lx, 0.8, 0.5)
+        const luz = caixa(c, 0.4, 0.3, 0.12, mat('#fff7e0', { emissive: '#fff2cc', emissiveIntensity: 0.8 }), lx, 1.6, 0.5, 0.02)
+        luz.rotation.y = -0.7
+        const tx = cx
+        const tz = wz(150)
+        for (let k = 0; k < 3; k++) {
+          const p = caixa(c, 0.025, 1.1, 0.025, '#222222', tx + Math.cos(k * 2.1) * 0.12, 0.53, tz + Math.sin(k * 2.1) * 0.12)
+          p.rotation.z = Math.cos(k * 2.1) * 0.2
+          p.rotation.x = -Math.sin(k * 2.1) * 0.2
+        }
+        caixa(c, 0.22, 0.15, 0.3, '#1b1d22', tx, 1.1, tz, 0.02)
+        const nm = MESAS.narrador
+        caixa(c, 0.02, 0.3, 0.02, '#222222', wx(nm.x + 4), 0.9, wz(nm.y + 4))
+        caixa(c, 0.07, 0.12, 0.07, '#444444', wx(nm.x + 4), 1.08, wz(nm.y + 4), 0.03)
+      }
+      // Revisão: estante na parede da esquerda e uma planta
+      estante(0.25, wz(revisao.y + 140), true)
+      planta(c, wx(revisao.x + 206), wz(revisao.y + 160), 0.75)
+      // Publicação: mesinha com o celular e o notebook ao lado do Publicador e uma planta
+      {
+        const mx = wx(publicacao.x + 150)
+        const mz = wz(publicacao.y + 74)
+        caixa(c, 0.8, 0.05, 0.5, '#ffffff', mx, 0.5, mz, 0.02)
+        caixa(c, 0.06, 0.5, 0.06, PALETA.perna, mx, 0.25, mz)
+        caixa(c, 0.32, 0.02, 0.22, '#c7ccd6', mx - 0.1, 0.54, mz)
+        caixa(c, 0.12, 0.02, 0.22, '#1d1f25', mx + 0.22, 0.54, mz, 0.01)
+        planta(c, wx(publicacao.x + 16), wz(publicacao.y + 160), 0.75)
+      }
     }
 
     // ── sua sala ──
@@ -869,6 +964,53 @@ const zFundo = wz(PAREDE_H)
         cartas.delete(id)
       }
 
+      // Maki e Gojo: escolhem um lugar no hall ou numa sala, vão pela porta, param um pouco e às vezes cochilam
+      for (const g of gatos.current) {
+        const m = t.gatos[g.nome]
+        if (!g.rota.length) {
+          if (agora >= g.ate) {
+            const salas = SALAS_DO_ANDAR
+            const destino = Math.random() < 0.4 ? salas[Math.floor(Math.random() * salas.length)] : null
+            const alvo: Ponto = destino
+              ? [destino.x + 24 + Math.random() * (destino.w - 48), destino.y + destino.h - 30 + Math.random() * 12]
+              : [HALL.x + 20 + Math.random() * (HALL.w - 40), HALL.y + 20 + Math.random() * (HALL.h - 40)]
+            const rota: Ponto[] = [[g.x, g.y]]
+            if (g.sala && g.sala !== destino) {
+              const p = portaDe(g.sala)
+              rota.push(p.dentro, p.fora)
+            }
+            if (destino && destino !== g.sala) {
+              const p = portaDe(destino)
+              rota.push(p.fora, p.dentro)
+            }
+            rota.push(alvo)
+            g.rota = rota
+            g.dist = 0
+            g.sala = destino
+            g.dormindo = false
+          }
+        } else {
+          g.dist += 26 * dt
+          const p = noCaminho(g.rota, g.dist)
+          if (Math.hypot(p.x - g.x, p.y - g.y) > 0.01) g.rumo = Math.atan2(-(p.y - g.y), p.x - g.x)
+          g.x = p.x
+          g.y = p.y
+          if (g.dist >= comprimento(g.rota)) {
+            g.rota = []
+            g.dormindo = Math.random() < 0.3
+            g.ate = agora + (g.dormindo ? 12000 : 2500) + Math.random() * 6000
+          }
+        }
+        const andandoGato = g.rota.length > 0
+        m.grupo.position.set(wx(g.x), andandoGato ? Math.abs(Math.sin(seg * 12)) * 0.02 : 0, wz(g.y))
+        m.grupo.rotation.y = g.rumo
+        m.grupo.scale.set(1.3, g.dormindo ? 0.8 : 1.3, 1.3)
+        m.cabeca.rotation.z = g.dormindo ? -0.5 : 0
+        m.cauda.rotation.z = g.dormindo ? 1.4 : 0.45 + Math.sin(seg * 3) * 0.15
+        m.pernas.forEach((perna, k) => (perna.position.y = 0.05 + (andandoGato ? Math.sin(seg * 14 + k * Math.PI) * 0.015 : 0)))
+        posicoes[`gato:${g.nome}`] = new THREE.Vector3(wx(g.x), g.dormindo ? 0.45 : 0.6, wz(g.y))
+      }
+
       // anel embaixo de quem está selecionado
       const sel = v.selecionado
       anel.visible = !!sel
@@ -908,6 +1050,9 @@ const zFundo = wz(PAREDE_H)
           const pessoal = d.id === 'voce' || d.id === 'financeiro'
           pos = pessoal ? tmp.set(wx(d.x + 44), 0.05, wz(d.y + d.h - 22)) : tmp.set(wx(d.x + d.w / 2), 0.05, wz(d.y + 20))
           ancora = 'centro'
+        } else if (chave.startsWith('gato:')) {
+          const p = posicoes[chave]
+          if (p) pos = tmp.copy(p)
         } else if (chave.startsWith('caixa:')) {
           const id = chave.slice(6) as AgenteId
           const n = naCaixa[id] ?? 0
@@ -975,6 +1120,10 @@ const zFundo = wz(PAREDE_H)
     if (acao.tipo === 'calendario') return focar('calendario')
     if (acao.tipo === 'financeiro') return focar('financeiro')
     if (acao.tipo === 'caixa') return abrirEmails(acao.id as AgenteId)
+    if (acao.tipo === 'gato') {
+      const g = gatos.current.find((x) => x.nome === acao.nome)
+      return falarGato(acao.nome, g?.dormindo ? `${acao.nome} está cochilando… zzz` : `Miau! Eu sou ${acao.nome === 'Maki' ? 'a' : 'o'} ${acao.nome}`)
+    }
     if (marcas[indiceAtivo]?.id !== acao.marca) aoEscolherMarca(acao.marca)
     if (acao.tipo === 'quadro') {
       selecionar(null)
@@ -1007,7 +1156,7 @@ const zFundo = wz(PAREDE_H)
   }
   return (
     <div
-      className="pixel tres"
+      className={`pixel tres${textos ? '' : ' sem-textos'}`}
       ref={caixaRef}
       onPointerDown={(e) => {
         apertou.current = { x: e.clientX, y: e.clientY }
@@ -1092,7 +1241,20 @@ const zFundo = wz(PAREDE_H)
           </div>
         </Fragment>
       ))}
-      <div className="tres-dica">Arraste para passear · roda para aproximar · botão direito gira</div>
+      {GATOS.map(({ nome }) => (
+        <div key={nome} className="tres-etiqueta" ref={ref(`gato:${nome}`)}>
+          {miau[nome] && <div className="balao balao-gato">{miau[nome]}</div>}
+        </div>
+      ))}
+      <div className="tres-dica">Arraste para passear · roda para aproximar · botão direito gira · clique na Maki e no Gojo</div>
+      <button type="button" className="tres-textos" onClick={trocarTextos} aria-pressed={!textos} title={textos ? 'Esconder nomes, placas e balões' : 'Mostrar nomes, placas e balões'}>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
+          {!textos && <path d="M3 3l18 18" />}
+        </svg>
+        {textos ? 'Ocultar textos' : 'Mostrar textos'}
+      </button>
     </div>
   )
 }

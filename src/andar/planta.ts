@@ -143,17 +143,26 @@ export const assento = (m: { x: number; y: number }) => ({ x: m.x + MESA_W / 2, 
 export const salaDe = (m: { x: number; y: number }) => DEPTOS.find((d) => m.x >= d.x && m.x < d.x + d.w && m.y >= d.y && m.y < d.y + d.h) ?? DEPTOS[0]
 
 type P = [number, number]
-/** Da cadeira até o balcão do café: pela linha das cadeiras até a porta, sai no hall e vai até o balcão. */
-export function caminhoAteOCafe(m: { x: number; y: number }): P[] {
-  const a = assento(m)
-  const s = salaDe(m)
+/** Pontos logo dentro e logo fora da porta de uma sala (o de fora fica no hall). */
+export function portaDe(s: Sala): { dentro: P; fora: P } {
   const { lado, em } = s.porta
   const dentro: P = lado === 'baixo' ? [em, s.y + s.h - 14] : lado === 'cima' ? [em, s.y + 14] : lado === 'direita' ? [s.x + s.w - 14, em] : [s.x + 14, em]
   const fora: P = lado === 'baixo' ? [em, s.y + s.h + 18] : lado === 'cima' ? [em, s.y - 18] : lado === 'direita' ? [s.x + s.w + 18, em] : [s.x - 18, em]
-  const cafe: P = [CAFE.x + 20, CAFE.y + 26]
-  const linha: P = [dentro[0], a.y]
-  return [[a.x, a.y], linha, dentro, fora, cafe]
+  return { dentro, fora }
 }
+/** Da cadeira até o balcão do café: pela linha das cadeiras até a porta, sai no hall e vai até o balcão. */
+export function caminhoAteOCafe(m: { x: number; y: number }): P[] {
+  const a = assento(m)
+  const { dentro, fora } = portaDe(salaDe(m))
+  const cafe: P = [CAFE.x + 20, CAFE.y + 26]
+  return [[a.x, a.y], [dentro[0], a.y], dentro, fora, cafe]
+}
+
+/** Maki e Gojo, os gatos do escritório: brancos, com manchas e olhos azuis. */
+export const GATOS = [
+  { nome: 'Maki', mancha: '#8a7a6c', x: 300, y: 430 },
+  { nome: 'Gojo', mancha: '#3b3f4a', x: 500, y: 300 },
+]
 
 /** Onde fica a placa com o nome da marca, no tapete da sala dela (o texto é HTML por cima, para ficar nítido). */
 export const PLACA = { x: MARCA_W / 2, y: 114 }
