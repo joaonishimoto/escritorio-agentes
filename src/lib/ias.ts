@@ -1,6 +1,6 @@
 // Catálogo de IAs que você escolhe por post no Novo post. As chaves são as mesmas de api/_lib/ias.ts.
 
-export type Servico = 'claude' | 'openrouter' | 'kling' | 'fal' | 'elevenlabs'
+export type Servico = 'claude' | 'openrouter' | 'kling' | 'fal' | 'elevenlabs' | 'openai'
 export type Servicos = Partial<Record<Servico, boolean>>
 
 export interface OpcaoIA {
@@ -27,8 +27,9 @@ export const MOTORES_VIDEO: OpcaoIA[] = [
   { id: 'fal-seedance', nome: 'Seedance 2.0', desc: 'Pelo fal.ai · 720p', servico: 'fal' },
 ]
 
-/** Imagens que o designer gera para dentro do post (pelo fal.ai), ou nenhuma: só as fotos aprovadas da marca. */
+/** Imagens que o designer gera para dentro do post (ChatGPT pela OpenAI ou modelos do fal.ai), ou nenhuma: só as fotos aprovadas da marca. */
 export const MODELOS_IMAGEM: OpcaoIA[] = [
+  { id: 'gpt-image', nome: 'ChatGPT', desc: 'GPT Image, direto na OpenAI · cerca de US$ 0,05 por imagem, até 3 por post', servico: 'openai' },
   { id: 'seedream', nome: 'Seedream 4', desc: 'Pelo fal.ai · US$ 0,03 por imagem, até 3 por post', servico: 'fal' },
   { id: 'nano-banana', nome: 'Nano Banana', desc: 'Pelo fal.ai · US$ 0,04 por imagem, mantém bem o produto da referência', servico: 'fal' },
   { id: 'nano-banana-pro', nome: 'Nano Banana Pro', desc: 'Pelo fal.ai · US$ 0,15 por imagem, a melhor qualidade', servico: 'fal' },
@@ -45,7 +46,7 @@ export const FUNCIONARIOS_IA: { agente: string; nome: string; padrao: string; vi
   { agente: 'redator', nome: 'Copywriter', padrao: 'claude-opus-5-5' },
   { agente: 'designer', nome: 'Designer', padrao: 'claude-opus-5-5' },
   { agente: 'criativos', nome: 'Designer de criativos', padrao: 'claude-opus-5-5' },
-  { agente: 'imagens', nome: 'Imagens do designer', padrao: 'seedream' },
+  { agente: 'imagens', nome: 'Imagens do designer', padrao: 'gpt-image' },
   { agente: 'cinegrafista', nome: 'Cinegrafista', padrao: 'kling', video: true },
   { agente: 'narrador', nome: 'Narrador', padrao: 'claude-sonnet-5-5', video: true },
   { agente: 'revisor', nome: 'Revisor', padrao: 'claude-opus-5-5' },
@@ -57,6 +58,7 @@ export const CHAVE_DO_SERVICO: Record<Servico, string> = {
   kling: 'KLING_API_KEY',
   fal: 'FAL_KEY',
   elevenlabs: 'ELEVENLABS_API_KEY',
+  openai: 'OPENAI_API_KEY',
 }
 
 /** Motor de vídeo padrão: a animação do Claude; os pagos só por escolha (mesma regra de api/_lib/ias.ts). */
@@ -66,7 +68,8 @@ export function motorPadrao() {
 
 /** O padrão de cada funcionário; o do cinegrafista depende de qual serviço de vídeo tem chave. */
 export function padraoDe(f: { agente: string; padrao: string }, servicos: Servicos | null | undefined) {
-  if (f.agente === 'imagens') return servicos?.fal ? 'seedream' : 'nenhuma'
+  // mesma ordem de api/_lib/imagens.ts: ChatGPT com a chave da OpenAI, senão Seedream com a do fal.ai
+  if (f.agente === 'imagens') return servicos?.openai ? 'gpt-image' : servicos?.fal ? 'seedream' : 'nenhuma'
   return f.agente === 'cinegrafista' ? motorPadrao() : f.padrao
 }
 

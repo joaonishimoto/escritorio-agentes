@@ -25,18 +25,29 @@ describe('IAs escolhidas por post', () => {
     expect(motorDeVideo(ctx())).toBe(motorPadrao())
     expect(motorDeVideo(ctx({ cinegrafista: 'fal-hailuo' }))).toBe('fal-hailuo')
   })
-  it('imagens do designer: só com FAL_KEY, no Seedream se o post não escolheu, ou nenhuma', () => {
+  it('imagens do designer: ChatGPT com a chave da OpenAI, senão Seedream com a FAL_KEY, ou nenhuma', () => {
     expect(limparIas({ imagens: 'nano-banana', designer: 'nenhuma' })).toEqual({ imagens: 'nano-banana' })
+    expect(limparIas({ imagens: 'gpt-image' })).toEqual({ imagens: 'gpt-image' })
     expect(limparIas({ imagens: 'nenhuma' })).toEqual({ imagens: 'nenhuma' })
     expect(limparIas({ imagens: 'dall-e' })).toEqual({})
-    const antes = process.env.FAL_KEY
+    const antes = { fal: process.env.FAL_KEY, openai: process.env.OPENAI_API_KEY }
     delete process.env.FAL_KEY
+    delete process.env.OPENAI_API_KEY
     expect(motorDeImagem(ctx())).toBeNull()
     process.env.FAL_KEY = 'teste'
     expect(motorDeImagem(ctx())).toBe('seedream')
     expect(motorDeImagem(ctx({ imagens: 'nano-banana-pro' }))).toBe('nano-banana-pro')
     expect(motorDeImagem(ctx({ imagens: 'nenhuma' }))).toBeNull()
-    if (antes === undefined) delete process.env.FAL_KEY
-    else process.env.FAL_KEY = antes
+    // escolheu o ChatGPT sem a chave da OpenAI: cai no que tem chave
+    expect(motorDeImagem(ctx({ imagens: 'gpt-image' }))).toBe('seedream')
+    process.env.OPENAI_API_KEY = 'teste'
+    expect(motorDeImagem(ctx())).toBe('gpt-image')
+    expect(motorDeImagem(ctx({ imagens: 'seedream' }))).toBe('seedream')
+    delete process.env.FAL_KEY
+    expect(motorDeImagem(ctx({ imagens: 'nano-banana' }))).toBe('gpt-image')
+    for (const [k, v] of [['FAL_KEY', antes.fal], ['OPENAI_API_KEY', antes.openai]] as const) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
   })
 })

@@ -36,7 +36,11 @@ const Curadoria = z.object({
       agente: z.enum(['chefe', 'pesquisador', 'redator', 'designer', 'criativos', 'cinegrafista', 'narrador', 'revisor', 'publicador', 'todos']),
       regra: z.string().describe('curta e verificável, no imperativo'),
       motivo: z.string(),
-      ja_coberta: z.boolean().describe('true se uma regra que já existe para a marca (listadas no sistema) já diz isso com outras palavras; aí ela não entra de novo'),
+      ja_coberta: z.boolean().describe('true se uma regra que já existe para a marca, ou uma instrução que a equipe já segue, já diz isso com outras palavras; aí ela não entra de novo'),
+      regra_existente: z
+        .number()
+        .int()
+        .describe('só com ja_coberta: o número da regra existente (lista numerada no pedido) que já cobria isso; 0 se quem cobria era uma instrução que a equipe já segue'),
     }),
   ),
   pontual: z
@@ -101,6 +105,56 @@ async function curarDevolucoes(ctx: Parameters<Agente>[0], passo: Parameters<Age
   return { saida: { origem: 'revisor', regras: novas }, uso, entrega: novas.length ? `${novas.length} regra(s) proposta(s) a partir das devoluções do revisor` : 'Devoluções do revisor sem regra nova', proximos: null, para: 'voce' }
 }
 
+/** As regras ativas da marca numeradas, para o curador dizer qual já cobria a correção. */
+function listaNumerada(regras: Parameters<Agente>[0]['regras']) {
+  if (!regras.length) return '## Regras que a marca já tem\n(nenhuma)'
+  return `## Regras que a marca já tem (numeradas)\n${regras.map((r, i) => `${i + 1}. [${r.agente}] ${r.regra}${(r.vezes ?? 1) >= 2 ? ` (já voltou ${r.vezes}x)` : ''}`).join('\n')}`
+}
+
+/**
+ * O dono corrigiu algo que já tinha regra: a regra conta mais uma vez (vira reincidente e passa a ser cobrada
+ * um por um na autoconferência e no revisor). Se quem cobria era uma instrução de todas as marcas, ela entra como
+ * regra ativa da marca já marcada como reincidente: não é gosto novo, é o que a equipe já devia fazer.
+ */
+async function contarReincidencias(
+  ctx: Parameters<Agente>[0],
+  cobertas: { agente: string; regra: string; motivo: string; regra_existente: number }[],
+  comentario: string,
+) {
+  const linhas: string[] = []
+  const agora = new Date().toISOString()
+  for (const c of cobertas) {
+    const existente = c.regra_existente > 0 ? ctx.regras[c.regra_existente - 1] : undefined
+    if (existente?.id) {
+      const vezes = (existente.vezes ?? 1) + 1
+      const { error } = await db.from('regras').update({ vezes, ultima_vez: agora }).eq('id', existente.id)
+      if (!error) {
+        existente.vezes = vezes
+        linhas.push(`Erro repetido (${vezes}x), agora cobrado com prioridade: ${existente.regra}`)
+        continue
+      }
+    } else if (c.regra_existente === 0 && c.regra.trim()) {
+      const { error } = await db.from('regras').insert({
+        marca_id: ctx.marca.id,
+        agente: c.agente,
+        regra: c.regra.trim().slice(0, 600),
+        motivo: c.motivo || 'Instrução que a equipe já devia seguir e voltou a errar',
+        origem_correcao: comentario,
+        status: 'ativa',
+        post_id: ctx.post.id,
+        vezes: 2,
+        ultima_vez: agora,
+      })
+      if (!error) {
+        linhas.push(`Erro repetido de uma instrução que a equipe já seguia, agora cobrado com prioridade: ${c.regra}`)
+        continue
+      }
+    }
+    linhas.push(`Já coberta por uma regra que existe: ${c.regra}`)
+  }
+  return linhas
+}
+
 export const curador: Agente = async (ctx, passo, em) => {
   if (passo.entrada.origem === 'revisor') return curarDevolucoes(ctx, passo, em)
   const comentario = String(passo.entrada.comentario ?? '')
@@ -113,14 +167,15 @@ export const curador: Agente = async (ctx, passo, em) => {
     sistema: sistemaDoAgente(
       ctx,
       'curador',
-      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Antes de escrever, compare com as regras que já existem para a marca (listadas acima): se uma já diz o mesmo com outras palavras, marque ja_coberta e não a reescreva. No máximo duas regras por correção, cada uma para o agente que consegue cumpri-la. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post, e sem citar o nome do dono. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Regra sobre o visual de anúncio é do criativos; sobre o visual de post, do designer; sobre o pacote de textos do anúncio, do redator. Toda a equipe já segue, sem precisar de regra: nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título e logo dentro da área 1:1, áreas seguras do anúncio, número decorativo gigante só quando é o layout, logo de verdade em vez de letra, foto do produto grande e com sombra ou sangria em vez de bloco quadrado, texto sem cobrir a foto, selo proporcional ao texto, rodapé numa linha, mockup na proporção real, nada de imagem gerada com tela ou texto, capa com até 6 palavras, primeira linha da legenda com até 12 palavras, números por extenso na narração, cena do vídeo parada por 2 s, sem barra preta.',
+      'Você transforma a correção do dono da marca em regras curtas e verificáveis para a equipe não repetir o erro. Antes de escrever, compare com as regras que já existem para a marca (lista numerada no pedido): se uma já diz o mesmo com outras palavras, marque ja_coberta, ponha o número dela em regra_existente e não a reescreva. Isso é importante: quer dizer que a equipe repetiu um erro que já tinha regra, e o app passa a cobrar esse erro com prioridade. No máximo duas regras por correção, cada uma para o agente que consegue cumpri-la. Regra é geral: vale para os próximos posts, sem citar o drink, o produto ou o slide deste post, e sem citar o nome do dono. Só crie regra se a correção mostra um gosto ou um limite da marca; um ajuste que só vale para este post (trocar uma palavra, mover um elemento) não vira regra. Regra sobre o visual de anúncio é do criativos; sobre o visual de post, do designer; sobre o pacote de textos do anúncio, do redator. Se a correção cai numa destas instruções que a equipe já devia seguir, marque ja_coberta com regra_existente 0 e escreva em "regra" a instrução que falhou, curta e no imperativo (ela passa a ser cobrada como erro reincidente): nada de endereço de site no post, @ em minúsculas, fecho de acordo com o objetivo (post de marca sem venda), quantidade exata de posts e slides pedida, nada de faixa grande vazia, margens e espaçamentos iguais, título e logo dentro da área 1:1, áreas seguras do anúncio, nada de número decorativo gigante, nada torto ou girado, logo de verdade em vez de letra, foto do produto grande, inteira e com sombra, recorte ou borda desfocada em vez de bloco quadrado de quina seca, texto sem cobrir a foto, selo proporcional ao texto, rodapé numa linha, mockup na proporção real, nada de imagem gerada com tela ou texto, capa com até 6 palavras, primeira linha da legenda com até 12 palavras, números por extenso na narração, cena do vídeo parada por 2 s, sem barra preta.',
     ),
-    conteudo: `${ctx.post.anuncio ? 'Isto é um anúncio no Meta (artes do designer de criativos e pacote de textos do redator).\n\n' : ''}Pedido original: ${ctx.post.briefing}\n\n${ctx.post.anuncio?.pacote ? `Pacote atual do anúncio:\n${JSON.stringify(ctx.post.anuncio.pacote)}` : `Legenda atual:\n${ctx.post.legenda ?? ''}`}\n\nCorreção do dono da marca:\n${comentario}`,
+    conteudo: `${ctx.post.anuncio ? 'Isto é um anúncio no Meta (artes do designer de criativos e pacote de textos do redator).\n\n' : ''}${listaNumerada(ctx.regras)}\n\nPedido original: ${ctx.post.briefing}\n\n${ctx.post.anuncio?.pacote ? `Pacote atual do anúncio:\n${JSON.stringify(ctx.post.anuncio.pacote)}` : `Legenda atual:\n${ctx.post.legenda ?? ''}`}\n\nCorreção do dono da marca:\n${comentario}`,
     schema: Curadoria,
   })
 
   const cobertas = dados.regras.filter((r) => r.ja_coberta)
   dados.regras = dados.regras.filter((r) => !r.ja_coberta)
+  const reincidencias = await contarReincidencias(ctx, cobertas, comentario)
   if (dados.regras.length) {
     await db.from('regras').insert(
       dados.regras.map((r) => ({
@@ -134,7 +189,7 @@ export const curador: Agente = async (ctx, passo, em) => {
       })),
     )
   }
-  await em.texto([...dados.regras.map((r) => `[${r.agente}] ${r.regra}`), ...cobertas.map((r) => `Já coberta por uma regra que existe: ${r.regra}`)].join('\n') || 'Nenhuma regra nova.')
+  await em.texto([...dados.regras.map((r) => `[${r.agente}] ${r.regra}`), ...reincidencias].join('\n') || 'Nenhuma regra nova.')
 
   if (reprovado || dados.refazer_a_partir_de === 'nenhum') {
     if (!reprovado) await db.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', ctx.post.id)

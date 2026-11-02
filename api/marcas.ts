@@ -105,9 +105,12 @@ async function perfil(res: VercelResponse, usuario: string, corpo: { acao?: stri
 
 /** Regras ativas de um agente da marca, da mais antiga para a mais recente. */
 async function regrasAtivas(marcaId: string, agente: string) {
-  const { data, error } = await db.from('regras').select('id, regra, motivo').eq('marca_id', marcaId).eq('agente', agente).eq('status', 'ativa').order('criado_em')
+  const ler = (campos: string) => db.from('regras').select(campos).eq('marca_id', marcaId).eq('agente', agente).eq('status', 'ativa').order('criado_em')
+  let { data, error } = await ler('id, regra, motivo, vezes')
+  // banco sem a migração das reincidências: lê sem a contagem
+  if (error && /vezes/.test(error.message)) ({ data, error } = await ler('id, regra, motivo'))
   if (error) throw new Error(error.message)
-  return (data ?? []) as RegraAntiga[]
+  return (data ?? []) as unknown as (RegraAntiga & { vezes?: number })[]
 }
 
 /**
@@ -145,9 +148,20 @@ async function juntarRegras(res: VercelResponse, usuario: string, corpo: { acao?
   // alguma regra mudou no meio do caminho (arquivada em outra aba): melhor pedir de novo
   if (!novas.length) return res.status(409).json({ erro: 'As regras mudaram. Peça para juntar de novo.' })
 
-  const { error: erroNovas } = await db
-    .from('regras')
-    .insert(novas.map((n) => ({ marca_id: marca.id, agente, regra: n.regra, motivo: n.motivo || null, origem_correcao: 'Juntada no mural de regras', status: 'ativa' })))
+  // regras parecidas vieram de correções separadas do mesmo erro: a regra juntada soma as vezes de todas
+  const vezesDe = new Map(atuais.map((r) => [r.id, r.vezes ?? 1]))
+  const comVezes = atuais.some((r) => r.vezes !== undefined)
+  const { error: erroNovas } = await db.from('regras').insert(
+    novas.map((n) => ({
+      marca_id: marca.id,
+      agente,
+      regra: n.regra,
+      motivo: n.motivo || null,
+      origem_correcao: 'Juntada no mural de regras',
+      status: 'ativa',
+      ...(comVezes ? { vezes: n.substitui.reduce((t, id) => t + (vezesDe.get(id) ?? 1), 0) } : {}),
+    })),
+  )
   if (erroNovas) throw new Error(erroNovas.message)
   const arquivar = [...new Set(novas.flatMap((n) => n.substitui))]
   const { error } = await db.from('regras').update({ status: 'arquivada' }).in('id', arquivar)

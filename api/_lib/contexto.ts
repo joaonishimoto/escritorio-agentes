@@ -83,7 +83,8 @@ export interface Contexto {
   post: Post
   marca: Marca
   etapas: Etapa[]
-  regras: { agente: string; regra: string }[]
+  /** `vezes`: quantas vezes o dono corrigiu o que a regra cobre (2 ou mais = erro reincidente) */
+  regras: { id?: string; agente: string; regra: string; vezes?: number }[]
   /** a saída mais recente de cada agente neste post */
   saidas: Record<string, unknown>
 }
@@ -108,13 +109,41 @@ export async function carregarContexto(postId: string): Promise<Contexto> {
     db.from('marcas').select('*').eq('id', post.marca_id).single(),
     // lê sempre a versão mais nova: o roteiro editado no meio do post vale a partir do próximo passo
     db.from('roteiro_ativo').select('etapas').eq('marca_id', post.marca_id).maybeSingle(),
-    db.from('regras').select('agente, regra').eq('marca_id', post.marca_id).eq('status', 'ativa').order('criado_em'),
+    lerRegrasAtivas(post.marca_id),
     db.from('passos').select('agente, saida').eq('post_id', postId).eq('status', 'feito').order('terminado_em'),
   ])
   if (!marca) throw new Error('Marca do post não encontrada')
   const saidas: Record<string, unknown> = {}
   for (const p of passos ?? []) saidas[p.agente] = p.saida
   return { post: post as Post, marca: completarMarca(marca as Marca), etapas: (roteiro?.etapas as Etapa[]) ?? [], regras: regras ?? [], saidas }
+}
+
+/** Regras ativas da marca, com a contagem de reincidências quando o banco já tem a coluna. */
+async function lerRegrasAtivas(marcaId: string) {
+  const ler = (campos: string) => db.from('regras').select(campos).eq('marca_id', marcaId).eq('status', 'ativa').order('criado_em')
+  let r = await ler('id, agente, regra, vezes')
+  // sem a migração das reincidências, os agentes não podem ficar sem regra nenhuma
+  if (r.error && /vezes/.test(r.error.message)) r = await ler('id, agente, regra')
+  return { data: (r.data ?? null) as Contexto['regras'] | null, error: r.error }
+}
+
+/** Regras que valem para o agente (as do designer valem também para o designer de criativos). */
+export function regrasDoAgente(ctx: Pick<Contexto, 'regras'>, agente: string) {
+  return ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos' || (agente === 'criativos' && r.agente === 'designer'))
+}
+
+/** Regras do agente que o dono já teve de cobrar mais de uma vez, da mais cobrada para a menos. */
+export function reincidentes(ctx: Pick<Contexto, 'regras'>, agente: string) {
+  return regrasDoAgente(ctx, agente)
+    .filter((r) => (r.vezes ?? 1) >= 2)
+    .sort((a, b) => (b.vezes ?? 1) - (a.vezes ?? 1))
+}
+
+/** Lista para conferir item por item (autoconferência e revisor); vazio se não há reincidência. */
+export function textoReincidentes(ctx: Pick<Contexto, 'regras'>, agente: string) {
+  const lista = reincidentes(ctx, agente)
+  if (!lista.length) return ''
+  return `## Erros que o dono já corrigiu mais de uma vez (confira cada um, um por um, nas imagens)\n${lista.map((r) => `- (${r.vezes}x) ${r.regra}`).join('\n')}\nSe algum destes aparece, é problema: não passe adiante.`
 }
 
 // Cada agente recebe só as partes do perfil da marca que usa: menos tokens de entrada em toda chamada.
@@ -140,7 +169,9 @@ export function identidadeVisual(identidade: Record<string, unknown> | null | un
 export function sistemaDoAgente(ctx: Pick<Contexto, 'marca' | 'etapas' | 'regras'>, agente: string, papel: string) {
   const etapa = ctx.etapas.find((e) => e.agente === agente)
   // as regras visuais da marca que o designer aprendeu valem também para o designer de criativos
-  const regras = ctx.regras.filter((r) => r.agente === agente || r.agente === 'todos' || (agente === 'criativos' && r.agente === 'designer'))
+  const regras = regrasDoAgente(ctx, agente)
+  const repetidos = regras.filter((r) => (r.vezes ?? 1) >= 2).sort((a, b) => (b.vezes ?? 1) - (a.vezes ?? 1))
+  const demais = regras.filter((r) => !repetidos.includes(r))
   const precisa = PRECISA[agente] ?? { tom: true, identidade: true, legenda: true, outrasRegras: true }
   const outrasRegras = precisa.outrasRegras ? ctx.regras.filter((r) => !regras.includes(r)) : []
   const m = ctx.marca
@@ -151,8 +182,11 @@ export function sistemaDoAgente(ctx: Pick<Contexto, 'marca' | 'etapas' | 'regras
       : `Você é o ${NOMES[agente] ?? agente} de uma equipe que cria posts de Instagram e anúncios no Meta para a marca ${m.nome}${m.instagram_usuario ? ` (@${m.instagram_usuario})` : ''}. ${papel}`,
     'Escreva sempre em português do Brasil.',
     etapa?.instrucoes ? `## Instruções do roteiro (definidas pelo dono da marca)\n${etapa.instrucoes}` : '',
-    regras.length
-      ? `## Regras aprendidas para você (têm prioridade sobre todo o resto)\n${regras.map((r) => `- ${r.regra}`).join('\n')}`
+    repetidos.length
+      ? `## Erros que já voltaram (o dono corrigiu mais de uma vez; prioridade máxima)\n${repetidos.map((r) => `- (${r.vezes}x) ${r.regra}`).join('\n')}`
+      : '',
+    demais.length
+      ? `## Regras aprendidas para você (têm prioridade sobre todo o resto)\n${demais.map((r) => `- ${r.regra}`).join('\n')}`
       : '',
     outrasRegras.length ? `## Regras dos outros agentes (para contexto)\n${outrasRegras.map((r) => `- [${r.agente}] ${r.regra}`).join('\n')}` : '',
     precisa.tom && m.tom_de_voz ? `## Tom de voz da marca\n${m.tom_de_voz}` : '',

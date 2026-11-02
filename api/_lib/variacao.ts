@@ -17,15 +17,19 @@ export const ESTRUTURAS = {
   manifesto: 'uma ideia forte da marca em pouquíssimas palavras; bom para foto única',
 } as const
 
+// Pontos de partida, não moldes: o designer pode misturar ou inventar a composição (veja textoLayout).
+// Saíram do catálogo o "número gigante" (o dono reprovou o número enorme em quatro posts, de três marcas) e a
+// rotação da colagem (imagem ou selo torto foi reprovado três vezes); a moldura com margem do editorial virou
+// foto recortada, porque foto em bloco com quina seca foi a reclamação que mais voltou.
 export const LAYOUTS = {
   'foto-cheia': 'foto ocupando o slide inteiro e texto curto sobre um degradê, na área livre da foto',
   'tipografico-cor': 'fundo sólido na cor de destaque da marca, título enorme em contraste, sem foto na capa',
-  'editorial-claro': 'fundo claro (off-white), texto escuro, a cor de destaque só em um detalhe, foto em moldura com margem',
+  'editorial-claro': 'fundo claro (off-white) com textura ou luz suave, texto escuro, a cor de destaque em um detalhe, foto recortada com sombra (nada de moldura retangular)',
   dividido: 'slide dividido ao meio: foto de um lado, texto do outro, alternando o lado a cada slide',
-  'numero-gigante': 'um número ou palavra enorme como elemento principal de cada slide (dose, passo, ano, ranking)',
   'ficha-tecnica': 'cara de ficha de bar ou cartão de receita: linhas finas, colunas, rótulos pequenos em caixa alta',
-  'minimalista-escuro': 'fundo escuro, muito espaço vazio, uma frase centralizada e um único detalhe na cor de destaque',
-  colagem: 'cartões ou recortes sobrepostos, levemente girados, como um mural de ingredientes e anotações',
+  'minimalista-escuro': 'fundo escuro com luz de cena, uma frase forte e o produto iluminado, um único detalhe na cor de destaque',
+  colagem: 'recortes do produto e dos ingredientes sobrepostos com sombra, como um mural, tudo reto (sem girar)',
+  cena: 'uma cena criada para o post (imagem gerada ou foto da marca) que conta a ideia sozinha, com o texto integrado à luz e ao espaço livre dela',
 } as const
 
 export const VOZES = {
@@ -167,17 +171,32 @@ export function textoJaUsado(recentes: Anterior[]) {
     .join('\n\n')
 }
 
-/** Direção visual da pauta para o designer, com os layouts recentes para fugir deles. */
-export function textoLayout(layout: string | undefined, recentes: Anterior[]) {
+/**
+ * Direção visual da pauta para o designer, com os layouts recentes para fugir deles.
+ * `escolhidoPeloDono`: o dono marcou o layout no Novo post, então ele vale; sem isso, é ponto de partida.
+ */
+export function textoLayout(layout: string | undefined, recentes: Anterior[], escolhidoPeloDono = false) {
   const desc = layout && layout in LAYOUTS ? LAYOUTS[layout as Layout] : ''
   const usados = [...new Set(recentes.slice(0, 4).map((r) => r.layout).filter(Boolean))]
   return [
-    desc ? `## Direção de layout deste post: ${layout}\n${desc}` : '',
+    desc
+      ? escolhidoPeloDono
+        ? `## Layout escolhido pelo dono: ${layout}\n${desc}`
+        : `## Ponto de partida de layout: ${layout}\n${desc}\nÉ uma sugestão da pauta, não um molde. Se uma ideia sua serve melhor ao pedido e às fotos, siga a sua.`
+      : '',
     usados.length ? `Layouts dos últimos posts (este precisa parecer diferente deles): ${usados.join(', ')}` : '',
   ]
     .filter(Boolean)
     .join('\n')
 }
+
+/** Espaço de criação do designer: o que é livre, depois das regras e das proibições. */
+export const LIBERDADE = `## Sua liberdade criativa
+As regras aprendidas e a composição acima são o limite. Dentro delas, você é o diretor de arte: não copie o último post, não monte o slide no automático.
+- Escolha a composição que melhor conta a ideia: pode misturar layouts, inventar um, trabalhar com luz, profundidade, textura, recorte do produto, tipografia expressiva (pesos e tamanhos contrastantes), cor de fundo tirada da foto.
+- Uma ideia visual por post, levada até o fim em todos os slides (um fio condutor: mesma luz, mesmo recorte, mesma grade), em vez de muitos enfeites.
+- Prefira mostrar a dizer: um detalhe bem fotografado vale mais que um selo, um ícone ou uma caixa de texto a mais.
+- Quando houver imagens geradas para este post, construa o slide em volta delas (texto na área livre da cena, cor do texto tirada da imagem).`
 
 /**
  * Fecha a pauta com o que não fica a critério do modelo: o formato manda na quantidade de slides

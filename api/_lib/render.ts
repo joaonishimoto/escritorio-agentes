@@ -117,7 +117,7 @@ export interface Render {
 
 // Roda dentro da página, depois de fontes e imagens: texto cortado pela borda do slide, texto por cima de outro
 // texto e corpo de texto pequeno demais. É determinístico, então não precisa de modelo para achar.
-const CONFERIR = `(() => {
+export const CONFERIR = `(() => {
   const slide = document.querySelector('section.slide')
   if (!slide) return []
   const limite = slide.getBoundingClientRect()
@@ -218,6 +218,84 @@ const CONFERIR = `(() => {
       if (fora(r)) problemas.push('logo fora da ' + seguro.onde)
     }
   }
+  // Os erros que o dono mais corrigiu, medidos aqui: número decorativo gigante, foto cortada a ponto de sumir o
+  // produto, foto em bloco retangular de quina seca e elemento torto.
+  for (const t of textos) {
+    const so = t.el.textContent.trim()
+    if (/^[0-9]{1,3}[º°x%]?$/.test(so) && parseFloat(getComputedStyle(t.el).fontSize) >= 220) problemas.push('número decorativo gigante ("' + so + '"); tire ou reduza ao tamanho do título')
+  }
+  const giro = (estilo) => {
+    if (!estilo.transform || estilo.transform === 'none') return 0
+    const m = estilo.transform.match(/matrix\\(([^)]+)\\)/)
+    if (!m) return 0
+    const [a, b] = m[1].split(',').map(Number)
+    return Math.abs((Math.atan2(b, a) * 180) / Math.PI)
+  }
+  const torto = (el) => {
+    for (let e = el, n = 0; e && e !== slide && n < 4; e = e.parentElement, n++) {
+      const g = giro(getComputedStyle(e))
+      if (g > 0.5 && g < 179.5) return true
+    }
+    return false
+  }
+  const suave = (el) => {
+    for (let e = el, n = 0; e && e !== slide && n < 4; e = e.parentElement, n++) {
+      const st = getComputedStyle(e)
+      if (parseFloat(st.borderTopLeftRadius) >= 16) return true
+      if (st.boxShadow && st.boxShadow !== 'none') return true
+      if ((st.maskImage && st.maskImage !== 'none') || (st.webkitMaskImage && st.webkitMaskImage !== 'none')) return true
+      if (st.filter && st.filter.includes('drop-shadow')) return true
+      if (st.clipPath && st.clipPath !== 'none') return true
+    }
+    return false
+  }
+  const fotos = Array.from(slide.querySelectorAll('img')).filter((img) => {
+    const src = img.getAttribute('src') || ''
+    // só o nome do arquivo: uma imagem em data: (base64) tem "icon" ou "logo" por acaso no meio
+    const nome = ((src.startsWith('data:') ? '' : src.split('/').pop()) + ' ' + (img.getAttribute('alt') || '') + ' ' + img.className).toLowerCase()
+    if (/logo|icone|icon|selo|badge/.test(nome)) return false
+    const r = img.getBoundingClientRect()
+    return img.naturalWidth > 0 && r.width * r.height > area * 0.08
+  })
+  for (const img of fotos) {
+    const r = img.getBoundingClientRect()
+    const estilo = getComputedStyle(img)
+    // produto recortado (PNG sem fundo) não tem quina: o designer marca com a classe "recorte"
+    const recorte = !!img.closest('.recorte')
+    if (torto(img)) problemas.push('foto inclinada (rotate); deixe reta')
+    // quanto da foto aparece: object-fit cover corta o que não cabe na caixa; a borda do slide e a caixa com overflow hidden também
+    let visivel = 1
+    if (estilo.objectFit === 'cover') {
+      const prop = img.naturalWidth / img.naturalHeight
+      const caixa = r.width / r.height
+      visivel = Math.min(prop / caixa, caixa / prop)
+    }
+    let corte = { left: limite.left, top: limite.top, right: limite.right, bottom: limite.bottom }
+    for (let e = img.parentElement; e && e !== slide.parentElement; e = e.parentElement) {
+      const st = getComputedStyle(e)
+      if (st.overflow !== 'visible' || e === slide) {
+        const c = e.getBoundingClientRect()
+        corte = { left: Math.max(corte.left, c.left), top: Math.max(corte.top, c.top), right: Math.min(corte.right, c.right), bottom: Math.min(corte.bottom, c.bottom) }
+      }
+    }
+    const vx = Math.max(0, Math.min(r.right, corte.right) - Math.max(r.left, corte.left))
+    const vy = Math.max(0, Math.min(r.bottom, corte.bottom) - Math.max(r.top, corte.top))
+    visivel *= (vx * vy) / (r.width * r.height)
+    // foto de fundo sangrando pelo slide inteiro é escolha de layout; o corte que importa é o da foto do produto
+    const deFundo = r.width >= limite.width * 0.95 && r.height >= limite.height * 0.95
+    if (!deFundo && visivel < 0.72) problemas.push('foto cortada: só ' + Math.round(visivel * 100) + '% da foto aparece, o produto pode não aparecer inteiro; use object-fit contain ou uma caixa na proporção da foto')
+    if (!deFundo && !recorte && !suave(img)) problemas.push('foto em bloco retangular com bordas secas; suavize (mask com degradê, cantos arredondados com sombra) ou sangre a foto pelo slide')
+  }
+  for (const el of slide.querySelectorAll('*')) {
+    if (el.tagName.toLowerCase() === 'img') continue
+    const g = giro(getComputedStyle(el))
+    if (g <= 0.5 || g >= 179.5 || Math.abs(g - 90) < 0.5) continue
+    const r = el.getBoundingClientRect()
+    if (r.width * r.height > 4000 && (el.textContent || '').trim()) {
+      problemas.push('elemento inclinado: "' + el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 30) + '"; deixe reto')
+      break
+    }
+  }
   for (let i = 0; i < textos.length; i++) {
     for (let j = i + 1; j < textos.length; j++) {
       const a = textos[i], b = textos[j]
@@ -228,7 +306,7 @@ const CONFERIR = `(() => {
       if (menor > 0 && (x * y) / menor > 0.25) problemas.push('texto sobreposto: "' + a.trecho + '" e "' + b.trecho + '"')
     }
   }
-  return Array.from(new Set(problemas)).slice(0, 8)
+  return Array.from(new Set(problemas)).slice(0, 10)
 })()`
 
 type Modo = { espera: 'networkidle' | 'load'; leve: boolean }

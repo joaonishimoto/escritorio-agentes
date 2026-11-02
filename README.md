@@ -29,6 +29,7 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
    - Depois de configurar, abra o perfil de uma sala → aba **Serviços** → **Testar agora**: ele confere cada chave e o Instagram de cada sala sem gerar nada.
    - `ELEVENLABS_API_KEY` (opcional; elevenlabs.io → API Keys). O narrador usa para gravar a voz dos Reels; a voz de cada marca fica na aba Narração do perfil.
    - `OPENROUTER_API_KEY` (opcional; openrouter.ai → Keys). Libera GPT, Gemini e DeepSeek para os funcionários de texto.
+   - `OPENAI_API_KEY` (recomendada para imagens; platform.openai.com → API keys). O designer gera as imagens dos posts no ChatGPT (GPT Image, cerca de US$ 0,05 por imagem, até 3 por post) e vira o padrão das imagens. `OPENAI_IMAGE_MODEL` (opcional) troca o modelo; o padrão é `gpt-image-2`. A chave fica só na Vercel, nunca no código.
 3. No Supabase, em Authentication → URL Configuration, ponha a URL da Vercel em Site URL.
 4. Aplique as migrações de `supabase/migrations/` na ordem (SQL Editor ou `supabase db push`).
 
@@ -37,7 +38,7 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
 1. **Novo post**: você escreve o pedido, manda referências (imagens e links), escolhe formato, estilo e a IA de cada funcionário só para aquele post (`posts.preferencias`). `/api/posts` cria o post e enfileira o chefe de pauta.
 2. **Produção**: chefe de pauta → pesquisador → copywriter → designer (→ cinegrafista → narrador nos Reels) → revisor. Cada agente lê a versão mais nova do roteiro e as regras ativas da marca quando começa. O revisor devolve até duas vezes para quem precisa refazer.
 3. **Sua mesa**: o post pronto aparece na sua mesa (de todas as salas). Dali você publica agora, agenda, pede ajuste, reprova ou guarda na **gaveta** da sala para usar depois.
-4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos.
+4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos. Se a correção cai num erro que uma regra já cobria, o curador não cria regra repetida: conta mais uma vez naquela regra. Regra que voltou duas vezes ou mais vai para o topo do prompt de quem desenha e é conferida item por item na autoconferência e no revisor (precisa da migração `20261102000000_regras_reincidentes.sql`).
 5. **Publicação**: o publicador usa a Instagram Graph API com o token guardado no Vault do Supabase. Agendados saem na hora marcada: um `pg_cron` no banco chama `/api/publicar-agendados` a cada minuto.
 
 ### Anúncios no Meta

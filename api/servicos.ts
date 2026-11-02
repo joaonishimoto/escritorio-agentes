@@ -82,6 +82,23 @@ async function testarFal(): Promise<Resultado> {
   }
 }
 
+async function testarOpenAI(): Promise<Resultado> {
+  const base = { id: 'openai', nome: 'OpenAI (imagens do ChatGPT)' }
+  const chave = process.env.OPENAI_API_KEY
+  if (!chave) return semChave(base.id, base.nome, 'OPENAI_API_KEY')
+  try {
+    // ler um modelo não gera nada nem cobra: só confere se a chave existe e enxerga o modelo de imagem
+    const modelo = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2'
+    const r = await fetch(`https://api.openai.com/v1/models/${modelo}`, { headers: { Authorization: `Bearer ${chave}` }, signal: AbortSignal.timeout(TEMPO) })
+    if (r.status === 401) return { ...base, estado: 'erro', detalhe: 'Chave recusada' }
+    if (r.status === 404) return { ...base, estado: 'erro', detalhe: `A chave não enxerga o modelo ${modelo} (confira o projeto da chave ou a verificação da organização)` }
+    if (r.ok) return { ...base, estado: 'ok', detalhe: `Chave aceita · ${modelo} · cobra por imagem, o saldo fica em platform.openai.com` }
+    return { ...base, estado: 'incerto', detalhe: `Chave não recusada, mas a resposta foi HTTP ${r.status}` }
+  } catch (e) {
+    return { ...base, estado: 'erro', detalhe: mensagem(e) }
+  }
+}
+
 async function testarElevenLabs(): Promise<Resultado> {
   const base = { id: 'elevenlabs', nome: 'ElevenLabs (voz)' }
   const chave = process.env.ELEVENLABS_API_KEY
@@ -153,6 +170,7 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
     testarClaude(),
     testarOpenRouter(),
     testarFal(),
+    testarOpenAI(),
     testarKling(),
     testarElevenLabs(),
     ...(marcas ?? []).map((m) => testarInstagram(m as Parameters<typeof testarInstagram>[0])),
