@@ -170,6 +170,8 @@ export const PLACA = { x: MARCA_W / 2, y: 114 }
 /** Sua mesa, na sua sala. Você senta atrás dela, de frente para nós; o calendário fica num quadro em pé atrás de você. */
 export const MESA_VOCE = { x: SALA_VOCE.x + 112 - 17, y: SALA_VOCE.y + 92, w: 34 }
 export const CALENDARIO = { x: SALA_VOCE.x + 150, y: SALA_VOCE.y + 30, w: 34, h: 24 }
+/** Mesinha da Assistente, no canto do fundo da sua sala, longe da porta: ela senta atrás, de frente para nós, e organiza suas tarefas. */
+export const MESA_TAREFAS = { x: SALA_VOCE.x + 40 - 14, y: SALA_VOCE.y + 34, w: 28 }
 
 /** Mesa do Financeiro (ele senta atrás, de frente para nós) e o gráfico num quadro em pé, que abre o painel. */
 export const MESA_FIN = { x: SALA_FIN.x + 112 - 18, y: SALA_FIN.y + 96, w: 36 }

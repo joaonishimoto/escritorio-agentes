@@ -9,10 +9,10 @@ import { useTema } from '../lib/tema'
 import { AGENTES, agentePorId, type AgenteId } from '../agents/catalogo'
 import { COR_ESTADO, selecionarEsperandoVoce, useEscritorio, type Entrega, type Estado } from '../store/escritorio'
 import { BarraSalas, type AlvoDaBarra } from '../andar/BarraSalas'
-import { VISUAL, VISUAL_FIN } from '../andar/visual'
+import { VISUAL, VISUAL_FIN, VISUAL_TAREFAS } from '../andar/visual'
 import { comprimento, noCaminho, type Ponto } from '../andar/caminho'
 import {
-  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ENTRADA, EQUIPE_H, EQUIPE_W, GAVETA, GRAFICO_FIN, HALL, INSTAGRAM, MARCA_W, MESA_FIN, MESA_VOCE, MESAS, NOVO_POST,
+  ANDAR_H, CAFE, CALENDARIO, COFRINHO, CORREDOR_Y, DEPTOS, ENTRADA, EQUIPE_H, EQUIPE_W, GAVETA, GRAFICO_FIN, HALL, INSTAGRAM, MARCA_W, MESA_FIN, MESA_TAREFAS, MESA_VOCE, MESAS, NOVO_POST,
   PAREDE_H, PAREDES_ALTAS, PAREDES_BAIXAS, PASSO_MARCA, PLACA, PORTA, PORTA_MARCA, PORTAS, QUADROS, RECEPCAO, SALA_FIN, SALA_H, SALA_VOCE, VAO_ALA, VISTA_MIN,
   GATOS, caminhoAteOCafe, portaDe, type MarcaNoAndar, type Parede, type Quadro, type Sala,
 } from '../andar/planta'
@@ -41,6 +41,8 @@ export interface Props {
   aoAbrirQuadro?: (marcaId: string, quadro: Quadro) => void
   /** gastos dos últimos dias (gráfico da parede) e se o Financeiro tem uma dica importante */
   financeiro?: { barras: number[]; alerta: boolean }
+  /** tarefas da Assistente da sua sala: quantas estão abertas e quantas vencem hoje ou já venceram */
+  tarefas?: { abertas: number; urgentes: number }
   /** o que aparece embaixo do cofrinho de cada sala (gasto do mês), por marca */
   cofres?: Record<string, string>
   /** o que os agentes estão fazendo no post de cada marca */
@@ -90,6 +92,7 @@ export function Escritorio3D({
   quadros,
   aoAbrirQuadro,
   financeiro,
+  tarefas,
   cofres,
   porSala,
   naSuaMesa = 0,
@@ -332,6 +335,9 @@ export function Escritorio3D({
       f.grupo.position.set(wx(MESA_FIN.x + MESA_FIN.w / 2), 0, wz(MESA_FIN.y - 10))
       f.grupo.rotation.y = Math.PI
       bonecos.financeiro = f
+      const ta = boneco(vivos, VISUAL_TAREFAS, { tipo: 'tarefas' })
+      ta.grupo.position.set(wx(MESA_TAREFAS.x + MESA_TAREFAS.w / 2), 0, wz(MESA_TAREFAS.y - 10))
+      ta.grupo.rotation.y = Math.PI
     }
     const anel = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 32), mat('#f2b233', { emissive: '#f2b233', emissiveIntensity: 0.4, side: THREE.DoubleSide }))
     anel.rotation.x = -Math.PI / 2
@@ -724,6 +730,18 @@ const zFundo = wz(PAREDE_H)
       for (let k = 0; k < Math.min(naSuaMesa, 6); k++) caixa(c, 0.3, 0.04, 0.22, k % 2 ? '#ffd36b' : '#f2b233', cx + 0.5, 0.79 + k * 0.045, cz + 0.1, 0.005, a)
       cadeira(c, cx, wz(MESA_VOCE.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
     }
+    // a mesinha da Assistente, com a prancheta das tarefas e os post-its
+    {
+      const a: Acao = { tipo: 'tarefas' }
+      const cx = wx(MESA_TAREFAS.x + MESA_TAREFAS.w / 2)
+      const cz = wz(MESA_TAREFAS.y + 8)
+      caixa(c, 1.0, 0.05, 0.55, '#ffffff', cx, 0.74, cz, 0.02, a)
+      for (const sx of [-1, 1]) caixa(c, 0.05, 0.72, 0.5, PALETA.perna, cx + sx * 0.45, 0.36, cz, 0, a)
+      caixa(c, 0.26, 0.02, 0.34, PALETA.madeiraClara, cx - 0.18, 0.775, cz, 0.005, a)
+      caixa(c, 0.22, 0.01, 0.28, '#ffffff', cx - 0.18, 0.79, cz + 0.02, 0, a)
+      ;['#ffd36b', '#9fd1ff', '#ff9b85'].forEach((cor, k) => caixa(c, 0.09, 0.012, 0.09, cor, cx + 0.12 + k * 0.11, 0.775, cz + 0.06 - (k % 2) * 0.05, 0, a))
+      cadeira(c, cx, wz(MESA_TAREFAS.y - 10), PADRAO.estofado, a).rotation.y = Math.PI
+    }
 
     // ── Financeiro ──
     {
@@ -934,6 +952,7 @@ const zFundo = wz(PAREDE_H)
           posicoes.voce = new THREE.Vector3(wx(MESA_VOCE.x + MESA_VOCE.w / 2), 1.75 + pulo, wz(MESA_VOCE.y - 10))
         }
         posicoes.financeiro = new THREE.Vector3(wx(MESA_FIN.x + MESA_FIN.w / 2), 1.75, wz(MESA_FIN.y - 10))
+        posicoes.tarefas = new THREE.Vector3(wx(MESA_TAREFAS.x + MESA_TAREFAS.w / 2), 1.75, wz(MESA_TAREFAS.y - 10))
       }
 
       // quem está a caminho do café
@@ -1084,7 +1103,7 @@ const zFundo = wz(PAREDE_H)
         } else {
           const nome = chave.startsWith('nome:')
           const id = nome ? chave.slice(5) : chave
-          const p = !nome && id !== 'voce' && id !== 'financeiro' && esperandoEmail(id as AgenteId) ? null : posicoes[id]
+          const p = !nome && id !== 'voce' && id !== 'financeiro' && id !== 'tarefas' && esperandoEmail(id as AgenteId) ? null : posicoes[id]
           if (p) {
             pos = tmp.copy(p)
             if (nome) pos.y -= emPe.has(id) ? 1.95 : 1.75
@@ -1149,6 +1168,7 @@ const zFundo = wz(PAREDE_H)
     if (acao.tipo === 'voce') return focar('voce')
     if (acao.tipo === 'calendario') return focar('calendario')
     if (acao.tipo === 'financeiro') return focar('financeiro')
+    if (acao.tipo === 'tarefas') return focar('tarefas')
     if (acao.tipo === 'caixa') return abrirEmails(acao.id as AgenteId)
     if (acao.tipo === 'gato') {
       const g = gatos.current.find((x) => x.nome === acao.nome)
@@ -1239,6 +1259,15 @@ const zFundo = wz(PAREDE_H)
         <div className={`nome${foco === 'financeiro' ? ' ativo' : ''}`} style={{ ['--cor' as string]: '#3f7650' }}>
           <span className="ponto" style={{ background: '#3f7650' }} />
           Financeiro
+        </div>
+      </div>
+      <div className="tres-etiqueta" ref={ref('tarefas')}>
+        {!!tarefas?.urgentes && foco !== 'tarefas' && <div className="balao balao-esperando_voce">{tarefas.urgentes === 1 ? '1 tarefa para hoje' : `${tarefas.urgentes} tarefas para hoje`}</div>}
+      </div>
+      <div className="tres-etiqueta" ref={ref('nome:tarefas')}>
+        <div className={`nome${foco === 'tarefas' ? ' ativo' : ''}`} style={{ ['--cor' as string]: '#e0a128' }}>
+          <span className="ponto" style={{ background: '#e0a128' }} />
+          Assistente{tarefas?.abertas ? <small>· {tarefas.abertas}</small> : null}
         </div>
       </div>
       {SALAS_DO_ANDAR.map((d, n) => (

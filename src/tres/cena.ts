@@ -77,6 +77,7 @@ export type Acao =
   | { tipo: 'voce' }
   | { tipo: 'calendario' }
   | { tipo: 'financeiro' }
+  | { tipo: 'tarefas' }
   | { tipo: 'quadro'; marca: string; quadro: 'referencias' | 'calendario' | 'branding' | 'regras' }
   | { tipo: 'cofre' | 'gaveta' | 'novo' | 'instagram'; marca: string; sala: number }
   | { tipo: 'gato'; nome: string }

@@ -10,6 +10,8 @@ export interface Visual {
 }
 
 export const VISUAL_FIN: Visual = { cabelo: '#4a4a4a', pele: '#c98e66', camisa: '#3f7650' }
+/** a Assistente da sua sala, que organiza as tarefas */
+export const VISUAL_TAREFAS: Visual = { cabelo: '#5a3424', pele: '#e7b48c', camisa: '#e0a128' }
 
 // cada agente tem um cabelo e um tom de pele, para dar para reconhecer de longe
 export const VISUAL: Record<AgenteId | 'voce', Visual> = {
