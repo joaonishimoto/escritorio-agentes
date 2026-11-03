@@ -6,21 +6,31 @@ import { limparIas, servicosDisponiveis } from './_lib/ias.js'
 import { gastoDoMes, tetoDaMarca } from './_lib/teto.js'
 import { limparPedidoAnuncio } from './_lib/anuncio.js'
 import { ESTRUTURAS, LAYOUTS, VOZES } from './_lib/variacao.js'
+import { briefingDireto, montarPublicacaoDireta } from './_lib/publicacao-direta.js'
 
-/** POST cria um post e põe o chefe de pauta para trabalhar. GET diz quais IAs têm chave configurada. */
+/**
+ * POST cria um post e põe o chefe de pauta para trabalhar. GET diz quais IAs têm chave configurada.
+ * Com `direto`, o post já vem pronto (vídeo ou imagens enviados por você, mais a legenda) e vai direto para o publicador.
+ */
 export default rota(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end()
   const usuario = await usuarioDaRequisicao(req.headers.authorization)
   if (!usuario) return res.status(401).json({ erro: 'Faça login de novo' })
   if (req.method === 'GET') return res.status(200).json({ servicos: servicosDisponiveis() })
 
-  const { marca_id, briefing, referencias, preferencias, vaga_id } = (req.body ?? {}) as {
+  const { marca_id, briefing, referencias, preferencias, vaga_id, direto } = (req.body ?? {}) as {
+    /** publicação direta: { legenda, midias: [{ tipo, url }], quando? } */
+    direto?: { legenda?: unknown; midias?: unknown; quando?: unknown }
     marca_id?: string
     briefing?: string
     referencias?: unknown
     preferencias?: Record<string, unknown>
     /** a vaga do plano editorial que virou este post */
     vaga_id?: string
+  }
+  if (direto && marca_id) {
+    if (!(await eDonoDaMarca(usuario, marca_id))) return res.status(403).json({ erro: 'Essa marca não é sua' })
+    return publicarDireto(req, res, marca_id, direto)
   }
   if (!marca_id || !briefing?.trim()) return res.status(400).json({ erro: 'Escolha a marca e escreva o pedido' })
   if (!(await eDonoDaMarca(usuario, marca_id))) return res.status(403).json({ erro: 'Essa marca não é sua' })
@@ -78,3 +88,44 @@ export default rota(async function handler(req: VercelRequest, res: VercelRespon
   acordarExecutor(origemDaRequisicao(req))
   return res.status(201).json({ post })
 })
+
+/** Você manda o arquivo pronto e a legenda: o post nasce aprovado (ou agendado) e o publicador sobe no Instagram. */
+async function publicarDireto(req: VercelRequest, res: VercelResponse, marca_id: string, direto: { legenda?: unknown; midias?: unknown; quando?: unknown }) {
+  const { data: marca } = await db.from('marcas').select('instagram_conta_id, meta_token_secret_id').eq('id', marca_id).single()
+  if (!marca?.instagram_conta_id || !marca.meta_token_secret_id) return res.status(400).json({ erro: 'Esta marca ainda não tem o Instagram conectado. Conecte no perfil da sala antes de publicar.' })
+  const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/marcas/`
+  const montado = montarPublicacaoDireta(direto, `${base}${marca_id}/`)
+  if ('erro' in montado) return res.status(400).json({ erro: montado.erro })
+  const { formato, legenda, slides, video, agendado_para } = montado.post
+
+  const { data: roteiro } = await db.from('roteiro_ativo').select('id').eq('marca_id', marca_id).maybeSingle()
+  const { data: post, error } = await db
+    .from('posts')
+    .insert({
+      marca_id,
+      briefing: briefingDireto(legenda, formato),
+      roteiro_id: roteiro?.id ?? null,
+      status: agendado_para ? 'agendado' : 'aprovado',
+      formato,
+      legenda,
+      slides,
+      video,
+      agendado_para,
+      preferencias: { formato, direto: true, revisar: false, aprovar_texto: false },
+    })
+    .select()
+    .single()
+  if (error || !post) return res.status(500).json({ erro: error?.message ?? 'Falha ao criar o post' })
+
+  if (agendado_para) {
+    // o banco chama o app nesse endereço quando chegar a hora
+    await db.from('config_app').upsert({ chave: 'url_app', valor: origemDaRequisicao(req), atualizado_em: new Date().toISOString() })
+    const quandoTexto = new Date(agendado_para).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    await db.from('eventos').insert({ post_id: post.id, agente: 'voce', tipo: 'fim', mensagem: `Enviado pronto e agendado para ${quandoTexto}` })
+    return res.status(201).json({ post })
+  }
+  await db.from('eventos').insert({ post_id: post.id, agente: 'voce', tipo: 'entrega', mensagem: 'Enviado pronto para publicar', para: 'publicador' })
+  await enfileirar(post.id, 'publicador')
+  acordarExecutor(origemDaRequisicao(req))
+  return res.status(201).json({ post })
+}

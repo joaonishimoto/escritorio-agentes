@@ -65,6 +65,21 @@ try {
   await p.waitForTimeout(800)
   conferir(pedido?.briefing === 'Carrossel de teste sobre gelo', 'pedir um post chama a API com o pedido')
   conferir(pedido?.marca_id === 'm2', 'o post vai para a marca escolhida')
+
+  // publicar algo pronto pelo publicador: sobe a imagem, confere e só manda depois de confirmar
+  pedido = null
+  await p.keyboard.press('Escape')
+  await p.evaluate(async () => (await import('/src/store/escritorio.ts')).useEscritorio.getState().selecionar('publicador'))
+  await p.getByRole('tab', { name: 'Publicar algo' }).click()
+  const jpeg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCSiiivBPbP/9k=', 'base64')
+  await p.locator('.pd-soltar input[type=file]').setInputFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: jpeg })
+  await p.locator('.pd-lista li').first().waitFor({ timeout: 15_000 })
+  await p.locator('.publicar-direto textarea').fill('Legenda de teste')
+  await p.getByRole('button', { name: 'Revisar antes de publicar' }).click()
+  conferir(pedido === null, 'revisar não publica nada antes de confirmar')
+  await p.getByRole('button', { name: 'Confirmar e publicar' }).click()
+  await p.locator('.pd-pronto').waitFor({ timeout: 5000 })
+  conferir(pedido?.direto?.legenda === 'Legenda de teste' && pedido?.direto?.midias?.[0]?.tipo === 'imagem' && pedido?.marca_id === 'm2', 'publicar algo pronto manda a imagem e a legenda para a marca da sala')
   conferir(erros.length === 0, `sem erro de JavaScript na página${erros.length ? `: ${erros.join(' | ')}` : ''}`)
 } catch (e) {
   conferir(false, `o teste quebrou: ${e instanceof Error ? e.message : e}`)

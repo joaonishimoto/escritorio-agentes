@@ -380,6 +380,12 @@ function Painel() {
             porAgente={custos?.porAgente}
             aoMudar={mudou}
             marcaId={marcaId}
+            marcaNome={marca?.nome}
+            instagramConectado={!!marca?.instagram_conta_id}
+            aoEnviarPronto={(id) => {
+              setPostId(id)
+              mudou()
+            }}
             aoUsarIdeia={(ideia, guardadaId) => {
               selecionar(null)
               setIdeiaInicial({ ideia, guardadaId })
