@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 import type { ModeloTexto } from './ias.js'
+import { anotarGasto } from './gastos.js'
 import { gerarJsonOR, gerarTextoOR } from './openrouter.js'
 
 export const claude = new Anthropic()
@@ -19,11 +20,13 @@ export function erroClaro(e: unknown): unknown {
 export type Modelo = 'claude-opus-5-5' | 'claude-sonnet-5-5' | 'claude-haiku-5-5'
 const eClaude = (m: ModeloTexto): m is Modelo => m.startsWith('claude-')
 
-// US$ por milhão de tokens (entrada, saída)
-const PRECO: Record<Modelo, [number, number]> = {
-  'claude-opus-5-5': [4, 20],
-  'claude-sonnet-5-5': [2, 10],
-  'claude-haiku-5-5': [0.1, 0.5],
+// Preços oficiais da API da Anthropic, em US$ por milhão de tokens: entrada, saída e leitura do cache.
+// A leitura do cache não é a mesma fração em todos: no Opus 5.5 custa US$ 0,20 (5% da entrada), no Sonnet 5.5 US$ 0,20 (10%).
+// O Haiku 5.5 tem preço maior quando o prompt passa de 100 mil tokens.
+const PRECO: Record<Modelo, { entrada: number; saida: number; lerCache: number; longo?: { acima: number; entrada: number; saida: number } }> = {
+  'claude-opus-5-5': { entrada: 4, saida: 20, lerCache: 0.2 },
+  'claude-sonnet-5-5': { entrada: 2, saida: 10, lerCache: 0.2 },
+  'claude-haiku-5-5': { entrada: 0.1, saida: 0.5, lerCache: 0.01, longo: { acima: 100_000, entrada: 0.5, saida: 2.5 } },
 }
 const PRECO_BUSCA_WEB = 10 / 1000
 
@@ -33,21 +36,35 @@ export interface Uso {
   custo_usd: number
 }
 
-// prompt caching: gravar no cache custa 1,25× a entrada; ler do cache custa 0,1×
+// prompt caching (cache de 5 minutos): gravar no cache custa 1,25× a entrada; ler tem preço próprio por modelo
 const FATOR_GRAVAR_CACHE = 1.25
-const FATOR_LER_CACHE = 0.1
 
-export function somarUso(modelo: Modelo, u: Anthropic.Usage, acc: Uso = { tokens_entrada: 0, tokens_saida: 0, custo_usd: 0 }): Uso {
+/** Custo de uma resposta da API, pelos tokens que ela diz ter usado. */
+export function custoDaResposta(modelo: Modelo, u: Anthropic.Usage): Uso {
   const gravados = u.cache_creation_input_tokens ?? 0
   const lidos = u.cache_read_input_tokens ?? 0
   const entrada = u.input_tokens + gravados + lidos
-  const [pe, ps] = PRECO[modelo]
+  const p = PRECO[modelo]
+  const longo = p.longo && entrada > p.longo.acima ? p.longo : null
+  const pe = longo?.entrada ?? p.entrada
+  const ps = longo?.saida ?? p.saida
+  const pl = longo ? p.lerCache * (longo.entrada / p.entrada) : p.lerCache
   const buscas = u.server_tool_use?.web_search_requests ?? 0
-  const custoEntrada = (u.input_tokens + gravados * FATOR_GRAVAR_CACHE + lidos * FATOR_LER_CACHE) * pe
   return {
-    tokens_entrada: acc.tokens_entrada + entrada,
-    tokens_saida: acc.tokens_saida + u.output_tokens,
-    custo_usd: acc.custo_usd + (custoEntrada + u.output_tokens * ps) / 1e6 + buscas * PRECO_BUSCA_WEB,
+    tokens_entrada: entrada,
+    tokens_saida: u.output_tokens,
+    custo_usd: (u.input_tokens * pe + gravados * pe * FATOR_GRAVAR_CACHE + lidos * pl + u.output_tokens * ps) / 1e6 + buscas * PRECO_BUSCA_WEB,
+  }
+}
+
+/** Soma uma resposta ao acumulado e anota no medidor de gastos (que pega também as tentativas que falharam depois). */
+export function somarUso(modelo: Modelo, u: Anthropic.Usage, acc: Uso = { tokens_entrada: 0, tokens_saida: 0, custo_usd: 0 }): Uso {
+  const deste = custoDaResposta(modelo, u)
+  anotarGasto(modelo, deste)
+  return {
+    tokens_entrada: acc.tokens_entrada + deste.tokens_entrada,
+    tokens_saida: acc.tokens_saida + deste.tokens_saida,
+    custo_usd: acc.custo_usd + deste.custo_usd,
   }
 }
 

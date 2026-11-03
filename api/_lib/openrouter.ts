@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import type { Conteudo, Uso } from './claude.js'
+import { anotarGasto } from './gastos.js'
 
 // Modelos que não são do Claude (GPT, Gemini, DeepSeek) passam pelo OpenRouter, com uma chave só: OPENROUTER_API_KEY na Vercel.
 const URL_CHAT = 'https://openrouter.ai/api/v1/chat/completions'
@@ -23,8 +24,11 @@ function converter(conteudo: Conteudo): string | Parte[] {
   })
 }
 
-function uso(u: UsoOR | undefined): Uso {
-  return { tokens_entrada: u?.prompt_tokens ?? 0, tokens_saida: u?.completion_tokens ?? 0, custo_usd: u?.cost ?? 0 }
+/** O OpenRouter devolve o custo cobrado de verdade (usage.cost, em US$); ele vai direto para o medidor. */
+function uso(modelo: string, u: UsoOR | undefined): Uso {
+  const r = { tokens_entrada: u?.prompt_tokens ?? 0, tokens_saida: u?.completion_tokens ?? 0, custo_usd: u?.cost ?? 0 }
+  anotarGasto(modelo, r)
+  return r
 }
 
 async function chamar(corpo: Record<string, unknown>) {
@@ -58,6 +62,7 @@ export async function gerarTextoOR(opts: {
     model: opts.modelo,
     stream: true,
     max_tokens: 32000,
+    usage: { include: true },
     messages: [
       { role: 'system', content: opts.sistema },
       { role: 'user', content: converter(opts.conteudo) },
@@ -86,7 +91,7 @@ export async function gerarTextoOR(opts: {
       }
     }
   }
-  return { texto, uso: uso(u) }
+  return { texto, uso: uso(opts.modelo, u) }
 }
 
 export async function gerarJsonOR<S extends z.ZodType>(opts: { modelo: string; sistema: string; conteudo: Conteudo; schema: S }): Promise<{ dados: z.infer<S>; uso: Uso }> {
@@ -99,13 +104,15 @@ export async function gerarJsonOR<S extends z.ZodType>(opts: { modelo: string; s
       { role: 'system', content: opts.sistema },
       { role: 'user', content: converter(opts.conteudo) },
     ],
+    usage: { include: true },
     response_format: { type: 'json_schema', json_schema: { name: 'resposta', strict: true, schema } },
     provider: { require_parameters: true },
   })
   const json = (await r.json()) as { usage?: UsoOR; choices?: { message?: { content?: string; refusal?: string } }[] }
+  const gasto = uso(opts.modelo, json.usage)
   const msg = json.choices?.[0]?.message
   if (msg?.refusal) throw new Error(`O modelo recusou a tarefa: ${msg.refusal}`)
   if (!msg?.content) throw new Error(`OpenRouter (${opts.modelo}) respondeu sem texto`)
   const dados = opts.schema.parse(JSON.parse(msg.content.replace(/^```(?:json)?\s*|\s*```$/g, '')))
-  return { dados, uso: uso(json.usage) }
+  return { dados, uso: gasto }
 }

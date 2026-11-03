@@ -7,6 +7,7 @@ import { eAnuncio } from './anuncio.js'
 import { carregarContexto, fluxoDeProducao, pulaRevisor, type Passo } from './contexto.js'
 import { db } from './db.js'
 import { Emissor } from './eventos.js'
+import { medir, type Medicao } from './gastos.js'
 import { passouDoTeto, tetoDaMarca } from './teto.js'
 import { eErroTransitorio, MAX_TENTATIVAS } from './transitorio.js'
 
@@ -37,24 +38,35 @@ export async function rodarUmPasso(): Promise<boolean> {
   if (!passo?.id) return false
 
   const em = new Emissor(passo.post_id, passo.agente)
+  // o que este passo já gastou em tentativas anteriores (instabilidade, render que caiu) continua na conta
+  const jaGasto = { custo_usd: Number(passo.custo_usd ?? 0), tokens_entrada: Number(passo.tokens_entrada ?? 0), tokens_saida: Number(passo.tokens_saida ?? 0) }
+  let gasto: Medicao | null = null
   try {
     const agente = AGENTES[passo.agente]
     if (!agente) throw new Error(`Agente desconhecido: ${passo.agente}`)
     const ctx = await carregarContexto(passo.post_id)
-    const r = await agente(ctx, passo, em)
+    const medido = await medir(() => agente(ctx, passo, em))
+    gasto = medido.gasto
+    if (!medido.ok) throw medido.erro
+    const r = medido.valor
+    // vale o maior: o medidor pega o que o agente pagou e não somou (uma tentativa que falhou dentro dele)
+    const desta = {
+      custo_usd: Math.max(gasto.custo_usd, r.uso.custo_usd),
+      tokens_entrada: Math.max(gasto.tokens_entrada, r.uso.tokens_entrada),
+      tokens_saida: Math.max(gasto.tokens_saida, r.uso.tokens_saida),
+    }
+    gasto = null
 
-    await db
-      .from('passos')
-      .update({
+    await atualizarPasso(passo.id, {
         status: 'feito',
         saida: r.saida,
-        tokens_entrada: r.uso.tokens_entrada,
-        tokens_saida: r.uso.tokens_saida,
-        custo_usd: r.uso.custo_usd,
+        tokens_entrada: jaGasto.tokens_entrada + desta.tokens_entrada,
+        tokens_saida: jaGasto.tokens_saida + desta.tokens_saida,
+        custo_usd: jaGasto.custo_usd + desta.custo_usd,
+        ...(medido.gasto.modelos.length ? { modelos: medido.gasto.modelos } : {}),
         terminado_em: new Date().toISOString(),
       })
-      .eq('id', passo.id)
-    const custoDoPost = Number(ctx.post.custo_usd) + r.uso.custo_usd
+    const custoDoPost = Number(ctx.post.custo_usd) + desta.custo_usd
     await db.from('posts').update({ custo_usd: custoDoPost }).eq('id', ctx.post.id)
 
     let proximos = r.proximos
@@ -92,6 +104,8 @@ export async function rodarUmPasso(): Promise<boolean> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error(`passo ${passo.id} (${passo.agente}) falhou (tentativa ${passo.tentativas})`, e)
+    // o que a tentativa gastou antes de falhar foi cobrado: fica no passo e no post
+    const perdido = gasto ? await guardarGastoDaFalha(passo, jaGasto, gasto) : {}
     // o que já estava pronto fica no registro do passo e entra na próxima tentativa
     const guardar = e instanceof ErroRetomavel ? e.saida : {}
     const entrada = e instanceof ErroRetomavel ? { ...passo.entrada, ...e.entrada } : passo.entrada
@@ -101,14 +115,42 @@ export async function rodarUmPasso(): Promise<boolean> {
       const espera = 5_000 * passo.tentativas
       await em.acao(`Instabilidade no serviço, tentando de novo em ${Math.round(espera / 1000)} s (${passo.tentativas + 1}ª de ${MAX_TENTATIVAS})`)
       await new Promise((ok) => setTimeout(ok, espera))
-      const { error } = await db.from('passos').update({ status: 'pendente', entrada, saida: { erro_anterior: msg, ...guardar } }).eq('id', passo.id).eq('status', 'rodando')
+      const { error } = await atualizarPasso(passo.id, { status: 'pendente', entrada, saida: { erro_anterior: msg, ...guardar }, ...perdido }, 'rodando')
       if (!error) return true
     }
-    await db.from('passos').update({ status: 'falhou', entrada, saida: { erro: msg, ...guardar }, terminado_em: new Date().toISOString() }).eq('id', passo.id)
+    await atualizarPasso(passo.id, { status: 'falhou', entrada, saida: { erro: msg, ...guardar }, ...perdido, terminado_em: new Date().toISOString() })
     await db.from('posts').update({ status: 'erro' }).eq('id', passo.post_id)
     await em.erro(msg.slice(0, 300))
   }
   return true
+}
+
+/** Atualiza o passo; num banco ainda sem a coluna `modelos`, grava sem ela em vez de deixar o passo preso. */
+async function atualizarPasso(id: string, campos: Record<string, unknown>, statusAtual?: string) {
+  const gravar = (c: Record<string, unknown>) => {
+    const q = db.from('passos').update(c).eq('id', id)
+    return statusAtual ? q.eq('status', statusAtual) : q
+  }
+  const r = await gravar(campos)
+  if (r.error && 'modelos' in campos && /modelos/.test(r.error.message)) {
+    const sem = { ...campos }
+    delete sem.modelos
+    return gravar(sem)
+  }
+  return r
+}
+
+/** Soma ao post o que uma tentativa que falhou gastou; devolve os campos do passo com o gasto acumulado. */
+async function guardarGastoDaFalha(passo: Passo, jaGasto: { custo_usd: number; tokens_entrada: number; tokens_saida: number }, gasto: Medicao) {
+  if (gasto.custo_usd <= 0 && gasto.tokens_entrada <= 0) return {}
+  const { data: post } = await db.from('posts').select('custo_usd').eq('id', passo.post_id).maybeSingle()
+  if (post) await db.from('posts').update({ custo_usd: Number(post.custo_usd ?? 0) + gasto.custo_usd }).eq('id', passo.post_id)
+  return {
+    custo_usd: jaGasto.custo_usd + gasto.custo_usd,
+    tokens_entrada: jaGasto.tokens_entrada + gasto.tokens_entrada,
+    tokens_saida: jaGasto.tokens_saida + gasto.tokens_saida,
+    ...(gasto.modelos.length ? { modelos: gasto.modelos } : {}),
+  }
 }
 
 /** Roda passos seguidos enquanto houver fila e tempo (para caber nos 300 s da função com folga). */

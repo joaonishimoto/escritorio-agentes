@@ -11,6 +11,7 @@ import { juntarNarracao } from '../ffmpeg.js'
 import { memoriaDaMarca } from '../memoria.js'
 import { consultarVideoFal, custoFal, duracaoFal, MODELOS_FAL, pedirVideoFal } from '../fal.js'
 import { modeloDe, modeloNaVolta, motorDeImagem, motorDeVideo, type MotorVideo } from '../ias.js'
+import { anotarGasto } from '../gastos.js'
 import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } from '../imagens.js'
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
@@ -754,6 +755,7 @@ export const cinegrafista: Agente = async (ctx, passo, em) => {
     }
   }
   uso = { ...uso, custo_usd: uso.custo_usd + custo }
+  anotarGasto(NOME_DO_MOTOR(motor), { tokens_entrada: 0, tokens_saida: 0, custo_usd: custo })
   await em.acao(custo ? `Vídeo na fila (US$ ${custo.toFixed(2)})` : 'Vídeo na fila (o custo aparece no painel do fal.ai)')
   return esperarVideo(ctx, { ...entrada, prompt, segundos }, novo, em, uso)
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { agentePorId, AGENTES, type AgenteId } from '../agents/catalogo'
 import { chamarApi } from '../lib/api'
+import { MODELOS_IMAGEM, MODELOS_TEXTO, MOTORES_VIDEO } from '../lib/ias'
 
 export interface NumerosFin {
   total_usd: number
@@ -20,6 +21,27 @@ export interface NumerosFin {
   por_formato: { formato: string; custo: number; posts: number; medio: number }[]
   mais_caros: { id: string; briefing: string; marca: string; custo: number; status: string; formato: string; voltas: number }[]
   por_dia: { dia: string; custo: number }[]
+  /** o que entrou nos 30 dias: produção dos posts e o resto (ideias, pedidos avulsos, plano, análises) */
+  total_posts_usd?: number
+  total_fora_dos_posts_usd?: number
+  fora_dos_posts?: { origem: string; nome: string; custo: number; vezes: number }[]
+  /** cada post é um teste da equipe, do mais novo ao mais antigo */
+  testes?: Teste[]
+}
+export interface Teste {
+  id: string
+  criado_em: string
+  briefing: string
+  marca: string
+  formato: string
+  status: string
+  voltas: number
+  execucoes: number
+  falhas: number
+  tokens: number
+  ias: string[]
+  segundos: number
+  custo: number
 }
 export interface AnaliseFin {
   id: string
@@ -40,6 +62,20 @@ export interface DadosFin {
 const usd = (n: number) => `US$ ${n.toFixed(2).replace('.', ',')}`
 const SAUDE = { boa: 'Gastos saudáveis', atencao: 'Pede atenção', critica: 'Precisa de ação' } as const
 const GRAVIDADE = { alta: 'Importante', media: 'Vale olhar', baixa: 'Detalhe' } as const
+const STATUS: Record<string, string> = {
+  em_producao: 'em produção',
+  aguardando_aprovacao: 'na sua mesa',
+  aguardando_texto: 'esperando o texto',
+  aprovado: 'aprovado',
+  agendado: 'agendado',
+  publicado: 'publicado',
+  guardado: 'guardado',
+  reprovado: 'reprovado',
+  erro: 'com erro',
+}
+const OPCOES = [...MODELOS_TEXTO, ...MOTORES_VIDEO, ...MODELOS_IMAGEM]
+const nomeIA = (id: string) => OPCOES.find((o) => o.id === id)?.nome.replace(/^Claude /, '') ?? id.replace(/ \(.*\)$/, '')
+const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 const nomeAgente = (id: string) => (AGENTES.some((a) => a.id === id) ? agentePorId(id as AgenteId).nome : id)
 const corAgente = (id: string) => (AGENTES.some((a) => a.id === id) ? agentePorId(id as AgenteId).cor : '#8a8f98')
 
@@ -249,6 +285,50 @@ export function PainelFinanceiro({
                   </section>
                 )}
 
+                {n.testes && n.testes.length > 0 && (
+                  <section className="fin-bloco">
+                    <header>
+                      <h3>Custo por teste</h3>
+                      <span className="muted">{n.testes.length} {n.testes.length === 1 ? 'teste' : 'testes'} · média {usd(n.testes.reduce((s, t) => s + t.custo, 0) / n.testes.length)}</span>
+                    </header>
+                    <div className="fin-testes" role="table" aria-label="Custo de cada teste nos últimos 30 dias">
+                      <div role="row" className="fin-testes-topo">
+                        <span role="columnheader">Teste</span>
+                        <span role="columnheader">Rodadas</span>
+                        <span role="columnheader">Custo</span>
+                      </div>
+                      {n.testes.map((t) => (
+                        <button role="row" key={t.id} onClick={() => aoAbrirPost?.(t.id)} disabled={!aoAbrirPost} title={t.briefing}>
+                          <span role="cell" className="fin-teste-nome">
+                            <span>{t.briefing}</span>
+                            <small>
+                              {dataCurta(t.criado_em)} · {t.formato} · {STATUS[t.status] ?? t.status}
+                              {t.ias.length ? ` · ${[...new Set(t.ias.map(nomeIA))].join(', ')}` : ''}
+                            </small>
+                          </span>
+                          <span role="cell" className="fin-teste-num">
+                            {t.execucoes}
+                            {t.falhas ? <small className="fin-ruim">{t.falhas} falh{t.falhas > 1 ? 'aram' : 'ou'}</small> : null}
+                          </span>
+                          <strong role="cell" className="fin-teste-num">{usd(t.custo)}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {n.fora_dos_posts && n.fora_dos_posts.length > 0 && (
+                  <section className="fin-bloco">
+                    <header>
+                      <h3>Fora dos posts</h3>
+                      <span className="muted">{usd(n.total_fora_dos_posts_usd ?? 0)}</span>
+                    </header>
+                    <ul className="fin-simples">
+                      {n.fora_dos_posts.map((o) => <li key={o.origem}><span>{o.nome}</span><span>{o.vezes}×</span><strong>{usd(o.custo)}</strong></li>)}
+                    </ul>
+                  </section>
+                )}
+
                 {n.mais_caros.length > 0 && (
                   <section className="fin-bloco">
                     <header><h3>Posts mais caros</h3></header>
@@ -265,6 +345,10 @@ export function PainelFinanceiro({
                     </ul>
                   </section>
                 )}
+
+                <p className="fin-nota">
+                  Conta tudo o que as IAs cobraram, no dia em que cobraram (horário UTC, como a conta da Anthropic), inclusive tentativas que falharam e o que foi gasto fora dos posts. A voz da ElevenLabs fica de fora, porque é paga no plano dela.
+                </p>
               </>
             )}
           </div>

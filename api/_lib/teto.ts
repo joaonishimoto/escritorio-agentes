@@ -27,10 +27,16 @@ export function inicioDoMes(agora = new Date()) {
   return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1))
 }
 
-/** Quanto a marca já gastou este mês (soma dos posts criados no mês). */
+/** Quanto a marca já gastou este mês: os posts criados no mês e o que a sala gastou fora deles (ideias, pedidos avulsos, plano). */
 export async function gastoDoMes(marcaId: string) {
-  const { data } = await db.from('posts').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', inicioDoMes().toISOString())
-  return (data ?? []).reduce((s, p) => s + Number(p.custo_usd ?? 0), 0)
+  const desde = inicioDoMes().toISOString()
+  const [{ data }, avulsos] = await Promise.all([
+    db.from('posts').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', desde),
+    db.from('gastos').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', desde),
+  ])
+  const soma = (l: { custo_usd: unknown }[] | null) => (l ?? []).reduce((s, p) => s + Number(p.custo_usd ?? 0), 0)
+  // banco ainda sem a tabela de gastos: conta só os posts
+  return soma(data) + (avulsos.error ? 0 : soma(avulsos.data))
 }
 
 /** Agentes cujo trabalho conta para o teto do post: produção e revisão. O publicador e o curador sempre seguem. */
