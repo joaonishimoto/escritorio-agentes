@@ -294,25 +294,30 @@ export interface Custos {
   criadoEm: string | null
 }
 
+function inicioDoMesUtc(agora = new Date()) {
+  return new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1))
+}
+
 /** Quanto já foi gasto: no post aberto (por agente) e no mês, somando todos os posts da marca. */
 export function useCustos(marcaId: string | null, postId: string | null, custoDoPost: number | undefined, status?: string) {
   const [custos, setCustos] = useState<Custos | null>(null)
   useEffect(() => {
     if (!supabase || !marcaId) return
     const sb = supabase
-    const inicioDoMes = new Date()
-    inicioDoMes.setDate(1)
-    inicioDoMes.setHours(0, 0, 0, 0)
+    // mês em UTC, como o teto da marca e o Financeiro
+    const inicioDoMes = inicioDoMesUtc()
     const vazio = Promise.resolve({ data: [] as unknown[] })
     Promise.all([
       sb.from('posts').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', inicioDoMes.toISOString()),
+      // o que a sala gastou fora dos posts (ideias, pedidos avulsos, plano editorial); sem a tabela, vem vazio
+      sb.from('gastos').select('custo_usd').eq('marca_id', marcaId).gte('criado_em', inicioDoMes.toISOString()),
       postId ? sb.from('passos').select('agente, custo_usd, iniciado_em, terminado_em').eq('post_id', postId) : vazio,
       postId ? sb.from('posts').select('criado_em').eq('id', postId).maybeSingle() : Promise.resolve({ data: null }),
       // primeira vez que o post chegou na sua mesa (pasta do revisor para você)
       postId
         ? sb.from('eventos').select('criado_em').eq('post_id', postId).eq('tipo', 'entrega').eq('para', 'voce').eq('agente', 'revisor').order('criado_em').limit(1)
         : vazio,
-    ]).then(([mes, passos, post, chegou]) => {
+    ]).then(([mes, avulsos, passos, post, chegou]) => {
       const seg = (a?: string | null, b?: string | null) => (a && b ? Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 1000) : 0)
       const soma = new Map<string, { custo: number; segundos: number }>()
       for (const p of (passos.data ?? []) as { agente: string; custo_usd: number; iniciado_em: string | null; terminado_em: string | null }[]) {
@@ -324,7 +329,7 @@ export function useCustos(marcaId: string | null, postId: string | null, custoDo
       const chegada = ((chegou.data ?? []) as { criado_em: string }[])[0]?.criado_em
       setCustos({
         post: Number(custoDoPost ?? 0),
-        mes: lista.reduce((s, p) => s + Number(p.custo_usd), 0),
+        mes: lista.reduce((s, p) => s + Number(p.custo_usd), 0) + ((avulsos.data ?? []) as { custo_usd: number }[]).reduce((s, g) => s + Number(g.custo_usd), 0),
         postsNoMes: lista.length,
         porAgente: [...soma].map(([agente, v]) => ({ agente, ...v })).sort((a, b) => b.custo - a.custo),
         ateVoceSeg: chegada && criadoEm ? seg(criadoEm, chegada) : null,
@@ -362,10 +367,8 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
     const sb = supabase
     let valendo = true
     const buscar = async () => {
-      const inicioDoMes = new Date()
-      inicioDoMes.setDate(1)
-      inicioDoMes.setHours(0, 0, 0, 0)
-      const [vivos, mes, guardados, comData] = await Promise.all([
+      const inicioDoMes = inicioDoMesUtc()
+      const [vivos, mes, guardados, comData, avulsos] = await Promise.all([
         sb.from('posts').select('*').in('marca_id', marcaIds).in('status', ['em_producao', 'aprovado', 'aguardando_aprovacao', 'aguardando_texto', 'erro']).order('criado_em', { ascending: false }).limit(60),
         sb.from('posts').select('marca_id, custo_usd').in('marca_id', marcaIds).gte('criado_em', inicioDoMes.toISOString()),
         sb.from('posts').select('*').in('marca_id', marcaIds).eq('status', 'guardado').order('criado_em', { ascending: false }).limit(200),
@@ -376,6 +379,7 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
           .or('status.eq.agendado,status.eq.publicado,and(status.eq.erro,agendado_para.not.is.null)')
           .order('criado_em', { ascending: false })
           .limit(500),
+        sb.from('gastos').select('marca_id, custo_usd').in('marca_id', marcaIds).gte('criado_em', inicioDoMes.toISOString()),
       ])
       const gaveta: Andar['gaveta'] = {}
       for (const p of (guardados.data as Post[]) ?? []) (gaveta[p.marca_id] ??= []).push(p)
@@ -398,7 +402,7 @@ export function useAndar(marcaIds: string[], recarregar: number): Andar {
         porSala[marca] = estados
       }
       const gasto: Record<string, number> = {}
-      for (const x of (mes.data ?? []) as { marca_id: string; custo_usd: number }[]) gasto[x.marca_id] = (gasto[x.marca_id] ?? 0) + Number(x.custo_usd)
+      for (const x of [...(mes.data ?? []), ...(avulsos.data ?? [])] as { marca_id: string; custo_usd: number }[]) gasto[x.marca_id] = (gasto[x.marca_id] ?? 0) + Number(x.custo_usd)
       if (valendo) setAndar({ porSala, naSuaMesa: posts.filter((p) => ESPERANDO_VOCE.includes(p.status)), mes: gasto, gaveta, comData: (comData.data as Post[]) ?? [], carregado: true })
     }
     buscar().catch((e) => console.error('não consegui ver o andar', e))

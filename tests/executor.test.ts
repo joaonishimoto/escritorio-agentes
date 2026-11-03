@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BancoFalso } from './apoio/banco-falso'
 
 const banco = vi.hoisted(() => ({ atual: null as unknown as BancoFalso }))
-const cena = vi.hoisted(() => ({ custo: 0.1, falhar: null as string | null }))
+const cena = vi.hoisted(() => ({ custo: 0.1, falhar: null as string | null, gastoAntesDeFalhar: 0 }))
 
 vi.mock('../api/_lib/db', () => ({
   get db() {
@@ -17,7 +17,11 @@ vi.mock('@vercel/functions', () => ({ waitUntil: () => {} }))
 
 // cada agente de mentira só registra que trabalhou; o revisor manda para você
 const falso = (nome: string) => async () => {
-  if (cena.falhar === nome) throw new Error(`${nome} quebrou`)
+  if (cena.falhar === nome) {
+    // a IA respondeu (e cobrou) antes de o agente quebrar
+    if (cena.gastoAntesDeFalhar) (await import('../api/_lib/gastos')).anotarGasto('claude-opus-5-5', { tokens_entrada: 100, tokens_saida: 50, custo_usd: cena.gastoAntesDeFalhar })
+    throw new Error(`${nome} quebrou`)
+  }
   if (nome === 'revisor') {
     await banco.atual.from('posts').update({ status: 'aguardando_aprovacao' }).eq('id', 'p1')
     return { saida: { aprovado: true }, uso: { tokens_entrada: 0, tokens_saida: 0, custo_usd: cena.custo }, entrega: 'Aprovado', proximos: null, para: 'voce' }
@@ -44,6 +48,7 @@ const post = () => banco.atual.tabela('posts')[0]
 beforeEach(() => {
   cena.custo = 0.1
   cena.falhar = null
+  cena.gastoAntesDeFalhar = 0
   const b = new BancoFalso()
   b.tabelas.marcas = [{ id: 'm1', dono_id: 'u1', nome: 'Marca de teste', tom_de_voz: '', modelo_slides_html: null, identidade: {} }]
   b.tabelas.posts = [{ id: 'p1', marca_id: 'm1', briefing: 'Post de teste', formato: 'carrossel', status: 'em_producao', slides: [], custo_usd: 0, criado_em: new Date().toISOString() }]
@@ -81,6 +86,16 @@ describe('fila do executor', () => {
     expect(passos().map((p) => p.agente)).toEqual(['chefe', 'pesquisador', 'redator'])
     expect(passos()[2]).toMatchObject({ status: 'falhou', saida: { erro: 'redator quebrou' } })
     expect(post().status).toBe('erro')
+  })
+
+  it('o que a IA cobrou antes de o passo falhar entra no passo e no post', async () => {
+    cena.falhar = 'redator'
+    cena.gastoAntesDeFalhar = 0.3
+    await enfileirar('p1', 'chefe')
+    await rodarAteOLimite(10_000)
+    expect(passos()[2]).toMatchObject({ status: 'falhou', custo_usd: 0.3, tokens_entrada: 100, tokens_saida: 50, modelos: ['claude-opus-5-5'] })
+    // chefe e pesquisador (0,1 cada) mais a tentativa do redator
+    expect(post().custo_usd).toBeCloseTo(0.5)
   })
 
   it('o teto de gasto por post para a produção e manda o que tem para você', async () => {

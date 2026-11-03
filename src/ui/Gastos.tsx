@@ -105,7 +105,7 @@ export function PainelGastos({
             </section>
 
             <p className="fin-nota">
-              {custos.postsNoMes} {custos.postsNoMes === 1 ? 'post' : 'posts'} nesta sala este mês. Valores da API da Anthropic (modelos e buscas na web).
+              {custos.postsNoMes} {custos.postsNoMes === 1 ? 'post' : 'posts'} nesta sala este mês. Valores calculados na hora de cada chamada: Claude, OpenRouter, imagens e vídeos, inclusive o que deu erro no caminho.
             </p>
             {aoAbrirFinanceiro && (
               <button className="secundario gst-fin" onClick={aoAbrirFinanceiro}>

@@ -2,6 +2,7 @@
 // ou direto no Instagram. Quem cria pauta ou ideia lê as fichas para não repetir o que a marca já postou.
 import { z } from 'zod'
 import { gerarJson } from './claude.js'
+import { comGasto } from './gastos.js'
 import { db } from './db.js'
 
 const VERSAO = process.env.INSTAGRAM_API_VERSION ?? 'v23.0'
@@ -222,10 +223,13 @@ export async function atualizarMemorias() {
   const { data: marcas } = await db.from('posts').select('marca_id').eq('status', 'publicado').gte('publicado_em', new Date(Date.now() - 7 * 86_400_000).toISOString())
   const ids = [...new Set((marcas ?? []).map((m) => m.marca_id as string))]
   const resultado = { salas: ids.length, novos: 0, resumidos: 0, erros: [] as string[] }
+  const { data: donos } = ids.length ? await db.from('marcas').select('id, dono_id').in('id', ids) : { data: [] }
+  const donoDa = new Map((donos ?? []).map((m) => [m.id as string, m.dono_id as string]))
   for (const id of ids) {
     try {
       resultado.novos += await sincronizarApp(id)
-      const r = await resumirPendentes(id, 50)
+      const dono = donoDa.get(id)
+      const r = dono ? await comGasto({ dono_id: dono, marca_id: id, origem: 'memoria', descricao: 'Memória dos posts novos' }, () => resumirPendentes(id, 50)) : await resumirPendentes(id, 50)
       resultado.resumidos += r.resumidos
       if (r.erro) resultado.erros.push(r.erro)
     } catch (e) {

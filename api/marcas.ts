@@ -4,6 +4,7 @@ import { db, usuarioDaRequisicao } from './_lib/db.js'
 import { rota } from './_lib/http.js'
 import { validarIdentidade } from './_lib/identidade.js'
 import { completarMarca } from './_lib/marcas/index.js'
+import { comGasto } from './_lib/gastos.js'
 import { importarInstagram, resumirPendentes, sincronizarApp } from './_lib/memoria.js'
 import { AGENTES_DE_REGRA, Juntadas, montarProposta, pedidoDeJuntar, SISTEMA_JUNTAR, type RegraAntiga } from './_lib/regras.js'
 import { gastoDoMes } from './_lib/teto.js'
@@ -126,13 +127,15 @@ async function juntarRegras(res: VercelResponse, usuario: string, corpo: { acao?
 
   if (corpo.acao === 'juntar_regras') {
     if (atuais.length < 2) return res.json({ proposta: { novas: [], ficam: atuais.map((r) => r.id) }, custo_usd: 0 })
-    const { dados, uso } = await gerarJson({
-      modelo: 'claude-sonnet-5-5',
-      effort: 'low',
-      sistema: SISTEMA_JUNTAR,
-      conteudo: pedidoDeJuntar(agente, atuais),
-      schema: Juntadas,
-    })
+    const { dados, uso } = await comGasto({ dono_id: usuario, marca_id: marca.id, origem: 'juntar_regras', descricao: `Mural de regras: ${agente}` }, () =>
+      gerarJson({
+        modelo: 'claude-sonnet-5-5',
+        effort: 'low',
+        sistema: SISTEMA_JUNTAR,
+        conteudo: pedidoDeJuntar(agente, atuais),
+        schema: Juntadas,
+      }),
+    )
     return res.json({ proposta: montarProposta(atuais, dados), custo_usd: uso.custo_usd })
   }
 
@@ -180,7 +183,7 @@ async function lerPostsAntigos(res: VercelResponse, usuario: string, id: string 
   } catch (e) {
     return res.status(400).json({ erro: e instanceof Error ? e.message : 'Não consegui ler o Instagram da sala' })
   }
-  const resumo = await resumirPendentes(marca.id)
+  const resumo = await comGasto({ dono_id: usuario, marca_id: marca.id, origem: 'memoria', descricao: 'Leitura dos posts antigos' }, () => resumirPendentes(marca.id))
   const { count } = await db.from('memoria_posts').select('id', { count: 'exact', head: true }).eq('marca_id', marca.id)
   return res.json({ lidos: instagram.lidos, novos: instagram.novos + doApp, resumidos: resumo.resumidos, total: count ?? 0, custo_usd: resumo.custo_usd, aviso: resumo.erro })
 }

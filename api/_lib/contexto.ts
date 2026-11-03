@@ -77,6 +77,10 @@ export interface Passo {
   ordem: number
   entrada: Record<string, unknown>
   tentativas: number
+  /** o que este passo já gastou (em tentativas anteriores que falharam) */
+  custo_usd?: number | string
+  tokens_entrada?: number
+  tokens_saida?: number
 }
 
 export interface Contexto {

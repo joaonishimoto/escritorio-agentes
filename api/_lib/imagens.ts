@@ -3,6 +3,7 @@
 // sem, gera só pelo texto.
 import { BUCKET_POSTS, db, urlPublica } from './db.js'
 import { chamarFal } from './fal.js'
+import { anotarGasto } from './gastos.js'
 
 export type Provedor = 'openai' | 'fal'
 
@@ -156,6 +157,8 @@ export async function gerarImagem(
   const m: ModeloImagem = MODELOS_IMAGEM[motor]
   const refs = opts.referencias.slice(0, m.maxReferencias)
   const { dados, tipo } = m.provedor === 'openai' ? await chamarOpenAI(m, opts.prompt, refs) : await chamarFalImagem(m, opts.prompt, refs)
+  // a imagem já foi cobrada: entra na conta mesmo se o upload abaixo falhar
+  anotarGasto(m.nome, { tokens_entrada: 0, tokens_saida: 0, custo_usd: m.preco })
   const ext = tipo.includes('jpeg') || tipo.includes('jpg') ? 'jpg' : tipo.includes('webp') ? 'webp' : 'png'
   const caminho = `${opts.postId}/imagens/${opts.nome}-${Date.now()}.${ext}`
   const { error } = await db.storage.from(BUCKET_POSTS).upload(caminho, dados, { contentType: tipo, upsert: true })

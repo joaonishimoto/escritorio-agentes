@@ -1104,6 +1104,19 @@ i.falhou { background: var(--danger, #b42318) }
 .fin-caros button span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .fin-caros button small { font-size: 11px; color: var(--muted-foreground) }
 .fin-caros strong { font-size: 13px; font-variant-numeric: tabular-nums }
+.fin-testes { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden }
+.fin-testes > * { display: grid; grid-template-columns: minmax(0, 1fr) 56px 76px; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--foreground); font: inherit; text-align: left }
+.fin-testes > *:last-child { border-bottom: 0 }
+.fin-testes button { cursor: pointer }
+.fin-testes button:hover:not(:disabled) { background: var(--surface-hover) }
+.fin-testes button:disabled { cursor: default }
+.fin-testes-topo { font-size: 11px; color: var(--muted-foreground); background: var(--surface-muted) !important }
+.fin-testes-topo span:not(:first-child) { text-align: right }
+.fin-teste-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.fin-teste-nome span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.fin-teste-nome small { font-size: 11px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.fin-teste-num { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; font-variant-numeric: tabular-nums }
+.fin-teste-num small { font-size: 10px }
 
 /* referências da marca */
 .modal.rf { position: relative; width: min(880px, 100%) }
