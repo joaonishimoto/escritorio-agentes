@@ -41,6 +41,10 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
 4. **Ajuste**: o curador transforma o que você escreveu em regras propostas (você aceita ou descarta) e manda a correção para o agente certo; ajuste pequeno vai direto ao designer, que edita os slides prontos. Se a correção cai num erro que uma regra já cobria, o curador não cria regra repetida: conta mais uma vez naquela regra. Regra que voltou duas vezes ou mais vai para o topo do prompt de quem desenha e é conferida item por item na autoconferência e no revisor (precisa da migração `20261102000000_regras_reincidentes.sql`).
 5. **Publicação**: o publicador usa a Instagram Graph API com o token guardado no Vault do Supabase. Agendados saem na hora marcada: um `pg_cron` no banco chama `/api/publicar-agendados` a cada minuto.
 
+### Publicar algo pronto
+
+No painel do **Publicador**, a aba **Publicar algo** recebe um vídeo (MP4 ou MOV, vira Reel, com uma imagem opcional de capa) ou de 1 a 10 imagens (foto ou carrossel; PNG e WebP viram JPEG no navegador), mais a legenda. Você escolhe publicar agora ou agendar, confere a prévia e só então confirma. O arquivo sobe para `marcas/<marca>/publicar/` no Storage, `/api/posts` (com `direto`) cria o post já aprovado ou agendado, sem passar pela equipe nem gastar IA, e o publicador sobe no Instagram da marca da sala. O post fica na sala e no calendário como qualquer outro.
+
 ### Anúncios no Meta
 
 No Novo post, o formato **Anúncio** pede o objetivo da campanha (vendas, tráfego, cadastros, app, engajamento, reconhecimento), o público (frio, morno, remarketing) e o link de destino. O fluxo é o mesmo, com duas diferenças: o copywriter escreve também o pacote (textos principais, títulos, descrição, botão e nome do anúncio) e o **Designer de criativos**, na Publicação, faz no lugar do designer a arte em 4:5 (feed) e 9:16 (Stories e Reels), respeitando as áreas que o Meta cobre. O anúncio não é publicado pelo app: aprovado, fica na gaveta da sala, com as artes para baixar e cada texto com botão de copiar. Precisa da migração `20261030000200_anuncios.sql`.

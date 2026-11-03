@@ -4,6 +4,7 @@ import { COR_ESTADO, useEscritorio } from '../store/escritorio'
 import { AcoesDeErro } from './PostComErro'
 import { PedirIdeias } from './PedirIdeias'
 import { PedirAoAgente } from './PedirAoAgente'
+import { PublicarDireto } from './PublicarDireto'
 import { recebePedido } from '../lib/pedidos'
 import type { Ideia } from '../lib/ideias'
 import type { Post } from '../lib/dados'
@@ -69,7 +70,7 @@ function emCampos(texto: string) {
   return blocos.filter((b) => b.texto.trim() || b.rotulo)
 }
 
-type Aba = 'agora' | 'emails' | 'historico' | 'ideias' | 'pedir'
+type Aba = 'agora' | 'emails' | 'historico' | 'ideias' | 'pedir' | 'publicar'
 
 export function PainelAgente({
   post,
@@ -78,7 +79,15 @@ export function PainelAgente({
   aoUsarIdeia,
   porAgente,
   aoVerPrevia,
+  marcaNome,
+  instagramConectado,
+  aoEnviarPronto,
 }: {
+  marcaNome?: string
+  /** a marca da sala tem o Instagram conectado (para publicar algo pronto pelo publicador) */
+  instagramConectado?: boolean
+  /** você mandou um vídeo ou imagens prontos ao publicador: o post novo passa a ser o da sala */
+  aoEnviarPronto?: (postId: string) => void
   post?: Post | null
   /** abre a prévia do post inteiro (slides, legenda e revisão) como está agora */
   aoVerPrevia?: () => void
@@ -135,6 +144,7 @@ export function PainelAgente({
     { id: 'historico', nome: 'Histórico', conta: historico.length },
     ...(id === 'pesquisador' && marcaId && aoUsarIdeia ? [{ id: 'ideias' as Aba, nome: 'Ideias de posts' }] : []),
     ...(marcaId && recebePedido(id) ? [{ id: 'pedir' as Aba, nome: 'Pedir algo' }] : []),
+    ...(marcaId && id === 'publicador' ? [{ id: 'publicar' as Aba, nome: 'Publicar algo' }] : []),
   ]
 
   return (
@@ -316,6 +326,7 @@ export function PainelAgente({
 
         {aba === 'ideias' && marcaId && aoUsarIdeia && <PedirIdeias marcaId={marcaId} aoUsar={aoUsarIdeia} />}
         {aba === 'pedir' && marcaId && <PedirAoAgente marcaId={marcaId} agente={id} nome={a.nome} />}
+        {aba === 'publicar' && marcaId && <PublicarDireto marcaId={marcaId} marcaNome={marcaNome} conectado={!!instagramConectado} aoEnviar={aoEnviarPronto} />}
       </div>
     </aside>
   )

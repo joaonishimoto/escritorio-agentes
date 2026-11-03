@@ -1430,3 +1430,20 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 .tres .balao-gato { background: #fff8ec }
 .palco-menu { display: flex; align-items: center }
 @media (max-width: 760px) { .tres-dica { display: none } .tres .nome { font-size: 10px; padding: 3px 7px 3px 6px } .tres-placa { font-size: 11px; padding: 5px 10px } }
+
+/* publicar algo pronto (aba do publicador) */
+.pd-soltar { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 12px; text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius-lg); cursor: pointer; font-size: 14px }
+.pd-soltar:hover, .pd-soltar.arrastando { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, transparent) }
+.pd-soltar input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
+.pd-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.pd-lista li { display: flex; align-items: center; gap: 10px; font-size: 13px }
+.pd-lista li span { flex: 1; min-width: 0 }
+.pd-lista img, .pd-lista video { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; background: var(--border) }
+.pd-previa { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory }
+.pd-previa img, .pd-previa video { flex: none; width: min(100%, 260px); max-height: 380px; object-fit: contain; border-radius: var(--radius-lg); background: #000; scroll-snap-align: start }
+.pd-legenda { white-space: pre-wrap; font-size: 14px }
+.pd-nota { font-size: 12px }
+.pd-quando { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 14px }
+.pd-quando label { display: inline-flex; align-items: center; gap: 6px }
+.pd-pronto { display: flex; gap: 8px; font-size: 14px; line-height: 1.45 }
+.pd-pronto span { color: var(--success); font-weight: 700 }
