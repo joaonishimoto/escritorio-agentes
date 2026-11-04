@@ -20,7 +20,7 @@ export const LIMITE_IMAGENS = 10
 
 /**
  * Confere o que veio do app e monta o post. Só aceita arquivos do armazenamento da própria marca
- * (`base` é a URL pública da pasta dela), um vídeo (com capa opcional) ou de 1 a 10 imagens.
+ * (`base` é a URL pública da pasta dela), um vídeo com a imagem da capa, ou de 1 a 10 imagens.
  */
 export function montarPublicacaoDireta(
   entrada: { legenda?: unknown; midias?: unknown; quando?: unknown },
@@ -37,6 +37,7 @@ export function montarPublicacaoDireta(
   const imagens = midias.filter((m) => m.tipo === 'imagem')
   if (!videos.length && !imagens.length) return { erro: 'Mande um vídeo ou pelo menos uma imagem' }
   if (videos.length > 1) return { erro: 'Mande um vídeo só (o Reel)' }
+  if (videos.length && !imagens.length) return { erro: 'Mande também a imagem da capa do Reel' }
   if (videos.length && imagens.length > 1) return { erro: 'Com vídeo, dá para mandar só uma imagem, que vira a capa do Reel' }
   if (imagens.length > LIMITE_IMAGENS) return { erro: `O Instagram aceita até ${LIMITE_IMAGENS} imagens num carrossel` }
 

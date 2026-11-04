@@ -80,6 +80,19 @@ try {
   await p.getByRole('button', { name: 'Confirmar e publicar' }).click()
   await p.locator('.pd-pronto').waitFor({ timeout: 5000 })
   conferir(pedido?.direto?.legenda === 'Legenda de teste' && pedido?.direto?.midias?.[0]?.tipo === 'imagem' && pedido?.marca_id === 'm2', 'publicar algo pronto manda a imagem e a legenda para a marca da sala')
+
+  // Reel: o publicador pede a capa e só deixa revisar com ela
+  pedido = null
+  await p.getByRole('button', { name: 'Publicar outro' }).click()
+  await p.locator('.pd-soltar input[type=file]').setInputFiles({ name: 'reel.mp4', mimeType: 'video/mp4', buffer: Buffer.from('video') })
+  await p.locator('.pd-falta-capa').waitFor({ timeout: 15_000 })
+  conferir(await p.getByRole('button', { name: 'Revisar antes de publicar' }).isDisabled(), 'Reel sem capa não deixa revisar')
+  await p.locator('.pd-escolher-capa input').setInputFiles({ name: 'capa.jpg', mimeType: 'image/jpeg', buffer: jpeg })
+  await p.locator('.pd-falta-capa').waitFor({ state: 'detached', timeout: 15_000 })
+  await p.getByRole('button', { name: 'Revisar antes de publicar' }).click()
+  await p.getByRole('button', { name: 'Confirmar e publicar' }).click()
+  await p.locator('.pd-pronto').waitFor({ timeout: 5000 })
+  conferir(pedido?.direto?.midias?.map((m) => m.tipo).join(',') === 'video,imagem', 'o Reel vai com o vídeo e a capa')
   conferir(erros.length === 0, `sem erro de JavaScript na página${erros.length ? `: ${erros.join(' | ')}` : ''}`)
 } catch (e) {
   conferir(false, `o teste quebrou: ${e instanceof Error ? e.message : e}`)

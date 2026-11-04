@@ -43,7 +43,7 @@ Antes de abrir uma PR: `npm run check` (tipos do app e da API + lint), `npm test
 
 ### Publicar algo pronto
 
-No painel do **Publicador**, a aba **Publicar algo** recebe um vídeo (MP4 ou MOV, vira Reel, com uma imagem opcional de capa) ou de 1 a 10 imagens (foto ou carrossel; PNG e WebP viram JPEG no navegador), mais a legenda. Você escolhe publicar agora ou agendar, confere a prévia e só então confirma. O arquivo sobe para `marcas/<marca>/publicar/` no Storage, `/api/posts` (com `direto`) cria o post já aprovado ou agendado, sem passar pela equipe nem gastar IA, e o publicador sobe no Instagram da marca da sala. O post fica na sala e no calendário como qualquer outro.
+No painel do **Publicador**, a aba **Publicar algo** recebe um vídeo (MP4 ou MOV, vira Reel) com a imagem da capa, que é obrigatória, ou de 1 a 10 imagens (foto ou carrossel; PNG e WebP viram JPEG no navegador), mais a legenda. Você escolhe publicar agora ou agendar, confere a prévia e só então confirma. O arquivo sobe para `marcas/<marca>/publicar/` no Storage, `/api/posts` (com `direto`) cria o post já aprovado ou agendado, sem passar pela equipe nem gastar IA, e o publicador sobe no Instagram da marca da sala. O post fica na sala e no calendário como qualquer outro.
 
 ### Anúncios no Meta
 
