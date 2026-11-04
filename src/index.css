@@ -1447,3 +1447,9 @@ i.planejado, .cal-capas i.planejado, .cal-legenda i.planejado { background: tran
 .pd-quando label { display: inline-flex; align-items: center; gap: 6px }
 .pd-pronto { display: flex; gap: 8px; font-size: 14px; line-height: 1.45 }
 .pd-pronto span { color: var(--success); font-weight: 700 }
+
+.pd-lista li .pd-capa-vazia { width: 44px; height: 44px; flex: none; border-radius: 8px; border: 1.5px dashed var(--danger-strong) }
+.pd-escolher-capa { position: relative; cursor: pointer; font-weight: 600 }
+.pd-escolher-capa input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100% }
+.pd-capa { display: flex; align-items: center; gap: 10px; margin: 0 }
+.pd-capa img { width: 64px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; background: var(--border) }

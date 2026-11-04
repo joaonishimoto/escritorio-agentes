@@ -24,6 +24,7 @@ describe('publicação direta', () => {
     const vid = { tipo: 'video', url: `${base}v.mp4` }
     expect(montarPublicacaoDireta({ midias: [] }, base, agora)).toHaveProperty('erro')
     expect(montarPublicacaoDireta({ midias: [vid, vid] }, base, agora)).toHaveProperty('erro')
+    expect(montarPublicacaoDireta({ midias: [vid] }, base, agora)).toEqual({ erro: 'Mande também a imagem da capa do Reel' })
     expect(montarPublicacaoDireta({ midias: [vid, img(1), img(2)] }, base, agora)).toHaveProperty('erro')
     expect(montarPublicacaoDireta({ midias: Array.from({ length: 11 }, (_, i) => img(i)) }, base, agora)).toHaveProperty('erro')
     expect(montarPublicacaoDireta({ legenda: 'a'.repeat(2201), midias: [img(1)] }, base, agora)).toHaveProperty('erro')

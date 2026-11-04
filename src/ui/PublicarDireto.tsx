@@ -123,7 +123,9 @@ export function PublicarDireto({
   // capa de Reel pode ser vertical; foto e carrossel no feed, não
   const foraDoFeed = !video && imagens.some((m) => m.proporcao !== undefined && !proporcaoAceita(m.proporcao))
   const data = agendar ? new Date(quando) : null
-  const podeConferir = !foraDoFeed && conectado && midias.length > 0 && subindo === 0 && legenda.length <= LIMITE_LEGENDA && (!agendar || (!!data && !Number.isNaN(data.getTime())))
+  // Reel sempre com capa escolhida por você: sem ela o Instagram pega um quadro qualquer do vídeo
+  const faltaCapa = !!video && imagens.length === 0
+  const podeConferir = !foraDoFeed && !faltaCapa && conectado && midias.length > 0 && subindo === 0 && legenda.length <= LIMITE_LEGENDA && (!agendar || (!!data && !Number.isNaN(data.getTime())))
 
   const publicar = async () => {
     setEnviando(true)
@@ -166,7 +168,12 @@ export function PublicarDireto({
           {video && <video src={video.url} controls playsInline muted poster={imagens[0]?.url} />}
           {!video && imagens.map((m, i) => <img key={m.url} src={m.url} alt={`Imagem ${i + 1}`} />)}
         </div>
-        {video && imagens[0] && <p className="muted pd-nota">Capa do Reel: a imagem enviada.</p>}
+        {video && imagens[0] && (
+          <figure className="pd-capa">
+            <img src={imagens[0].url} alt="Capa do Reel" />
+            <figcaption className="muted pd-nota">Capa do Reel</figcaption>
+          </figure>
+        )}
         <div className="ag-texto pd-legenda">{legenda || <span className="muted">Sem legenda</span>}</div>
         <div className="ideia-acoes">
           <button className="primario" disabled={enviando} onClick={publicar}>
@@ -181,7 +188,7 @@ export function PublicarDireto({
   return (
     <section className="ideias publicar-direto">
       <h3>Publicar algo pronto</h3>
-      <p className="muted">Mande um vídeo (vira Reel) ou de 1 a 10 imagens, com a legenda. Ele publica sem passar pela equipe e cria o post na sala e no calendário.</p>
+      <p className="muted">Mande um vídeo com a imagem da capa (vira Reel) ou de 1 a 10 imagens, com a legenda. Ele publica sem passar pela equipe e cria o post na sala e no calendário.</p>
       {!conectado && <p className="aviso">Esta marca ainda não tem o Instagram conectado. Conecte no perfil da sala para publicar.</p>}
 
       <label
@@ -203,7 +210,7 @@ export function PublicarDireto({
           }}
         />
         <strong>{subindo ? `Enviando ${subindo} ${subindo === 1 ? 'arquivo' : 'arquivos'}…` : 'Escolha ou arraste o vídeo ou as imagens'}</strong>
-        <small className="muted">{video ? 'Pode juntar uma imagem para ser a capa do Reel' : 'MP4 ou MOV para Reel; JPG, PNG ou WebP para foto e carrossel'}</small>
+        <small className="muted">{video ? 'Agora mande a imagem da capa do Reel' : 'MP4 ou MOV para Reel (com a imagem da capa); JPG, PNG ou WebP para foto e carrossel'}</small>
       </label>
 
       {midias.length > 0 && (
@@ -213,6 +220,23 @@ export function PublicarDireto({
               <video src={video.url} muted playsInline preload="metadata" />
               <span>Vídeo do Reel</span>
               <button className="link" onClick={() => tirar(video.url)}>Tirar</button>
+            </li>
+          )}
+          {faltaCapa && (
+            <li className="pd-falta-capa">
+              <span className="pd-capa-vazia" aria-hidden />
+              <span>Falta a capa do Reel</span>
+              <label className="link pd-escolher-capa">
+                Escolher capa
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    void subir(Array.from(e.target.files ?? []).slice(0, 1))
+                    e.target.value = ''
+                  }}
+                />
+              </label>
             </li>
           )}
           {imagens.map((m, i) => (
@@ -231,6 +255,7 @@ export function PublicarDireto({
         </ul>
       )}
 
+      {faltaCapa && subindo === 0 && <p className="aviso">Mande a imagem da capa do Reel: é ela que aparece no perfil e no feed.</p>}
       {foraDoFeed && <p className="aviso">O Instagram recusa foto mais alta que 4:5 (ou mais larga que 1,91:1) no feed. Recorte a imagem, ou mande um vídeo se for um Reel.</p>}
 
       <textarea rows={6} placeholder="Legenda do post, com hashtags se quiser" value={legenda} onChange={(e) => setLegenda(e.target.value)} />
