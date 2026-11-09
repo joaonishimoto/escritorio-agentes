@@ -563,12 +563,12 @@ export function NovoPost({
                           <strong>{f.nome}</strong>
                           <small>
                             {f.video && formato === '' ? 'Só se o post virar Reel · ' : ''}
-                            {atual?.desc}
+                            {f.agente === 'imagens' && !escolhida ? 'Usa as fotos aprovadas da marca; gera imagem só se a marca não tiver foto do produto' : atual?.desc}
                             {f.agente === 'narrador' && escolhida !== 'nenhum' && semChave('elevenlabs') ? ' · a voz precisa de ELEVENLABS_API_KEY na Vercel' : ''}
                           </small>
                         </span>
                         <select value={escolhida} onChange={(e) => setIas((x) => ({ ...x, [f.agente]: e.target.value }))}>
-                          <option value="">Padrão ({nomeDaIA(padraoDe(f, servicos))})</option>
+                          <option value="">Padrão ({f.agente === 'imagens' ? 'fotos da marca' : nomeDaIA(padraoDe(f, servicos))})</option>
                           {opcoes.map((o) => (
                             <option key={o.id} value={o.id} disabled={semChave(o.servico)}>
                               {o.nome}{semChave(o.servico) ? ` · falta ${CHAVE_DO_SERVICO[o.servico]} na Vercel` : ''}

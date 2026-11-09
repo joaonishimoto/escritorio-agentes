@@ -198,6 +198,13 @@ As regras aprendidas e a composição acima são o limite. Dentro delas, você �
 - Prefira mostrar a dizer: um detalhe bem fotografado vale mais que um selo, um ícone ou uma caixa de texto a mais.
 - Quando houver imagens geradas para este post, construa o slide em volta delas (texto na área livre da cena, cor do texto tirada da imagem).`
 
+/** No lugar da liberdade criativa, quando a marca tem modelo de slides e o post segue ele. */
+export const FIEL_AO_MODELO = `## Fiel ao modelo da marca
+O modelo da marca é o molde deste post: o que muda de um post para outro é o texto, as fotos e a quantidade de slides, não a composição.
+- Mantenha a grade, as margens, a fonte, as cores, o tamanho do título e a assinatura do modelo em todos os slides.
+- Escolha a foto que mostra o produto inteiro e posicione (object-position, altura da foto) para o texto não cobrir o produto.
+- Só fuja do modelo quando uma regra aprendida pedir; aí mude o mínimo.`
+
 /**
  * Fecha a pauta com o que não fica a critério do modelo: o formato manda na quantidade de slides
  * (foto e Reel têm uma imagem só), a quantidade escolhida pelo dono vale, e o plano acompanha a quantidade.

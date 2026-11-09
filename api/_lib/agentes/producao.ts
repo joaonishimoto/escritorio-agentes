@@ -16,7 +16,7 @@ import { gerarImagem, MAX_IMAGENS_POR_POST, MODELOS_IMAGEM, type MotorImagem } f
 import { consultarVideo, custoDoVideo, MODELO_KLING, pedirVideo } from '../kling.js'
 import { renderizarESalvar } from '../render-remoto.js'
 import { separarSlides, type ProblemaDoSlide } from '../render.js'
-import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, LAYOUTS, LIBERDADE, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
+import { CLICHES, ESCRITA, ESTRUTURAS, fecharPauta, FIEL_AO_MODELO, LAYOUTS, LIBERDADE, OBJETIVOS, postsRecentes, sugerirCaminhos, textoCaminhos, textoJaUsado, textoLayout, VOZES } from '../variacao.js'
 import { ErroRetomavel, feedback, USO_ZERO, type Agente, type Resultado } from './tipos.js'
 
 // ───────── Chefe de pauta ─────────
@@ -341,8 +341,9 @@ async function autoconferir(ctx: Parameters<Agente>[0], passo: Parameters<Agente
   const eu = quemDesenha(ctx.post)
   const ordenados = [...slides].sort((a, b) => a.ordem - b.ordem)
   const { dados, uso: usoConferencia } = await gerarJson({
-    modelo: modeloNaVolta(ctx, eu, 'claude-sonnet-5-5'),
-    effort: 'medium',
+    // olhar os slides prontos é o que mais pega erro visual: vai no mesmo modelo que desenhou, com esforço alto
+    modelo: modeloDe(ctx, eu),
+    effort: 'high',
     sistema: `${sistemaDoAgente(
       ctx,
       eu,
@@ -514,7 +515,10 @@ export const designer: Agente = async (ctx, passo, em) => {
   // imagens novas para o post: numa refação, reaproveita as que já foram geradas em vez de pagar de novo
   let geradas = (ctx.saidas[eu] as { imagens?: ImagemGerada[] } | undefined)?.imagens ?? []
   let usoImagens = USO_ZERO
-  const motorImagem = motorDeImagem(ctx)
+  // com fotos aprovadas do produto, o post usa as fotos reais: imagem gerada só entra se o dono escolheu um motor no post
+  // (a imagem de IA deixava o post genérico e quebrava a regra de "só fotos oficiais")
+  const temFotoDoProduto = fotos.some((m) => !m.tags.includes('icone') && !m.tags.includes('logo'))
+  const motorImagem = temFotoDoProduto && !ctx.post.preferencias?.ias?.imagens ? null : motorDeImagem(ctx)
   if (!geradas.length && motorImagem) {
     const refsDoPedido = (ctx.post.referencias ?? []).filter((r) => r.tipo === 'imagem').map((r) => r.url)
     const r = await gerarImagensDoPost(ctx, em, motorImagem, fotos, refsDoPedido).catch(async (e) => {
@@ -524,25 +528,31 @@ export const designer: Agente = async (ctx, passo, em) => {
     geradas = r.imagens
     usoImagens = r.uso
   }
+  // marca com modelo próprio, sem referências no pedido e sem layout escolhido: o modelo é o molde (o que já foi aprovado),
+  // e o post varia no conteúdo, não na estrutura. Layout sorteado em cima de um modelo aprovado deixava o post pior.
+  const seguirModelo = !anuncio && !!ctx.marca.modelo_slides_html && !refsDesign.tem && !ctx.post.preferencias?.layout
   await em.acao(anuncio ? 'Montando as artes do anúncio em 4:5 e 9:16' : ctx.marca.identidade?.neutra ? 'Montando os slides no estilo das referências' : `Montando os slides no modelo de ${ctx.marca.nome}`)
   const gerado = await gerarTexto({
     modelo: modeloDe(ctx, eu),
+    effort: 'high',
     sistema: `${sistemaDoAgente(
       ctx,
       eu,
       `${anuncio ? 'Você monta as artes de um anúncio pago no Meta em HTML: um criativo com um foco só, o objetivo da campanha, feito para parar quem rola o feed e não segue a marca. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. São duas seções: <section class="slide feed"> de exatamente 1080x1350 px e <section class="slide story"> de exatamente 1080x1920 px, as duas com overflow hidden.' : 'Você monta os slides em HTML. Responda SOMENTE com um documento HTML completo, sem comentários antes ou depois. Cada slide é um <section class="slide"> de exatamente 1080x1350 px, com overflow hidden.'} Use apenas as fotos da lista ou as imagens de referência (URLs absolutas). Fontes só do Google Fonts. Texto do corpo com no mínimo 28 px. Não use emojis dentro dos slides (eles não renderizam); para setas use o caractere →, que o renderizador desenha. As regras aprendidas valem mais que a direção de layout e que o plano do chefe: se a direção pede fundo claro e uma regra pede contraste forte, ou o plano pede foto em moldura e uma regra proíbe bloco quadrado, siga a regra e adapte o resto. Depois de renderizar, uma checagem automática mede texto cortado, sobreposto, faixas vazias e título ou logo fora da área segura, e o revisor confere as imagens contra o checklist abaixo. Antes de responder, releia o HTML contra os cinco pontos que mais devolvem post: faixa vazia sem função, foto pequena ou chapada em bloco, texto encostando na foto ou cortado, rodapé em duas linhas ou desalinhado, título ou logo fora da área segura (y 135 a 1215 no 4:5; y 270 a 1250 no 9:16).`,
-    )}\n\n${composicaoDe(ctx)}\n\n${LIBERDADE}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
+    )}\n\n${composicaoDe(ctx)}\n\n${seguirModelo ? FIEL_AO_MODELO : LIBERDADE}${ctx.marca.checklist_revisor ? `\n\n## O que o revisor vai conferir (itens de visual)\n${ctx.marca.checklist_revisor}` : ''}`,
     conteudo: [
       ...refsDesign.blocos,
       ...inspiracoes.map((m) => ({ type: 'image' as const, source: { type: 'url' as const, url: m.url } })),
       {
         type: 'text' as const,
         text: [
-          ctx.marca.modelo_slides_html
+          seguirModelo
+            ? `## Modelo da marca (siga este molde)\nEste é o visual aprovado da marca. Use as classes, a grade, as posições, os tamanhos e o estilo dele; repita o tipo de slide que precisar (capa, conteúdo, chamada final) e troque só o texto e as fotos. Adapte o mínimo para o conteúdo caber (um item a mais na lista, um título mais longo), sem inventar outra composição.\n${ctx.marca.modelo_slides_html}`
+            : ctx.marca.modelo_slides_html
             ? `## Modelo da marca\nO modelo define a identidade: cores, fonte, ícone, assinatura e aviso legal. Não copie a composição dele (posições, tamanhos, pílula no topo, cartão de receita): a composição segue a direção de layout abaixo, e você cria as classes que precisar. A direção de layout tem prioridade sobre qualquer instrução de usar as classes do modelo.\n${ctx.marca.modelo_slides_html}`
             : (refsDesign.tem ? '## Sem modelo fixo: o visual vem das referências.' : '## Sem modelo da marca: crie um visual limpo com as cores da identidade.'),
           // com referências, o visual vem delas; sem, segue o layout sorteado na pauta
-          refsDesign.tem ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx), !!ctx.post.preferencias?.layout),
+          refsDesign.tem || seguirModelo ? '' : textoLayout((ctx.saidas.chefe as { layout?: string } | undefined)?.layout, await postsRecentes(ctx), !!ctx.post.preferencias?.layout),
           aprovado,
           inspiracoes.length ? `## Inspirações da marca (as últimas imagens acima)\nPeças que o dono gosta. Use como referência de estilo; não coloque essas imagens nos slides.\n${inspiracoes.map((m) => `- ${m.descricao ?? 'inspiração'}`).join('\n')}` : '',
           geradas.length
@@ -944,7 +954,7 @@ export const revisor: Agente = async (ctx, passo, em) => {
   const { dados, uso } = await gerarJson({
     // a reconferência só checa o que ele mesmo apontou: vai no modelo leve
     modelo: reconferindo ? modeloNaVolta(ctx, 'revisor', 'claude-sonnet-5-5') : modeloDe(ctx, 'revisor'),
-    effort: reconferindo ? 'low' : 'medium',
+    effort: reconferindo ? 'low' : 'high',
     sistema: sistemaDoAgente(
       ctx,
       'revisor',
